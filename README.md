@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Kupon Monorepo
 
-## Getting Started
+Kupon is managed as a pnpm workspace.
 
-First, run the development server:
+## Apps
+
+- `apps/web` - Next.js storefront, admin, Clerk auth, Prisma, NOWPayments crypto checkout.
+
+## Packages
+
+- `packages/db` - Prisma schema, migrations, generated client workflow, and shared Prisma singleton.
+- `packages/ui` - Shared low-level UI primitives used by the web app.
+- `packages/payments` - NOWPayments invoice creation and IPN webhook verification.
+
+## Common Commands
+
+Run from the monorepo root:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm dev:webpack
+pnpm lint
+pnpm typecheck
+pnpm build
+pnpm prisma:generate
+pnpm prisma:validate
+pnpm db:migrate
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The local web app runs on:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```txt
+http://localhost:3456
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Environment
 
-## Learn More
+The web app reads environment variables from:
 
-To learn more about Next.js, take a look at the following resources:
+```txt
+apps/web/.env
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Use `apps/web/.env.example` as the reference for required variables.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The database package also loads `apps/web/.env` for local Prisma CLI commands. In production, provide the same variables through the process environment.
 
-## Deploy on Vercel
+## Monorepo Direction
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The current monorepo keeps the web app, database package, shared UI primitives, and payment provider integration separate. Future low-risk extractions can add:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `packages/notifications` for Telegram and other outbound notifications.

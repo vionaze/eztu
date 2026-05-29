@@ -1,0 +1,106 @@
+import { auth, currentUser } from "@clerk/nextjs/server";
+import { prisma, type Role, type User } from "@kupon/db";
+
+type ClerkUser = NonNullable<Awaited<ReturnType<typeof currentUser>>>;
+
+export class AuthenticationRequiredError extends Error {
+  constructor(message = "Authentication is required.") {
+    super(message);
+    this.name = "AuthenticationRequiredError";
+  }
+}
+
+export class AuthorizationRequiredError extends Error {
+  constructor(message = "You are not allowed to access this resource.") {
+    super(message);
+    this.name = "AuthorizationRequiredError";
+  }
+}
+
+export type AuthenticatedClerkUser = {
+  clerkUserId: string;
+  dbUserId: string;
+  dbUser: User;
+  email: string | null;
+  walletAddress: string | null;
+  role: Role;
+};
+
+function getPrimaryEmail(clerkUser: ClerkUser) {
+  return clerkUser.primaryEmailAddress?.emailAddress.toLowerCase() ?? null;
+}
+
+function getDisplayName(clerkUser: ClerkUser) {
+  return (
+    clerkUser.fullName ||
+    clerkUser.username ||
+    [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") ||
+    null
+  );
+}
+
+function getPrimaryWallet(clerkUser: ClerkUser) {
+  const wallet =
+    clerkUser.primaryWeb3Wallet?.web3Wallet ||
+    clerkUser.web3Wallets[0]?.web3Wallet ||
+    null;
+
+  return wallet?.toLowerCase() ?? null;
+}
+
+async function syncClerkUser(clerkUser: ClerkUser) {
+  const email = getPrimaryEmail(clerkUser);
+  const walletAddress = getPrimaryWallet(clerkUser);
+
+  return prisma.user.upsert({
+    where: { clerkId: clerkUser.id },
+    update: {
+      name: getDisplayName(clerkUser),
+      email,
+      image: clerkUser.imageUrl || null,
+      walletAddress,
+    },
+    create: {
+      clerkId: clerkUser.id,
+      name: getDisplayName(clerkUser),
+      email,
+      image: clerkUser.imageUrl || null,
+      walletAddress,
+    },
+  });
+}
+
+export async function requireClerkUser(): Promise<AuthenticatedClerkUser> {
+  const { userId } = await auth();
+
+  if (!userId) {
+    throw new AuthenticationRequiredError();
+  }
+
+  const clerkUser = await currentUser();
+
+  if (!clerkUser || clerkUser.id !== userId) {
+    throw new AuthenticationRequiredError("Unable to verify the active Clerk user.");
+  }
+
+  const dbUser = await syncClerkUser(clerkUser);
+
+  return {
+    clerkUserId: clerkUser.id,
+    dbUserId: dbUser.id,
+    dbUser,
+    email: dbUser.email,
+    walletAddress: dbUser.walletAddress,
+    role: dbUser.role,
+  };
+}
+
+export async function requireAdminUser() {
+  const authenticatedUser = await requireClerkUser();
+
+  if (authenticatedUser.role !== "ADMIN") {
+    throw new AuthorizationRequiredError();
+  }
+
+  return authenticatedUser;
+}

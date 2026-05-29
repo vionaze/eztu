@@ -1,0 +1,48 @@
+{
+  "name": "@kupon/ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./Badge": {
+      "types": "./src/Badge.tsx",
+      "default": "./src/Badge.tsx"
+    },
+    "./Button": {
+      "types": "./src/Button.tsx",
+      "default": "./src/Button.tsx"
+    },
+    "./Card": {
+      "types": "./src/Card.tsx",
+      "default": "./src/Card.tsx"
+    },
+    "./Input": {
+      "types": "./src/Input.tsx",
+      "default": "./src/Input.tsx"
+    },
+    "./Skeleton": {
+      "types": "./src/Skeleton.tsx",
+      "default": "./src/Skeleton.tsx"
+    }
+  },
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit --pretty false"
+  },
+  "peerDependencies": {
+    "react": ">=19",
+    "react-dom": ">=19"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "typescript": "^5"
+  }
+}

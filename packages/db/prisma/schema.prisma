@@ -1,0 +1,276 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================
+// Auth Models (Clerk identity + local app profile)
+// ============================================================
+
+model User {
+  id            String   @id @default(cuid())
+  clerkId       String   @unique
+  name          String?
+  email         String?  @unique
+  image         String?
+  walletAddress String?  @unique
+  role          Role     @default(USER)
+  orders        Order[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// ============================================================
+// Product Models
+// ============================================================
+
+model Category {
+  id        String    @id @default(cuid())
+  name      String
+  slug      String    @unique
+  image     String?
+  products  Product[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Product {
+  id          String           @id @default(cuid())
+  name        String
+  slug        String           @unique
+  description String
+  image       String
+  categoryId  String
+  category    Category         @relation(fields: [categoryId], references: [id])
+  variants    ProductVariant[]
+  promoCodes  PromoCode[]
+  featured    Boolean          @default(false)
+  published   Boolean          @default(false)
+  orders      OrderItem[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model ProductVariant {
+  id        String      @id @default(cuid())
+  name      String
+  priceIDR  Int
+  priceUSD  Float
+  supplierCostIDR Int?
+  supplierSku     String?
+  productId String
+  product   Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orders    OrderItem[]
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
+// ============================================================
+// Order Models
+// ============================================================
+
+model Order {
+  id          String      @id @default(cuid())
+  orderNumber String      @unique
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  email       String
+  gameId      String
+  serverId    String?
+  items       OrderItem[]
+  supplierOrder SupplierOrder?
+  treasuryEntries TreasuryLedgerEntry[]
+
+  // Pricing
+  subtotalIDR Int   @default(0)
+  subtotalUSD Float @default(0)
+  discountIDR Int   @default(0)
+  discountUSD Float @default(0)
+  totalIDR    Int
+  totalUSD    Float
+
+  promoCodeId String?
+  promoCode   PromoCode? @relation(fields: [promoCodeId], references: [id])
+
+  status OrderStatus @default(PENDING)
+
+  // Payment provider fields
+  paymentProvider           String?
+  paymentProviderPaymentId  String?   @unique
+  paymentProviderInvoiceId  String?
+  paymentProviderTxHash     String?
+  paymentCurrency           String?
+  paymentUrl                String?
+  paidAt                    DateTime?
+  expiresAt                 DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model OrderItem {
+  id        String         @id @default(cuid())
+  orderId   String
+  order     Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product        @relation(fields: [productId], references: [id])
+  variantId String
+  variant   ProductVariant @relation(fields: [variantId], references: [id])
+  quantity  Int            @default(1)
+  priceIDR  Int
+  priceUSD  Float
+}
+
+// ============================================================
+// Supplier Fulfillment Models
+// ============================================================
+
+model SupplierOrder {
+  id              String              @id @default(cuid())
+  orderId         String              @unique
+  order           Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  provider        String
+  providerOrderId String?
+  status          SupplierOrderStatus @default(PENDING)
+  productName     String
+  variantName     String
+  costIDR         Int
+  voucherCode     String?
+  voucherPin      String?
+  raw             Json?
+  error           String?
+  fulfilledAt     DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+}
+
+model TreasuryLedgerEntry {
+  id          String            @id @default(cuid())
+  orderId     String?
+  order       Order?            @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  type        TreasuryEntryType
+  currency    String
+  amountIDR   Int?
+  amountUSD   Float?
+  description String
+  metadata    Json?
+  createdAt   DateTime          @default(now())
+}
+
+model ReplenishmentRequest {
+  id                 String              @id @default(cuid())
+  status             ReplenishmentStatus @default(OPEN)
+  currentBalanceIDR  Int
+  thresholdIDR       Int
+  targetBalanceIDR   Int
+  requestedAmountIDR Int
+  note               String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  resolvedAt         DateTime?
+}
+
+// ============================================================
+// Blog Models
+// ============================================================
+
+model BlogPost {
+  id          String    @id @default(cuid())
+  title       String
+  slug        String    @unique
+  excerpt     String?
+  content     String
+  coverImage  String?
+  category    String?
+  published   Boolean   @default(false)
+  views       Int       @default(0)
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// ============================================================
+// Settings Model (key-value store for site config)
+// ============================================================
+
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// Enums
+// ============================================================
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  PROCESSING
+  COMPLETED
+  FAILED
+  EXPIRED
+  REFUNDED
+}
+
+enum SupplierOrderStatus {
+  PENDING
+  PROCESSING
+  FULFILLED
+  FAILED
+  MANUAL_REVIEW
+}
+
+enum TreasuryEntryType {
+  CUSTOMER_REVENUE
+  SUPPLIER_COST
+  PROFIT_ESTIMATE
+  FLEXAGIFT_BALANCE_DEBIT
+  REPLENISHMENT_REQUEST
+}
+
+enum ReplenishmentStatus {
+  OPEN
+  SENT
+  RESOLVED
+  CANCELLED
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_IDR
+}
+
+// ============================================================
+// Promo Code / Voucher Models
+// ============================================================
+
+model PromoCode {
+  id            String       @id @default(cuid())
+  code          String       @unique
+  discountType  DiscountType
+  discountValue Float // If PERCENTAGE, 100 = 100%. If FIXED_IDR, 50000 = Rp 50.000. USD discount will be calculated based on exchange rate if needed, or we just rely on IDR and recalculate USD. We can use a simple exchange rate or store FIXED_USD too. Let's just store both for fixed.
+  discountUSD   Float? // Only used if discountType is FIXED_IDR
+
+  maxUses   Int       @default(1)
+  usedCount Int       @default(0)
+  expiresAt DateTime?
+  isActive  Boolean   @default(true)
+
+  // Scope: if productId is set, only applies to that product.
+  // If null, applies to all products.
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id])
+
+  orders Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
