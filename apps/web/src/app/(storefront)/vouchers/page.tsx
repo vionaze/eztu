@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getStorefrontProducts } from "@/lib/product-data";
 import ProductCard from "@/components/storefront/ProductCard";
 import { FadeUp, StaggerReveal, StaggerItem } from "@/components/motion/StaggerReveal";
+import { MagnifyingGlass } from "@phosphor-icons/react/dist/ssr";
 
 export const metadata: Metadata = {
   title: "Digital Vouchers",
@@ -29,13 +30,29 @@ export default async function VouchersPage() {
           </div>
         </FadeUp>
 
-        <StaggerReveal className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5">
-          {vouchers.map((product) => (
-            <StaggerItem key={product.id}>
-              <ProductCard product={product} />
-            </StaggerItem>
-          ))}
-        </StaggerReveal>
+        {vouchers.length > 0 ? (
+          <StaggerReveal className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5">
+            {vouchers.map((product) => (
+              <StaggerItem key={product.id}>
+                <ProductCard product={product} />
+              </StaggerItem>
+            ))}
+          </StaggerReveal>
+        ) : (
+          <FadeUp>
+            <div className="flex flex-col items-center justify-center py-24 text-center">
+              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-border bg-bg-card">
+                <MagnifyingGlass size={24} className="text-text-muted" />
+              </div>
+              <h2 className="mb-1 text-lg font-semibold text-text-primary">
+                No vouchers available
+              </h2>
+              <p className="max-w-[35ch] text-sm text-text-secondary">
+                Product data has not been imported yet. Check back shortly.
+              </p>
+            </div>
+          </FadeUp>
+        )}
       </div>
     </div>
   );

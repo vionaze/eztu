@@ -50,7 +50,7 @@ export default function Navbar() {
         className={cn(
           "fixed top-0 left-0 right-0 z-50 transition-all duration-300 ease-[var(--ease-spring)]",
           scrolled
-            ? "liquid-glass-subtle py-3"
+            ? "liquid-glass-subtle border-0 py-3"
             : "bg-transparent py-5"
         )}
       >
