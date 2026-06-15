@@ -12,6 +12,7 @@ import {
   MagnifyingGlass,
   ShoppingCart,
   User,
+  Receipt,
 } from "@phosphor-icons/react";
 import CountrySelector from "@/components/ui/CountrySelector";
 
@@ -20,6 +21,20 @@ const navLinks = [
   { label: "Products", href: "/products" },
   { label: "Blog", href: "/blog" },
 ];
+
+function AccountUserButton() {
+  return (
+    <UserButton>
+      <UserButton.MenuItems>
+        <UserButton.Link
+          href="/account/purchases"
+          label="Purchase history"
+          labelIcon={<Receipt size={16} weight="bold" />}
+        />
+      </UserButton.MenuItems>
+    </UserButton>
+  );
+}
 
 export default function Navbar() {
   const { isLoaded, isSignedIn } = useAuth();
@@ -117,7 +132,7 @@ export default function Navbar() {
             {/* Auth */}
             <div className="hidden sm:flex items-center" id="nav-login-btn">
               {isSignedIn ? (
-                <UserButton />
+                <AccountUserButton />
               ) : (
                 <SignInButton mode="modal">
                   <button
@@ -197,7 +212,7 @@ export default function Navbar() {
               {isSignedIn ? (
                 <div className="flex items-center justify-between h-11 rounded-xl bg-bg-card border border-border px-4">
                   <span className="text-sm font-medium text-text-primary">Account</span>
-                  <UserButton />
+                  <AccountUserButton />
                 </div>
               ) : (
                 <SignInButton mode="modal">

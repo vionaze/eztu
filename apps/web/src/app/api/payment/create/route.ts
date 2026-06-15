@@ -9,6 +9,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@kupon/db";
 import { createPaymentInvoice } from "@kupon/payments";
 import { sendOrderNotification } from "@/lib/telegram";
+import { MAX_SELF_SERVICE_QUANTITY } from "@/lib/checkout-limits";
+import {
+  evaluateCheckoutBodyTampering,
+  evaluateCheckoutFraud,
+  notifySecurityEvent,
+  recordUserSecurityContext,
+  type FraudSeverity,
+} from "@/lib/fraud";
 import {
   AuthenticationRequiredError,
   requireClerkUser,
@@ -42,6 +50,21 @@ function getPaymentErrorMessage(error: unknown) {
   return "Failed to create payment";
 }
 
+function getHighestSeverity(severities: FraudSeverity[]): FraudSeverity {
+  if (severities.includes("high")) return "high";
+  if (severities.includes("medium")) return "medium";
+  return "low";
+}
+
+function parseCheckoutQuantity(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return 1;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as Record<string, unknown>;
@@ -50,11 +73,73 @@ export async function POST(request: NextRequest) {
     const gameId = typeof body.gameId === "string" ? body.gameId.trim() : "voucher";
     const serverId = typeof body.serverId === "string" ? body.serverId.trim() : "";
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+    const quantity = parseCheckoutQuantity(body.quantity);
+    const company = typeof body.company === "string" ? body.company.trim() : "";
+    const checkoutStartedAt =
+      typeof body.checkoutStartedAt === "number" ? body.checkoutStartedAt : null;
+    const fraudAssessment = evaluateCheckoutFraud(request, {
+      productId,
+      variantId,
+      gameId,
+      serverId,
+      email,
+      company,
+      checkoutStartedAt,
+      clientSubtotalIDR: body.subtotalIDR,
+      clientSubtotalUSD: body.subtotalUSD,
+      clientTotalIDR: body.totalIDR,
+      clientTotalUSD: body.totalUSD,
+      clientQuantity: body.quantity,
+    });
+    const tamperingAssessment = evaluateCheckoutBodyTampering(body);
+    const shouldAlert =
+      fraudAssessment.shouldAlert || tamperingAssessment.shouldAlert;
+    const blocked = fraudAssessment.blocked || tamperingAssessment.blocked;
+    const severity = getHighestSeverity([
+      fraudAssessment.severity,
+      tamperingAssessment.severity,
+    ]);
+    const reasons = [
+      ...fraudAssessment.reasons,
+      ...tamperingAssessment.reasons,
+    ];
+
+    if (blocked) {
+      await notifySecurityEvent({
+        eventType: "checkout_create",
+        severity,
+        action: "blocked",
+        reasons,
+        requestContext: fraudAssessment.context,
+        email,
+        productId,
+        variantId,
+      });
+
+      return NextResponse.json(
+        { error: "Checkout could not be processed. Please contact support." },
+        { status: 403 }
+      );
+    }
 
     // Validation
     if (!productId || !variantId || !email) {
       return NextResponse.json(
         { error: "Missing required fields: productId, variantId, email" },
+        { status: 400 }
+      );
+    }
+
+    if (
+      quantity === null ||
+      !Number.isInteger(quantity) ||
+      quantity <= 0 ||
+      quantity > MAX_SELF_SERVICE_QUANTITY
+    ) {
+      return NextResponse.json(
+        {
+          error: `Quantity must be between 1 and ${MAX_SELF_SERVICE_QUANTITY}.`,
+        },
         { status: 400 }
       );
     }
@@ -90,8 +175,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const totalIDR = variant.priceIDR;
-    const totalUSD = variant.priceUSD;
+    if (shouldAlert) {
+      await notifySecurityEvent({
+        eventType: "checkout_create",
+        severity,
+        action: "flagged",
+        reasons,
+        requestContext: fraudAssessment.context,
+        email,
+        productId,
+        variantId,
+        product: variant.product.name,
+        variant: variant.name,
+        userId: authenticatedUser.dbUserId,
+        clerkUserId: authenticatedUser.clerkUserId,
+        metadata: {
+          submittedFields: Object.keys(body).sort(),
+        },
+      });
+    }
+
+    await recordUserSecurityContext(authenticatedUser.dbUser, fraudAssessment.context, {
+      email,
+      productId,
+      variantId,
+      product: variant.product.name,
+      variant: variant.name,
+      userId: authenticatedUser.dbUserId,
+      clerkUserId: authenticatedUser.clerkUserId,
+    });
+
+    const totalIDR = variant.priceIDR * quantity;
+    const totalUSD = Number((variant.priceUSD * quantity).toFixed(2));
     const isFree = totalUSD <= 0;
 
     // Create order
@@ -103,8 +218,8 @@ export async function POST(request: NextRequest) {
         email,
         gameId,
         serverId: serverId || null,
-        subtotalIDR: variant.priceIDR,
-        subtotalUSD: variant.priceUSD,
+        subtotalIDR: variant.priceIDR * quantity,
+        subtotalUSD: Number((variant.priceUSD * quantity).toFixed(2)),
         discountIDR: 0,
         discountUSD: 0,
         totalIDR,
@@ -116,6 +231,7 @@ export async function POST(request: NextRequest) {
           create: {
             productId,
             variantId,
+            quantity,
             priceIDR: variant.priceIDR,
             priceUSD: variant.priceUSD,
           },

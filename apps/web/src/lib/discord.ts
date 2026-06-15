@@ -1,4 +1,8 @@
+export type DiscordFraudSeverity = "low" | "medium" | "high";
+export type DiscordFraudAction = "blocked" | "flagged";
+
 const WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || "";
+const FRAUD_WEBHOOK_URL = process.env.DISCORD_FRAUD_WEBHOOK_URL || WEBHOOK_URL;
 
 interface OrderNotification {
   orderId: string;
@@ -25,12 +29,45 @@ interface ReplenishmentAlert {
   requestedAmountIDR: number;
 }
 
+interface FraudAlert {
+  event: string;
+  severity: DiscordFraudSeverity;
+  action: DiscordFraudAction;
+  reasons: string[];
+  ip: string;
+  userAgent: string;
+  route: string;
+  method: string;
+  origin?: string;
+  referer?: string;
+  email?: string;
+  productId?: string;
+  variantId?: string;
+  product?: string;
+  variant?: string;
+  userId?: string;
+  clerkUserId?: string;
+  orderId?: string;
+  metadata?: Record<string, unknown>;
+}
+
 function fmtIDR(amount: number): string {
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
     minimumFractionDigits: 0,
   }).format(amount);
+}
+
+function truncateDiscordValue(value: string, maxLength = 900): string {
+  if (value.length <= maxLength) return value;
+  return `${value.slice(0, maxLength - 3)}...`;
+}
+
+function fraudColor(severity: FraudAlert["severity"]) {
+  if (severity === "high") return 0xef4444;
+  if (severity === "medium") return 0xf59e0b;
+  return 0x3b82f6;
 }
 
 export async function sendDiscordOrderNotification(
@@ -70,6 +107,86 @@ export async function sendDiscordOrderNotification(
     return response.ok;
   } catch (error) {
     console.error("[Discord] Failed to send notification:", error);
+    return false;
+  }
+}
+
+export async function sendDiscordFraudAlert(
+  alert: FraudAlert
+): Promise<boolean> {
+  if (!FRAUD_WEBHOOK_URL) {
+    console.warn("[Discord] Fraud webhook URL not configured");
+    return false;
+  }
+
+  const fields = [
+    { name: "Event", value: alert.event, inline: true },
+    { name: "Severity", value: alert.severity.toUpperCase(), inline: true },
+    { name: "Action", value: alert.action.toUpperCase(), inline: true },
+    { name: "Route", value: `${alert.method} ${alert.route}`, inline: true },
+    { name: "IP", value: alert.ip || "unknown", inline: true },
+    {
+      name: "Product",
+      value:
+        alert.product && alert.variant
+          ? `${alert.product} - ${alert.variant}`
+          : `${alert.productId || "-"} / ${alert.variantId || "-"}`,
+      inline: false,
+    },
+    { name: "Email", value: alert.email || "-", inline: true },
+    { name: "User ID", value: alert.userId || "-", inline: true },
+    { name: "Clerk ID", value: alert.clerkUserId || "-", inline: true },
+    { name: "Order ID", value: alert.orderId || "-", inline: true },
+    {
+      name: "Reasons",
+      value: truncateDiscordValue(alert.reasons.join("\n") || "-"),
+      inline: false,
+    },
+    {
+      name: "User Agent",
+      value: truncateDiscordValue(alert.userAgent || "missing"),
+      inline: false,
+    },
+    {
+      name: "Origin",
+      value: truncateDiscordValue(alert.origin || "-"),
+      inline: true,
+    },
+    {
+      name: "Referer",
+      value: truncateDiscordValue(alert.referer || "-"),
+      inline: false,
+    },
+    {
+      name: "Metadata",
+      value: alert.metadata
+        ? truncateDiscordValue(JSON.stringify(alert.metadata, null, 2))
+        : "-",
+      inline: false,
+    },
+  ];
+
+  try {
+    const response = await fetch(FRAUD_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: "Kupon Fraud Watch",
+        allowed_mentions: { parse: [] },
+        embeds: [
+          {
+            title: "Bot / Fraud Detected",
+            color: fraudColor(alert.severity),
+            fields,
+            timestamp: new Date().toISOString(),
+          },
+        ],
+      }),
+    });
+
+    return response.ok;
+  } catch (error) {
+    console.error("[Discord] Failed to send fraud alert:", error);
     return false;
   }
 }

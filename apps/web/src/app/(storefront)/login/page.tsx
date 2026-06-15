@@ -1,22 +1,24 @@
-"use client";
+import LoginClient from "./LoginClient";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { SignIn, useAuth } from "@clerk/nextjs";
+interface LoginPageProps {
+  searchParams: Promise<{
+    redirect_url?: string | string[];
+  }>;
+}
 
-export default function LoginPage() {
-  const router = useRouter();
-  const { isLoaded, isSignedIn } = useAuth();
+function getSafeRedirectUrl(value: string | string[] | undefined) {
+  const redirectUrl = Array.isArray(value) ? value[0] : value;
 
-  useEffect(() => {
-    if (isLoaded && isSignedIn) {
-      router.replace("/");
-    }
-  }, [isLoaded, isSignedIn, router]);
+  if (!redirectUrl || !redirectUrl.startsWith("/") || redirectUrl.startsWith("//")) {
+    return "/";
+  }
 
-  return (
-    <div className="min-h-[70dvh] pt-28 pb-16 flex items-center justify-center px-4">
-      <SignIn routing="hash" />
-    </div>
-  );
+  return redirectUrl;
+}
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const params = await searchParams;
+  const redirectUrl = getSafeRedirectUrl(params.redirect_url);
+
+  return <LoginClient redirectUrl={redirectUrl} />;
 }
