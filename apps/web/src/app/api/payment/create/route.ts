@@ -10,6 +10,7 @@ import { prisma } from "@kupon/db";
 import { createPaymentInvoice } from "@kupon/payments";
 import { sendOrderNotification } from "@/lib/telegram";
 import { MAX_SELF_SERVICE_QUANTITY } from "@/lib/checkout-limits";
+import { resolvePaymentExpiresAt } from "@/lib/payment-expiry";
 import {
   evaluateCheckoutBodyTampering,
   evaluateCheckoutFraud,
@@ -208,6 +209,7 @@ export async function POST(request: NextRequest) {
     const totalIDR = variant.priceIDR * quantity;
     const totalUSD = Number((variant.priceUSD * quantity).toFixed(2));
     const isFree = totalUSD <= 0;
+    const now = new Date();
 
     // Create order
     const orderNumber = generateOrderNumber();
@@ -226,7 +228,8 @@ export async function POST(request: NextRequest) {
         totalUSD,
         promoCodeId: null,
         status: isFree ? "PAID" : "PENDING",
-        paidAt: isFree ? new Date() : null,
+        paidAt: isFree ? now : null,
+        expiresAt: isFree ? null : resolvePaymentExpiresAt({ createdAt: now }),
         items: {
           create: {
             productId,
@@ -258,7 +261,10 @@ export async function POST(request: NextRequest) {
           paymentProviderInvoiceId: invoice.providerInvoiceId,
           paymentCurrency: invoice.payCurrency,
           paymentUrl: invoice.paymentUrl,
-          expiresAt: invoice.expiresAt,
+          expiresAt: resolvePaymentExpiresAt({
+            explicitExpiresAt: invoice.expiresAt,
+            createdAt: order.createdAt,
+          }),
         },
       });
       paymentUrl = invoice.paymentUrl;

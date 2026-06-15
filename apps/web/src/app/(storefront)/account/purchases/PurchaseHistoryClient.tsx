@@ -273,6 +273,18 @@ function formatStatus(label: string, locale: "id" | "en") {
   return statusMap[label] || normalized;
 }
 
+function getDisplayStatus(order: PurchaseHistoryOrder): PurchaseOrderStatus {
+  if (
+    order.status === "PENDING" &&
+    order.expiresAt &&
+    new Date(order.expiresAt) <= new Date()
+  ) {
+    return "EXPIRED";
+  }
+
+  return order.status;
+}
+
 function StatusBadge({
   label,
   className,
@@ -414,6 +426,7 @@ export default function PurchaseHistoryClient({
         ) : (
           <div className="space-y-5">
             {orders.map((order, index) => {
+              const displayStatus = getDisplayStatus(order);
               const voucherCodes = getVoucherCodes(order.supplierOrder?.voucherCode);
               const showVouchers =
                 order.status === "COMPLETED" &&
@@ -422,7 +435,7 @@ export default function PurchaseHistoryClient({
               const hasPaymentAction =
                 order.status === "PENDING" &&
                 order.paymentUrl &&
-                (!order.expiresAt || new Date(order.expiresAt) > new Date());
+                displayStatus !== "EXPIRED";
 
               return (
                 <FadeUp key={order.id} delay={Math.min(index * 0.03, 0.18)}>
@@ -431,8 +444,8 @@ export default function PurchaseHistoryClient({
                       <div className="min-w-0">
                         <div className="mb-2 flex flex-wrap items-center gap-2">
                           <StatusBadge
-                            label={order.status}
-                            className={orderStatusStyles[order.status]}
+                            label={displayStatus}
+                            className={orderStatusStyles[displayStatus]}
                             locale={locale}
                           />
                           {order.supplierOrder && (
@@ -585,7 +598,7 @@ export default function PurchaseHistoryClient({
                               weight="bold"
                               className="text-accent"
                             />
-                          ) : order.status === "FAILED" || order.status === "EXPIRED" ? (
+                          ) : displayStatus === "FAILED" || displayStatus === "EXPIRED" ? (
                             <XCircle
                               size={18}
                               weight="bold"
