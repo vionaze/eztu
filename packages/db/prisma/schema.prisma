@@ -86,6 +86,7 @@ model Order {
   serverId    String?
   items       OrderItem[]
   supplierOrder SupplierOrder?
+  voucherDeliveryLink VoucherDeliveryLink?
   treasuryEntries TreasuryLedgerEntry[]
   securityEvents SecurityEvent[]
 
@@ -149,6 +150,25 @@ model SupplierOrder {
   fulfilledAt     DateTime?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
+}
+
+model VoucherDeliveryLink {
+  id             String   @id @default(cuid())
+  orderId        String   @unique
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  tokenHash      String   @unique
+  email          String
+  sentAt         DateTime?
+  lastSendError  String?
+  firstVisitedAt DateTime?
+  lastVisitedAt  DateTime?
+  visitCount     Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([sentAt])
+  @@index([firstVisitedAt])
+  @@index([createdAt])
 }
 
 model TreasuryLedgerEntry {
@@ -277,6 +297,7 @@ enum TreasuryEntryType {
   CUSTOMER_REVENUE
   SUPPLIER_COST
   PROFIT_ESTIMATE
+  SUPPLIER_BALANCE_DEBIT
   FLEXAGIFT_BALANCE_DEBIT
   REPLENISHMENT_REQUEST
 }

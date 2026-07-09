@@ -11,7 +11,7 @@ const faqs = [
   {
     question: "How do I receive my voucher?",
     answer:
-      "After checkout and payment confirmation, the voucher details are sent to the recipient email you enter on the product page.",
+      "After checkout and payment confirmation, a secure voucher link is sent to the recipient email you enter on the product page.",
   },
   {
     question: "Which payment methods are supported?",
@@ -21,7 +21,7 @@ const faqs = [
   {
     question: "Why do you only ask for email?",
     answer:
-      "These products are voucher-code based, so we do not need a game ID or server ID. The email is used to deliver the voucher and receipt.",
+      "These products are voucher-code based, so we do not need a game ID or server ID. The email is used to deliver the secure voucher link and receipt.",
   },
   {
     question: "What happens if my crypto payment is delayed?",

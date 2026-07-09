@@ -1,16 +1,48 @@
-import { prisma } from "@kupon/db";
-import { Prisma } from "@kupon/db";
+import { Prisma, prisma } from "@kupon/db";
 import { sendDiscordFulfillmentNotification } from "@/lib/discord";
-import { purchaseFlexaGiftVoucher } from "@/lib/flexagift";
 import { notifySecurityEvent } from "@/lib/fraud";
 import { MAX_SELF_SERVICE_QUANTITY } from "@/lib/checkout-limits";
+import {
+  createSupplierOrder,
+  getSupplierOrderStatus,
+  isSupplierProductCode,
+  SUPPLIER_PROVIDER,
+  redactSupplierSnapshot,
+  type SupplierOrderSnapshot,
+} from "@/lib/supplier";
 import {
   calculateSupplierCostIDR,
   recordFulfilledOrderTreasury,
 } from "@/lib/treasury";
+import { sendVoucherDeliveryEmailForOrder } from "@/lib/voucher-delivery";
 
-export async function fulfillPaidOrder(orderId: string) {
-  const order = await prisma.order.findUnique({
+function createSystemContext(path: string) {
+  return {
+    ip: "system",
+    userAgent: "fulfillment",
+    origin: "",
+    referer: "",
+    acceptLanguage: "",
+    secFetchSite: "",
+    method: "SYSTEM",
+    path,
+  };
+}
+
+function toJson(value: unknown): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+}
+
+function normalizeSupplierStatus(status: string) {
+  return status.trim().toUpperCase();
+}
+
+function getVoucherCodeValue(snapshot: SupplierOrderSnapshot) {
+  return snapshot.voucherCodes.join("\n");
+}
+
+async function loadOrder(orderId: string) {
+  return prisma.order.findUnique({
     where: { id: orderId },
     include: {
       supplierOrder: true,
@@ -22,9 +54,308 @@ export async function fulfillPaidOrder(orderId: string) {
       },
     },
   });
+}
+
+async function loadOrderBySupplierSnapshot(snapshot: SupplierOrderSnapshot) {
+  const filters: Prisma.OrderWhereInput[] = [];
+  if (snapshot.referenceId) {
+    filters.push({ orderNumber: snapshot.referenceId });
+  }
+  if (snapshot.tid) {
+    filters.push({
+      supplierOrder: {
+        is: {
+          provider: SUPPLIER_PROVIDER,
+          providerOrderId: snapshot.tid,
+        },
+      },
+    });
+  }
+
+  if (filters.length === 0) return null;
+
+  return prisma.order.findFirst({
+    where: {
+      OR: filters,
+    },
+    include: {
+      supplierOrder: true,
+      items: {
+        include: {
+          product: true,
+          variant: true,
+        },
+      },
+    },
+  });
+}
+
+async function markSupplierManualReview(params: {
+  orderId: string;
+  providerOrderId?: string | null;
+  productName: string;
+  variantName: string;
+  costIDR: number;
+  error: string;
+  raw?: unknown;
+}) {
+  await prisma.supplierOrder.upsert({
+    where: { orderId: params.orderId },
+    update: {
+      provider: SUPPLIER_PROVIDER,
+      providerOrderId: params.providerOrderId,
+      status: "MANUAL_REVIEW",
+      costIDR: params.costIDR,
+      error: params.error,
+      raw: params.raw === undefined ? undefined : toJson(params.raw),
+    },
+    create: {
+      orderId: params.orderId,
+      provider: SUPPLIER_PROVIDER,
+      providerOrderId: params.providerOrderId,
+      status: "MANUAL_REVIEW",
+      productName: params.productName,
+      variantName: params.variantName,
+      costIDR: params.costIDR,
+      error: params.error,
+      raw: params.raw === undefined ? undefined : toJson(params.raw),
+    },
+  });
+
+  await prisma.order.update({
+    where: { id: params.orderId },
+    data: { status: "PROCESSING" },
+  });
+}
+
+export async function applySupplierOrderSnapshot(
+  snapshot: SupplierOrderSnapshot
+) {
+  const order = await loadOrderBySupplierSnapshot(snapshot);
+
+  if (!order) {
+    await notifySecurityEvent({
+      eventType: "supplier_callback_unknown_order",
+      severity: "high",
+      action: "blocked",
+      reasons: [
+        `Unknown Supplier order callback tid=${snapshot.tid || "-"} reference=${snapshot.referenceId || "-"}`,
+      ],
+      requestContext: createSystemContext("supplier_callback"),
+      metadata: { snapshot: redactSupplierSnapshot(snapshot) },
+    });
+
+    return { ok: false as const, status: 404, error: "Order not found" };
+  }
+
+  const firstItem = order.items[0];
+  if (!firstItem) {
+    return { ok: false as const, status: 409, error: "Order has no items" };
+  }
+
+  const status = normalizeSupplierStatus(snapshot.status);
+  const supplierCostIDR =
+    firstItem.variant.supplierCostIDR !== null &&
+    firstItem.variant.supplierCostIDR !== undefined
+      ? firstItem.variant.supplierCostIDR * firstItem.quantity
+      : calculateSupplierCostIDR(order.totalIDR);
+  const raw = toJson(snapshot.raw);
+
+  if (status === "PENDING") {
+    await prisma.supplierOrder.upsert({
+      where: { orderId: order.id },
+      update: {
+        provider: SUPPLIER_PROVIDER,
+        providerOrderId: snapshot.tid || order.supplierOrder?.providerOrderId,
+        status: "PROCESSING",
+        raw,
+        error: null,
+      },
+      create: {
+        orderId: order.id,
+        provider: SUPPLIER_PROVIDER,
+        providerOrderId: snapshot.tid,
+        status: "PROCESSING",
+        productName: firstItem.product.name,
+        variantName: firstItem.variant.name,
+        costIDR: supplierCostIDR,
+        raw,
+      },
+    });
+
+    await prisma.order.update({
+      where: { id: order.id },
+      data: { status: "PROCESSING" },
+    });
+
+    return {
+      ok: true as const,
+      orderId: order.id,
+      status: "PROCESSING",
+      supplierStatus: "PROCESSING",
+    };
+  }
+
+  if (status === "REFUNDED") {
+    await prisma.supplierOrder.upsert({
+      where: { orderId: order.id },
+      update: {
+        provider: SUPPLIER_PROVIDER,
+        providerOrderId: snapshot.tid || order.supplierOrder?.providerOrderId,
+        status: "FAILED",
+        raw,
+        error: "Supplier refunded the supplier transaction.",
+      },
+      create: {
+        orderId: order.id,
+        provider: SUPPLIER_PROVIDER,
+        providerOrderId: snapshot.tid,
+        status: "FAILED",
+        productName: firstItem.product.name,
+        variantName: firstItem.variant.name,
+        costIDR: supplierCostIDR,
+        raw,
+        error: "Supplier refunded the supplier transaction.",
+      },
+    });
+
+    await prisma.order.update({
+      where: { id: order.id },
+      data: { status: "REFUNDED" },
+    });
+
+    return {
+      ok: true as const,
+      orderId: order.id,
+      status: "REFUNDED",
+      supplierStatus: "FAILED",
+    };
+  }
+
+  if (status !== "SUCCESS") {
+    await markSupplierManualReview({
+      orderId: order.id,
+      providerOrderId: snapshot.tid || order.supplierOrder?.providerOrderId,
+      productName: firstItem.product.name,
+      variantName: firstItem.variant.name,
+      costIDR: supplierCostIDR,
+      error: `Supplier returned non-final status: ${snapshot.status}`,
+      raw: snapshot.raw,
+    });
+
+    return {
+      ok: false as const,
+      status: 409,
+      error: `Supplier returned ${snapshot.status}`,
+    };
+  }
+
+  const voucherCode = getVoucherCodeValue(snapshot);
+  if (!voucherCode) {
+    await markSupplierManualReview({
+      orderId: order.id,
+      providerOrderId: snapshot.tid || order.supplierOrder?.providerOrderId,
+      productName: firstItem.product.name,
+      variantName: firstItem.variant.name,
+      costIDR: supplierCostIDR,
+      error: "Supplier marked the order successful but returned no voucher_code.",
+      raw: snapshot.raw,
+    });
+
+    return {
+      ok: false as const,
+      status: 409,
+      error: "Supplier returned no voucher code",
+    };
+  }
+
+  const wasFulfilled = order.supplierOrder?.status === "FULFILLED";
+  await prisma.supplierOrder.upsert({
+    where: { orderId: order.id },
+    update: {
+      provider: SUPPLIER_PROVIDER,
+      providerOrderId: snapshot.tid || order.supplierOrder?.providerOrderId,
+      status: "FULFILLED",
+      voucherCode,
+      voucherPin: null,
+      raw,
+      error: null,
+      fulfilledAt: order.supplierOrder?.fulfilledAt || new Date(),
+    },
+    create: {
+      orderId: order.id,
+      provider: SUPPLIER_PROVIDER,
+      providerOrderId: snapshot.tid,
+      status: "FULFILLED",
+      productName: firstItem.product.name,
+      variantName: firstItem.variant.name,
+      costIDR: supplierCostIDR,
+      voucherCode,
+      raw,
+      fulfilledAt: new Date(),
+    },
+  });
+
+  await prisma.order.update({
+    where: { id: order.id },
+    data: { status: "COMPLETED" },
+  });
+
+  const treasury = await recordFulfilledOrderTreasury({
+    orderId: order.id,
+    orderNumber: order.orderNumber,
+    saleAmountIDR: order.totalIDR,
+    saleAmountUSD: order.totalUSD,
+    supplierCostIDR,
+    paymentCurrency: order.paymentCurrency,
+  });
+  const emailResult = await sendVoucherDeliveryEmailForOrder(order.id);
+
+  if (!wasFulfilled) {
+    await sendDiscordFulfillmentNotification({
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      product: firstItem.product.name,
+      variant: firstItem.variant.name,
+      gameId: order.gameId,
+      amountIDR: order.totalIDR,
+      amountUSD: order.totalUSD,
+      crypto: order.paymentCurrency || "unknown",
+      status: "COMPLETED",
+      supplierStatus: "FULFILLED",
+      providerOrderId: snapshot.tid || order.supplierOrder?.providerOrderId,
+      email: order.email,
+    });
+  }
+
+  return {
+    ok: true as const,
+    orderId: order.id,
+    status: "COMPLETED",
+    supplierStatus: "FULFILLED",
+    treasury,
+    email: emailResult,
+  };
+}
+
+export async function fulfillPaidOrder(orderId: string) {
+  const order = await loadOrder(orderId);
 
   if (!order) {
     return { ok: false as const, status: 404, error: "Order not found" };
+  }
+
+  if (order.supplierOrder?.status === "FULFILLED") {
+    const emailResult = await sendVoucherDeliveryEmailForOrder(order.id);
+
+    return {
+      ok: true as const,
+      skipped: true,
+      reason: "Order already fulfilled",
+      orderId: order.id,
+      status: order.status,
+      email: emailResult,
+    };
   }
 
   if (order.status !== "PAID" && order.status !== "PROCESSING") {
@@ -32,16 +363,6 @@ export async function fulfillPaidOrder(orderId: string) {
       ok: true as const,
       skipped: true,
       reason: `Order status is ${order.status}`,
-      orderId: order.id,
-      status: order.status,
-    };
-  }
-
-  if (order.supplierOrder?.status === "FULFILLED") {
-    return {
-      ok: true as const,
-      skipped: true,
-      reason: "Order already fulfilled",
       orderId: order.id,
       status: order.status,
     };
@@ -85,16 +406,7 @@ export async function fulfillPaidOrder(orderId: string) {
       severity: "high",
       action: "blocked",
       reasons: integrityReasons,
-      requestContext: {
-        ip: "system",
-        userAgent: "fulfillment",
-        origin: "",
-        referer: "",
-        acceptLanguage: "",
-        secFetchSite: "",
-        method: "SYSTEM",
-        path: "fulfillPaidOrder",
-      },
+      requestContext: createSystemContext("fulfillPaidOrder"),
       email: order.email,
       userId: order.userId,
       orderId: order.id,
@@ -126,16 +438,41 @@ export async function fulfillPaidOrder(orderId: string) {
     firstItem.variant.supplierCostIDR !== undefined
       ? firstItem.variant.supplierCostIDR * firstItem.quantity
       : calculateSupplierCostIDR(order.totalIDR);
+  const supplierSku = firstItem.variant.supplierSku?.trim() || "";
 
+  if (!isSupplierProductCode(supplierSku)) {
+    const error =
+      "Product variant supplierSku must be a Supplier product_code before live fulfillment.";
+    await markSupplierManualReview({
+      orderId: order.id,
+      productName: firstItem.product.name,
+      variantName: firstItem.variant.name,
+      costIDR: supplierCostIDR,
+      error,
+      raw: {
+        supplierSku,
+        product: firstItem.product.name,
+        variant: firstItem.variant.name,
+      },
+    });
+
+    return { ok: false as const, status: 409, error };
+  }
+
+  let providerOrderId = order.supplierOrder?.providerOrderId || null;
   const supplierOrder = await prisma.supplierOrder.upsert({
     where: { orderId: order.id },
     update: {
+      provider: SUPPLIER_PROVIDER,
       status: "PROCESSING",
+      productName: firstItem.product.name,
+      variantName: firstItem.variant.name,
+      costIDR: supplierCostIDR,
       error: null,
     },
     create: {
       orderId: order.id,
-      provider: "flexagift",
+      provider: SUPPLIER_PROVIDER,
       status: "PROCESSING",
       productName: firstItem.product.name,
       variantName: firstItem.variant.name,
@@ -143,67 +480,38 @@ export async function fulfillPaidOrder(orderId: string) {
     },
   });
 
+  await prisma.order.update({
+    where: { id: order.id },
+    data: { status: "PROCESSING" },
+  });
+
   try {
-    const purchase = await purchaseFlexaGiftVoucher({
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      productName: firstItem.product.name,
-      variantName: firstItem.variant.name,
-        customerEmail: order.email,
+    if (!providerOrderId) {
+      const createResult = await createSupplierOrder({
+        orderNumber: order.orderNumber,
+        productCode: supplierSku,
+        quantity: firstItem.quantity,
+        unitPriceIDR: firstItem.variant.supplierCostIDR,
         gameId: order.gameId,
         serverId: order.serverId,
-        quantity: firstItem.quantity,
-        costIDR: supplierCostIDR,
       });
 
-    await prisma.supplierOrder.update({
-      where: { id: supplierOrder.id },
-      data: {
-        status: "FULFILLED",
-        providerOrderId: purchase.providerOrderId,
-        voucherCode: purchase.voucherCode,
-        voucherPin: purchase.voucherPin,
-        raw: purchase.raw as Prisma.InputJsonValue,
-        fulfilledAt: new Date(),
-      },
+      providerOrderId = createResult.tid;
+      await prisma.supplierOrder.update({
+        where: { id: supplierOrder.id },
+        data: {
+          providerOrderId,
+          raw: createResult.raw as Prisma.InputJsonValue,
+        },
+      });
+    }
+
+    const snapshot = await getSupplierOrderStatus({
+      tid: providerOrderId,
+      partnerReferenceId: order.orderNumber,
     });
 
-    await prisma.order.update({
-      where: { id: order.id },
-      data: { status: "COMPLETED" },
-    });
-
-    const treasury = await recordFulfilledOrderTreasury({
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      saleAmountIDR: order.totalIDR,
-      saleAmountUSD: order.totalUSD,
-      supplierCostIDR,
-      paymentCurrency: order.paymentCurrency,
-    });
-
-    await sendDiscordFulfillmentNotification({
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      product: firstItem.product.name,
-      variant: firstItem.variant.name,
-      gameId: order.gameId,
-      amountIDR: order.totalIDR,
-      amountUSD: order.totalUSD,
-      crypto: order.paymentCurrency || "unknown",
-      status: "COMPLETED",
-      supplierStatus: "FULFILLED",
-      providerOrderId: purchase.providerOrderId,
-      email: order.email,
-    });
-
-    return {
-      ok: true as const,
-      orderId: order.id,
-      status: "COMPLETED",
-      supplierStatus: "FULFILLED",
-      treasury,
-    };
+    return applySupplierOrderSnapshot(snapshot);
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown supplier fulfillment error";

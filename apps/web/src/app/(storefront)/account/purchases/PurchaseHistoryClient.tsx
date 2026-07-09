@@ -29,7 +29,7 @@ type PurchaseOrderStatus =
   | "EXPIRED"
   | "REFUNDED";
 
-type PurchaseSupplierStatus =
+type PurchaseFulfillmentStatus =
   | "PENDING"
   | "PROCESSING"
   | "FULFILLED"
@@ -61,10 +61,8 @@ export type PurchaseHistoryOrder = {
   promoCode: {
     code: string;
   } | null;
-  supplierOrder: {
-    provider: string;
-    providerOrderId: string | null;
-    status: PurchaseSupplierStatus;
+  fulfillment: {
+    status: PurchaseFulfillmentStatus;
     voucherCode: string | null;
     voucherPin: string | null;
     fulfilledAt: string | null;
@@ -118,8 +116,7 @@ type Labels = {
   txHash: string;
   expires: string;
   promo: string;
-  supplier: string;
-  supplierRef: string;
+  fulfillmentProvider: string;
   copiedAria: string;
 };
 
@@ -154,15 +151,14 @@ const labelsByLocale: Record<"id" | "en", Labels> = {
     pin: "PIN",
     voucherUnavailableTitle: "Voucher belum tersedia",
     voucherUnavailableBody:
-      "Kode voucher akan muncul di sini setelah pembayaran terkonfirmasi dan fulfillment supplier selesai.",
+      "Kode voucher akan muncul di sini setelah pembayaran terkonfirmasi dan proses fulfillment selesai.",
     orderId: "Order ID",
     paymentId: "Payment ID",
     invoiceId: "Invoice ID",
     txHash: "TX hash",
     expires: "Kedaluwarsa",
     promo: "Promo",
-    supplier: "Supplier",
-    supplierRef: "Ref supplier",
+    fulfillmentProvider: "Fulfillment",
     copiedAria: "Salin kode voucher",
   },
   en: {
@@ -195,15 +191,14 @@ const labelsByLocale: Record<"id" | "en", Labels> = {
     pin: "PIN",
     voucherUnavailableTitle: "Voucher not available yet",
     voucherUnavailableBody:
-      "Voucher codes appear here after payment is confirmed and supplier fulfillment is completed.",
+      "Voucher codes appear here after payment is confirmed and fulfillment is completed.",
     orderId: "Order ID",
     paymentId: "Payment ID",
     invoiceId: "Invoice ID",
     txHash: "TX hash",
     expires: "Expires",
     promo: "Promo",
-    supplier: "Supplier",
-    supplierRef: "Supplier ref",
+    fulfillmentProvider: "Fulfillment",
     copiedAria: "Copy voucher code",
   },
 };
@@ -218,7 +213,7 @@ const orderStatusStyles: Record<PurchaseOrderStatus, string> = {
   REFUNDED: "border-violet-400/25 bg-violet-400/10 text-violet-300",
 };
 
-const supplierStatusStyles: Record<PurchaseSupplierStatus, string> = {
+const fulfillmentStatusStyles: Record<PurchaseFulfillmentStatus, string> = {
   PENDING: "border-yellow-400/25 bg-yellow-400/10 text-yellow-300",
   PROCESSING: "border-orange-400/25 bg-orange-400/10 text-orange-300",
   FULFILLED: "border-emerald-400/25 bg-emerald-400/10 text-emerald-300",
@@ -427,10 +422,10 @@ export default function PurchaseHistoryClient({
           <div className="space-y-5">
             {orders.map((order, index) => {
               const displayStatus = getDisplayStatus(order);
-              const voucherCodes = getVoucherCodes(order.supplierOrder?.voucherCode);
+              const voucherCodes = getVoucherCodes(order.fulfillment?.voucherCode);
               const showVouchers =
                 order.status === "COMPLETED" &&
-                order.supplierOrder?.status === "FULFILLED" &&
+                order.fulfillment?.status === "FULFILLED" &&
                 voucherCodes.length > 0;
               const hasPaymentAction =
                 order.status === "PENDING" &&
@@ -448,10 +443,10 @@ export default function PurchaseHistoryClient({
                             className={orderStatusStyles[displayStatus]}
                             locale={locale}
                           />
-                          {order.supplierOrder && (
+                          {order.fulfillment && (
                             <StatusBadge
-                              label={order.supplierOrder.status}
-                              className={supplierStatusStyles[order.supplierOrder.status]}
+                              label={order.fulfillment.status}
+                              className={fulfillmentStatusStyles[order.fulfillment.status]}
                               locale={locale}
                             />
                           )}
@@ -635,11 +630,11 @@ export default function PurchaseHistoryClient({
                                 <div className="break-all font-[family-name:var(--font-geist-mono)] text-sm font-semibold text-text-primary">
                                   {code}
                                 </div>
-                                {order.supplierOrder?.voucherPin && (
+                                {order.fulfillment?.voucherPin && (
                                   <div className="mt-2 text-xs text-text-secondary">
                                     {labels.pin}:{" "}
                                     <span className="font-[family-name:var(--font-geist-mono)] text-text-primary">
-                                      {order.supplierOrder.voucherPin}
+                                      {order.fulfillment.voucherPin}
                                     </span>
                                   </div>
                                 )}
@@ -693,13 +688,8 @@ export default function PurchaseHistoryClient({
                             mono
                           />
                           <DetailRow
-                            label={labels.supplier}
-                            value={formatNullable(order.supplierOrder?.provider)}
-                          />
-                          <DetailRow
-                            label={labels.supplierRef}
-                            value={shortValue(order.supplierOrder?.providerOrderId)}
-                            mono
+                            label={labels.fulfillmentProvider}
+                            value={order.fulfillment ? "Automated delivery" : "-"}
                           />
                         </dl>
                       </div>

@@ -247,7 +247,7 @@ export async function sendDiscordReplenishmentAlert(
       body: JSON.stringify({
         embeds: [
           {
-            title: "FlexaGift Balance Replenishment Needed",
+            title: "Inventory Balance Replenishment Needed",
             color: 0xf59e0b,
             fields: [
               {

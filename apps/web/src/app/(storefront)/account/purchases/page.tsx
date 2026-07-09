@@ -85,10 +85,8 @@ export default async function PurchaseHistoryPage() {
             code: order.promoCode.code,
           }
         : null,
-      supplierOrder: order.supplierOrder
+      fulfillment: order.supplierOrder
         ? {
-            provider: order.supplierOrder.provider,
-            providerOrderId: order.supplierOrder.providerOrderId,
             status: order.supplierOrder.status,
             voucherCode: order.supplierOrder.voucherCode,
             voucherPin: order.supplierOrder.voucherPin,

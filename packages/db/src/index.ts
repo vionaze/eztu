@@ -24,6 +24,7 @@ export type {
   TreasuryEntryType,
   TreasuryLedgerEntry,
   User,
+  VoucherDeliveryLink,
 } from "@prisma/client";
 
 const globalForPrisma = globalThis as unknown as {

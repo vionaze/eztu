@@ -14,6 +14,7 @@
     "db:migrate": "prisma migrate deploy",
     "db:seed": "node --experimental-strip-types src/seed.ts",
     "products:import:eztopup": "node --experimental-strip-types src/import-eztopup-products.ts",
+    "products:sync:supplier": "node --experimental-strip-types src/sync-supplier-products.ts",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
     "typecheck": "tsc --noEmit --pretty false"

@@ -1,7 +1,7 @@
 import { Prisma, prisma, type TreasuryEntryType } from "@kupon/db";
 import { sendDiscordReplenishmentAlert } from "@/lib/discord";
 
-const FLEXAGIFT_BALANCE_KEY = "flexagift.balanceIDR";
+const SUPPLIER_BALANCE_KEY = "inventory.balanceIDR";
 
 function getEnvNumber(name: string, fallback: number) {
   const value = process.env[name];
@@ -21,9 +21,9 @@ export function calculateSupplierCostIDR(saleAmountIDR: number) {
   return Math.round(saleAmountIDR * getSupplierCostRate());
 }
 
-async function getFlexaGiftBalanceIDR() {
+async function getSupplierBalanceIDR() {
   const setting = await prisma.setting.findUnique({
-    where: { key: FLEXAGIFT_BALANCE_KEY },
+    where: { key: SUPPLIER_BALANCE_KEY },
   });
 
   if (setting) {
@@ -31,12 +31,12 @@ async function getFlexaGiftBalanceIDR() {
     return Number.isFinite(parsed) ? parsed : 0;
   }
 
-  const startingBalance = getEnvNumber("FLEXAGIFT_BALANCE_IDR", 0);
+  const startingBalance = getEnvNumber("SUPPLIER_BALANCE_IDR", 0);
   await prisma.setting.upsert({
-    where: { key: FLEXAGIFT_BALANCE_KEY },
+    where: { key: SUPPLIER_BALANCE_KEY },
     update: { value: startingBalance.toString() },
     create: {
-      key: FLEXAGIFT_BALANCE_KEY,
+      key: SUPPLIER_BALANCE_KEY,
       value: startingBalance.toString(),
     },
   });
@@ -44,12 +44,12 @@ async function getFlexaGiftBalanceIDR() {
   return startingBalance;
 }
 
-async function setFlexaGiftBalanceIDR(balanceIDR: number) {
+async function setSupplierBalanceIDR(balanceIDR: number) {
   await prisma.setting.upsert({
-    where: { key: FLEXAGIFT_BALANCE_KEY },
+    where: { key: SUPPLIER_BALANCE_KEY },
     update: { value: balanceIDR.toString() },
     create: {
-      key: FLEXAGIFT_BALANCE_KEY,
+      key: SUPPLIER_BALANCE_KEY,
       value: balanceIDR.toString(),
     },
   });
@@ -104,7 +104,7 @@ export async function recordFulfilledOrderTreasury(params: {
     type: "SUPPLIER_COST",
     currency: "IDR",
     amountIDR: params.supplierCostIDR,
-    description: `Estimated FlexaGift cost for ${params.orderNumber}`,
+    description: `Inventory cost for ${params.orderNumber}`,
   });
 
   await createLedgerEntryOnce({
@@ -116,16 +116,33 @@ export async function recordFulfilledOrderTreasury(params: {
     description: `Estimated profit for ${params.orderNumber}`,
   });
 
-  const currentBalanceIDR = await getFlexaGiftBalanceIDR();
+  const existingBalanceDebit = await prisma.treasuryLedgerEntry.findFirst({
+    where: {
+      orderId: params.orderId,
+      type: "SUPPLIER_BALANCE_DEBIT",
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  if (existingBalanceDebit) {
+    const currentBalanceIDR = await getSupplierBalanceIDR();
+    return {
+      profitIDR,
+      profitUSD,
+      flexaGiftBalanceIDR: currentBalanceIDR,
+    };
+  }
+
+  const currentBalanceIDR = await getSupplierBalanceIDR();
   const newBalanceIDR = currentBalanceIDR - params.supplierCostIDR;
 
-  await setFlexaGiftBalanceIDR(newBalanceIDR);
+  await setSupplierBalanceIDR(newBalanceIDR);
   await createLedgerEntryOnce({
     orderId: params.orderId,
-    type: "FLEXAGIFT_BALANCE_DEBIT",
+    type: "SUPPLIER_BALANCE_DEBIT",
     currency: "IDR",
     amountIDR: params.supplierCostIDR,
-    description: `FlexaGift balance debit for ${params.orderNumber}`,
+    description: `Inventory balance debit for ${params.orderNumber}`,
     metadata: {
       previousBalanceIDR: currentBalanceIDR,
       newBalanceIDR,
@@ -142,11 +159,11 @@ export async function recordFulfilledOrderTreasury(params: {
 }
 
 async function maybeCreateReplenishmentRequest(currentBalanceIDR: number) {
-  const thresholdIDR = getEnvNumber("FLEXAGIFT_REPLENISH_THRESHOLD_IDR", 0);
+  const thresholdIDR = getEnvNumber("SUPPLIER_REPLENISH_THRESHOLD_IDR", 0);
   if (!thresholdIDR || currentBalanceIDR >= thresholdIDR) return null;
 
   const targetBalanceIDR = getEnvNumber(
-    "FLEXAGIFT_REPLENISH_TARGET_IDR",
+    "SUPPLIER_REPLENISH_TARGET_IDR",
     thresholdIDR * 2
   );
   const requestedAmountIDR = Math.max(0, targetBalanceIDR - currentBalanceIDR);
@@ -173,7 +190,7 @@ async function maybeCreateReplenishmentRequest(currentBalanceIDR: number) {
       thresholdIDR,
       targetBalanceIDR,
       requestedAmountIDR,
-      note: "Manual IDR off-ramp needed: convert stablecoin externally, then top up FlexaGift balance.",
+      note: "Manual IDR off-ramp needed: convert stablecoin externally, then top up inventory balance.",
     },
   });
 

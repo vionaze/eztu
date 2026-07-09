@@ -16,7 +16,7 @@ export default function OrderSuccessPage() {
             Payment Successful
           </h1>
           <p className="text-sm text-text-secondary leading-relaxed">
-            Your payment has been confirmed. Your digital voucher will be
+            Your payment has been confirmed. A secure voucher link will be
             delivered to the recipient email shortly.
           </p>
           <PaymentStatusSync />
