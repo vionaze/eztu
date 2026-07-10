@@ -98,8 +98,22 @@ export async function requireClerkUser(): Promise<AuthenticatedClerkUser> {
 export async function requireAdminUser() {
   const authenticatedUser = await requireClerkUser();
 
-  if (authenticatedUser.role !== "ADMIN") {
+  if (!isAdminRole(authenticatedUser.role)) {
     throw new AuthorizationRequiredError();
+  }
+
+  return authenticatedUser;
+}
+
+export function isAdminRole(role: Role) {
+  return role === "ADMIN" || role === "SUPERADMIN";
+}
+
+export async function requireSuperAdminUser() {
+  const authenticatedUser = await requireClerkUser();
+
+  if (authenticatedUser.role !== "SUPERADMIN") {
+    throw new AuthorizationRequiredError("Superadmin access is required.");
   }
 
   return authenticatedUser;

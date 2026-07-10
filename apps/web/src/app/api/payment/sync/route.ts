@@ -11,6 +11,7 @@ import { prisma } from "@kupon/db";
 import { getPaymentStatus } from "@kupon/payments";
 import {
   AuthenticationRequiredError,
+  isAdminRole,
   requireClerkUser,
 } from "@/lib/clerk";
 import { getRequestContext, notifySecurityEvent } from "@/lib/fraud";
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
 
     if (
       localOrder.userId !== authenticatedUser.dbUserId &&
-      authenticatedUser.role !== "ADMIN"
+      !isAdminRole(authenticatedUser.role)
     ) {
       await notifySecurityEvent({
         eventType: "payment_sync_forbidden",

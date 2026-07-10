@@ -262,6 +262,7 @@ model Setting {
 enum Role {
   USER
   ADMIN
+  SUPERADMIN
 }
 
 enum SecuritySeverity {

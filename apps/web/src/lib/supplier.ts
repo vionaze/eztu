@@ -1,3 +1,5 @@
+import "server-only";
+
 export const SUPPLIER_PROVIDER = "supplier";
 
 const DEFAULT_COUNTRY_CODE = "id";
