@@ -7,7 +7,7 @@
     "node": ">=22.18.0 <25"
   },
   "scripts": {
-    "dev": "pnpm --filter @kupon/web dev",
+    "dev": "pnpm prisma:generate && pnpm --filter @kupon/web dev",
     "dev:web": "pnpm --filter @kupon/web dev",
     "dev:webpack": "pnpm prisma:generate && pnpm --filter @kupon/web dev:webpack",
     "build": "pnpm prisma:generate && pnpm --filter @kupon/web build",

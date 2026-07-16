@@ -112,31 +112,33 @@ export default function VoucherCarousel({
             <Link
               key={product.id}
               href={`/products/${product.slug}`}
-              className="group flex-shrink-0 w-[200px] md:w-[220px] rounded-2xl overflow-hidden bg-bg-card border border-white/[0.08] transition-all duration-[var(--duration-normal)] ease-[var(--ease-spring)] hover:border-accent/30 hover:shadow-[var(--shadow-glow)] hover:-translate-y-1"
+              className="group flex-shrink-0 w-[140px] sm:w-[180px] md:w-[220px] rounded-xl md:rounded-2xl overflow-hidden bg-bg-card border border-white/[0.08] transition-all duration-[var(--duration-normal)] ease-[var(--ease-spring)] hover:border-accent/30 hover:shadow-[var(--shadow-glow)] hover:-translate-y-1"
             >
-              <div className="relative aspect-[4/5] overflow-hidden">
+              <div className="relative aspect-square sm:aspect-[4/5] overflow-hidden">
                 <Image
                   src={product.image}
                   alt={product.name}
                   fill
                   className="object-cover transition-transform duration-500 group-hover:scale-105"
-                  sizes="220px"
+                  sizes="(max-width: 640px) 140px, (max-width: 768px) 180px, 220px"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-bg-primary/80 via-transparent to-transparent" />
                 {product.featured && (
-                  <div className="absolute top-2.5 left-2.5">
+                  <div className="absolute top-2 left-2 md:top-2.5 md:left-2.5">
                     <Badge variant="accent">Hot</Badge>
                   </div>
                 )}
-                <div className="absolute bottom-0 left-0 right-0 p-3">
-                  <h3 className="text-sm font-semibold text-text-primary">
+                <div className="absolute bottom-0 left-0 right-0 p-2 md:p-3">
+                  <h3 className="text-xs sm:text-sm font-semibold text-text-primary line-clamp-2">
                     {product.name}
                   </h3>
                 </div>
               </div>
-              <div className="px-3 py-2.5">
-                <p className="text-xs text-text-muted">From</p>
-                <p className="text-sm font-semibold text-accent font-[family-name:var(--font-geist-mono)]">
+              <div className="px-2.5 py-2 md:px-3 md:py-2.5">
+                <p className="text-[10px] md:text-xs text-text-muted">
+                  {product.variants.length > 1 ? "From" : "Price"}
+                </p>
+                <p className="text-xs sm:text-sm font-semibold text-accent font-[family-name:var(--font-geist-mono)]">
                   {formatLocalPrice(lowestPriceIDR, lowestPriceUSD)}
                 </p>
               </div>

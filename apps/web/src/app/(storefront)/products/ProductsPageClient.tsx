@@ -108,7 +108,7 @@ export default function ProductsPageClient({ products, categories }: Props) {
 
         {/* Product Grid */}
         {filtered.length > 0 ? (
-          <StaggerReveal className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5">
+          <StaggerReveal className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
             {filtered.map((product) => (
               <StaggerItem key={product.id}>
                 <ProductCard product={product} />

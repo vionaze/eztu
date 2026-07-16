@@ -48,22 +48,25 @@ export default function ProductGrid({
       <StaggerReveal
         className={
           variant === "asymmetric"
-            ? "grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-5"
-            : "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5"
+            ? "grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-5"
+            : "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5"
         }
       >
         {products.map((product, i) => (
           <StaggerItem
             key={product.id}
             className={
+              // Keep first card large on desktop only — mobile stays equal 2-col cards
               variant === "asymmetric" && i === 0
-                ? "col-span-2 row-span-1 md:row-span-2"
+                ? "col-span-1 md:col-span-2 md:row-span-2"
                 : ""
             }
           >
             <ProductCard
               product={product}
-              size={variant === "asymmetric" && i === 0 ? "large" : "default"}
+              size={
+                variant === "asymmetric" && i === 0 ? "large" : "default"
+              }
             />
           </StaggerItem>
         ))}

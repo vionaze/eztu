@@ -36,6 +36,14 @@ interface Props {
   relatedProducts: Product[];
 }
 
+/** Direct top-up products that need in-game account fields (not voucher codes). */
+function productRequiresGameAccount(product: Product) {
+  if (product.slug === "mobile-legends") return true;
+  return product.variants.some((variant) =>
+    /^ML[\d_]/i.test(variant.supplierSku || "")
+  );
+}
+
 export default function ProductDetailClient({ product, relatedProducts }: Props) {
   const router = useRouter();
   const { formatLocalPrice, country } = useCurrency();
@@ -48,6 +56,8 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
   );
   const [email, setEmail] = useState("");
   const [emailWasEdited, setEmailWasEdited] = useState(false);
+  const [gameId, setGameId] = useState("");
+  const [serverId, setServerId] = useState("");
   const [company, setCompany] = useState("");
   const [checkoutStartedAt] = useState(() => Date.now());
   const [quantity, setQuantity] = useState(0);
@@ -55,9 +65,13 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
 
   const [isCheckingOut, setIsCheckingOut] = useState(false);
 
+  const requiresGameAccount = productRequiresGameAccount(product);
   const variant = product.variants.find((v) => v.id === selectedVariant);
   const loginEmail = user?.primaryEmailAddress?.emailAddress || "";
   const recipientEmail = emailWasEdited ? email : loginEmail;
+  const gameAccountReady =
+    !requiresGameAccount ||
+    (gameId.trim().length > 0 && serverId.trim().length > 0);
 
   const openBulkPurchaseModal = () => {
     setShowBulkModal(true);
@@ -80,6 +94,10 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
 
   const handleCheckout = async () => {
     if (!variant || !recipientEmail.trim() || quantity <= 0) return;
+    if (requiresGameAccount && (!gameId.trim() || !serverId.trim())) {
+      alert("Please enter your Mobile Legends User ID and Zone/Server ID.");
+      return;
+    }
 
     if (!isLoaded) return;
 
@@ -103,6 +121,8 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
           quantity,
           company,
           checkoutStartedAt,
+          gameId: requiresGameAccount ? gameId.trim() : "voucher",
+          serverId: requiresGameAccount ? serverId.trim() : "",
         }),
       });
 
@@ -147,17 +167,17 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
           </div>
         </FadeUp>
 
-        {/* Main Content — Asymmetric Layout */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-8 md:gap-12">
-          {/* Left — Product Image (60%) */}
+        {/* Main Content — compact image on mobile, asymmetric on desktop */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-5 md:gap-12">
+          {/* Left — Product Image */}
           <FadeUp className="md:col-span-3">
-            <div className="relative aspect-[4/5] md:aspect-[3/4] rounded-2xl overflow-hidden border border-white/[0.08]">
+            <div className="relative mx-auto w-full max-w-[180px] sm:max-w-[240px] md:max-w-none aspect-square md:aspect-[3/4] rounded-xl md:rounded-2xl overflow-hidden border border-white/[0.08]">
               <Image
                 src={product.image}
                 alt={product.name}
                 fill
                 className="object-cover"
-                sizes="(max-width: 768px) 100vw, 60vw"
+                sizes="(max-width: 640px) 180px, (max-width: 768px) 240px, 60vw"
                 priority
               />
               {/* Gradient overlay */}
@@ -165,36 +185,42 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
 
               {/* Badge */}
               {product.featured && (
-                <div className="absolute top-4 left-4">
+                <div className="absolute top-2.5 left-2.5 md:top-4 md:left-4">
                   <Badge variant="accent">Featured</Badge>
                 </div>
               )}
             </div>
           </FadeUp>
 
-          {/* Right — Product Details (40%) */}
-          <div className="md:col-span-2 space-y-6">
+          {/* Right — Product Details */}
+          <div className="md:col-span-2 space-y-5 md:space-y-6">
             <FadeUp delay={0.1}>
-              <div className="space-y-3">
+              <div className="space-y-2 md:space-y-3 text-center md:text-left">
                 <Badge variant="muted">
-                  {product.variants.length} variants
+                  {product.variants.length}{" "}
+                  {product.variants.length === 1 ? "package" : "variants"}
                 </Badge>
-                <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-text-primary">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-text-primary">
                   {product.name}
                 </h1>
-                <p className="text-sm text-text-secondary leading-relaxed">
+                <p className="text-sm text-text-secondary leading-relaxed max-w-[50ch] mx-auto md:mx-0">
                   {product.description}
                 </p>
               </div>
             </FadeUp>
 
-            {/* Variant Selection */}
+            {/* Variant Selection — shows recommended/sell price */}
             <FadeUp delay={0.2}>
               <div className="space-y-3">
                 <label className="block text-sm font-medium text-text-secondary">
                   Select package
                 </label>
-                <div className="grid grid-cols-2 gap-2">
+                <div
+                  className={cn(
+                    "grid gap-2",
+                    product.variants.length === 1 ? "grid-cols-1" : "grid-cols-2"
+                  )}
+                >
                   {product.variants.map((v) => (
                     <button
                       key={v.id}
@@ -221,7 +247,8 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                       <p className="text-sm font-medium text-text-primary pr-6">
                         {v.name}
                       </p>
-                      <p className="text-xs font-semibold text-accent mt-1 font-[family-name:var(--font-geist-mono)]">
+                      <p className="text-[11px] text-text-muted mt-1.5">Price</p>
+                      <p className="text-sm font-semibold text-accent font-[family-name:var(--font-geist-mono)]">
                         {formatLocalPrice(v.priceIDR, v.priceUSD)}
                       </p>
                     </button>
@@ -270,6 +297,33 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                 </div>
               </div>
             </FadeUp>
+
+            {/* Direct top-up account (e.g. Mobile Legends) */}
+            {requiresGameAccount && (
+              <FadeUp delay={0.29}>
+                <div className="space-y-3">
+                  <Input
+                    label="User ID"
+                    type="text"
+                    placeholder="Your MLBB User ID"
+                    value={gameId}
+                    onChange={(e) => setGameId(e.target.value)}
+                    autoComplete="off"
+                  />
+                  <Input
+                    label="Zone / Server ID"
+                    type="text"
+                    placeholder="Zone ID (e.g. 1234)"
+                    value={serverId}
+                    onChange={(e) => setServerId(e.target.value)}
+                    autoComplete="off"
+                  />
+                  <p className="text-xs text-text-muted">
+                    Open Mobile Legends → profile → copy User ID and Zone ID.
+                  </p>
+                </div>
+              </FadeUp>
+            )}
 
             {/* Recipient Email */}
             <FadeUp delay={0.3}>
@@ -340,7 +394,14 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                 size="lg"
                 className="w-full"
                 onClick={handleCheckout}
-                disabled={!isLoaded || !selectedVariant || !recipientEmail.trim() || quantity <= 0 || isCheckingOut}
+                disabled={
+                  !isLoaded ||
+                  !selectedVariant ||
+                  !recipientEmail.trim() ||
+                  !gameAccountReady ||
+                  quantity <= 0 ||
+                  isCheckingOut
+                }
               >
                 {isCheckingOut ? (
                   <>Processing...</>
