@@ -99,11 +99,9 @@ body {
 .liquid-glass {
   background: linear-gradient(
     135deg,
-    rgba(39, 39, 42, 0.6) 0%,
-    rgba(24, 24, 27, 0.8) 100%
+    rgba(39, 39, 42, 0.92) 0%,
+    rgba(24, 24, 27, 0.96) 100%
   );
-  backdrop-filter: blur(20px) saturate(1.4);
-  -webkit-backdrop-filter: blur(20px) saturate(1.4);
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow:
     var(--shadow-card),
@@ -113,12 +111,43 @@ body {
 .liquid-glass-subtle {
   background: linear-gradient(
     135deg,
-    rgba(39, 39, 42, 0.3) 0%,
-    rgba(24, 24, 27, 0.5) 100%
+    rgba(39, 39, 42, 0.9) 0%,
+    rgba(24, 24, 27, 0.94) 100%
   );
-  backdrop-filter: blur(12px) saturate(1.2);
-  -webkit-backdrop-filter: blur(12px) saturate(1.2);
   border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Backdrop blur only on capable desktops — main mobile scroll jank source */
+@media (min-width: 768px) {
+  .liquid-glass {
+    background: linear-gradient(
+      135deg,
+      rgba(39, 39, 42, 0.6) 0%,
+      rgba(24, 24, 27, 0.8) 100%
+    );
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  }
+
+  .liquid-glass-subtle {
+    background: linear-gradient(
+      135deg,
+      rgba(39, 39, 42, 0.3) 0%,
+      rgba(24, 24, 27, 0.5) 100%
+    );
+    backdrop-filter: blur(12px) saturate(1.2);
+    -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* ============================================================

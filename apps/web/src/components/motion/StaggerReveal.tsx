@@ -21,21 +21,19 @@ const containerVariants: Variants = {
   }),
 };
 
+// Transform + opacity only — CSS filter blur is extremely expensive on mobile GPUs.
 const itemVariants: Variants = {
   hidden: {
     opacity: 0,
-    y: 30,
-    filter: "blur(6px)",
+    y: 16,
   },
   visible: {
     opacity: 1,
     y: 0,
-    filter: "blur(0px)",
     transition: {
-      type: "spring",
-      stiffness: 100,
-      damping: 15,
-      mass: 0.8,
+      type: "tween",
+      duration: 0.35,
+      ease: [0.22, 1, 0.36, 1],
     },
   },
 };
@@ -96,13 +94,13 @@ export function FadeUp({
   return (
     <motion.div
       className={className}
-      initial={{ opacity: 0, y: 40, filter: "blur(8px)" }}
-      whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-      viewport={{ once: true, margin: "-60px" }}
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-40px" }}
       transition={{
-        type: "spring",
-        stiffness: 80,
-        damping: 20,
+        type: "tween",
+        duration: 0.4,
+        ease: [0.22, 1, 0.36, 1],
         delay,
       }}
     >

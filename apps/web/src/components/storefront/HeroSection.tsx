@@ -40,18 +40,18 @@ const heroCards = [
 export default function HeroSection() {
   return (
     <section className="relative min-h-[100dvh] flex items-center overflow-hidden">
-      {/* Background layers */}
+      {/* Background layers — heavy blurs only on md+ (mobile GPU killer) */}
       <div className="absolute inset-0">
         {/* Gradient base */}
         <div className="absolute inset-0 bg-gradient-to-br from-bg-primary via-bg-secondary to-bg-primary" />
 
-        {/* Radial glow */}
-        <div className="absolute top-1/2 right-0 -translate-y-1/2 w-[600px] h-[600px] bg-accent/[0.04] rounded-full blur-[120px]" />
-        <div className="absolute bottom-0 left-1/4 w-[400px] h-[400px] bg-accent/[0.03] rounded-full blur-[100px]" />
+        {/* Radial glow (desktop only) */}
+        <div className="absolute top-1/2 right-0 -translate-y-1/2 w-[600px] h-[600px] bg-accent/[0.04] rounded-full blur-[120px] hidden md:block" />
+        <div className="absolute bottom-0 left-1/4 w-[400px] h-[400px] bg-accent/[0.03] rounded-full blur-[100px] hidden md:block" />
 
-        {/* Grid pattern */}
+        {/* Grid pattern — lighter on mobile */}
         <div
-          className="absolute inset-0 opacity-[0.03]"
+          className="absolute inset-0 opacity-[0.02] md:opacity-[0.03]"
           style={{
             backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
                               linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,

@@ -63,26 +63,29 @@ export default function Navbar() {
     <>
       <header
         className={cn(
-          "fixed top-0 left-0 right-0 z-50 transition-all duration-300 ease-[var(--ease-spring)]",
+          "fixed top-0 left-0 right-0 z-50 transition-all duration-300 ease-out",
+          // Solid/opaque on mobile — liquid-glass backdrop-filter janks hard on phones
           scrolled
-            ? "liquid-glass-subtle border-0 py-3"
-            : "bg-transparent py-5"
+            ? "bg-bg-primary/95 border-b border-border py-3 md:border-0 md:liquid-glass-subtle"
+            : "bg-transparent py-4 md:py-5"
         )}
+        style={{ paddingTop: "max(0px, env(safe-area-inset-top))" }}
       >
-        <div className="max-w-[1400px] mx-auto px-4 md:px-8 flex items-center justify-between gap-4">
+        <div className="max-w-[1400px] mx-auto px-4 md:px-8 flex items-center justify-between gap-3 sm:gap-4">
           {/* Logo */}
           <Link
             href="/"
-            className="flex items-center gap-2.5 group"
+            className="flex items-center gap-2.5 group min-w-0"
             id="nav-logo"
+            onClick={() => setMobileOpen(false)}
           >
-            <div className="relative h-12 w-44 sm:w-52 md:h-14 md:w-60 transition-transform duration-300 group-hover:scale-[1.03]">
+            <div className="relative h-9 w-32 sm:h-12 sm:w-44 md:h-14 md:w-60 transition-transform duration-300 group-hover:scale-[1.03]">
               <Image
                 src="/logo.png"
                 alt="EZTopUp"
                 fill
                 className="object-contain object-left"
-                sizes="(max-width: 640px) 176px, 240px"
+                sizes="(max-width: 640px) 128px, 240px"
                 priority
               />
             </div>
@@ -160,15 +163,17 @@ export default function Navbar() {
         </div>
       </header>
 
-      {/* Mobile Menu Overlay */}
+      {/* Mobile Menu Overlay — no backdrop-blur (major mobile jank) */}
       <AnimatePresence>
         {mobileOpen && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-[55] bg-black/70 md:hidden"
             onClick={() => setMobileOpen(false)}
+            aria-hidden
           />
         )}
       </AnimatePresence>
@@ -180,15 +185,22 @@ export default function Navbar() {
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed top-0 right-0 bottom-0 z-50 w-72 bg-bg-secondary border-l border-border p-6 flex flex-col gap-6 md:hidden"
+            transition={{ type: "tween", duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            className="fixed top-0 right-0 z-[60] flex h-[100dvh] w-[min(18rem,100vw)] max-w-full flex-col gap-4 overflow-y-auto overscroll-contain border-l border-border bg-bg-secondary px-5 md:hidden"
+            style={{
+              paddingTop: "max(1.25rem, env(safe-area-inset-top))",
+              paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))",
+              paddingRight: "max(1.25rem, env(safe-area-inset-right))",
+            }}
             id="nav-mobile-menu"
+            aria-label="Mobile navigation"
           >
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between shrink-0">
               <span className="text-lg font-bold text-text-primary">Menu</span>
               <button
+                type="button"
                 onClick={() => setMobileOpen(false)}
-                className="w-9 h-9 rounded-xl flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-white/5 transition-all cursor-pointer"
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-white/5 transition-colors cursor-pointer"
                 aria-label="Close menu"
               >
                 <X size={20} />
@@ -201,14 +213,17 @@ export default function Navbar() {
                   key={link.href}
                   href={link.href}
                   onClick={() => setMobileOpen(false)}
-                  className="px-4 py-3 text-base font-medium text-text-secondary hover:text-text-primary hover:bg-white/5 rounded-xl transition-all"
+                  className="px-4 py-3.5 text-base font-medium text-text-secondary hover:text-text-primary hover:bg-white/5 rounded-xl transition-colors"
                 >
                   {link.label}
                 </Link>
               ))}
             </div>
 
-            <div className="mt-auto flex flex-col gap-3">
+            <div className="mt-auto flex flex-col gap-3 pt-4">
+              <div className="md:hidden">
+                <CountrySelector />
+              </div>
               {isSignedIn ? (
                 <div className="flex items-center justify-between h-11 rounded-xl bg-bg-card border border-border px-4">
                   <span className="text-sm font-medium text-text-primary">Account</span>
@@ -220,7 +235,7 @@ export default function Navbar() {
                     type="button"
                     onClick={() => setMobileOpen(false)}
                     disabled={!isLoaded}
-                    className="flex items-center justify-center gap-2 h-11 rounded-xl bg-accent text-bg-primary font-medium text-sm transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
+                    className="flex items-center justify-center gap-2 h-11 rounded-xl bg-accent text-bg-primary font-medium text-sm transition-opacity active:opacity-90 disabled:opacity-50 disabled:pointer-events-none"
                   >
                     <User size={16} weight="bold" />
                     Login / Register
