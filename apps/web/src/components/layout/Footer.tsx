@@ -15,20 +15,27 @@ const footerLinks = {
   company: [
     { label: "About Us", href: "/" },
     { label: "Blog", href: "/blog" },
-    { label: "Contact", href: "/" },
+    { label: "Contact", href: "/contact" },
   ],
   support: [
-    { label: "FAQ", href: "/" },
-    { label: "Terms of Service", href: "/" },
-    { label: "Privacy Policy", href: "/" },
+    { label: "FAQ", href: "/#faq" },
+    { label: "Terms of Service", href: "/terms" },
+    { label: "Privacy Policy", href: "/privacy" },
+    { label: "Contact Support", href: "/contact" },
   ],
 };
+
+const SUPPORT_EMAIL = "cs@eztopup.io";
 
 const socialLinks = [
   { icon: TwitterLogo, href: "#", label: "Twitter" },
   { icon: DiscordLogo, href: "#", label: "Discord" },
   { icon: TelegramLogo, href: "#", label: "Telegram" },
-  { icon: EnvelopeSimple, href: "#", label: "Email" },
+  {
+    icon: EnvelopeSimple,
+    href: `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("EZTopUp Support")}`,
+    label: "Email",
+  },
 ];
 
 export default function Footer() {
@@ -39,13 +46,14 @@ export default function Footer() {
           {/* Brand */}
           <div className="lg:col-span-2 space-y-4">
             <Link href="/" className="flex items-center gap-2.5 group">
-              <div className="relative h-16 w-64 sm:w-72 transition-transform duration-300 group-hover:scale-[1.03]">
+              {/* Match navbar logo size (previous compact × 1.25) */}
+              <div className="relative h-[35px] w-[120px] sm:h-10 sm:w-40 md:h-[45px] md:w-[200px] transition-transform duration-300 group-hover:scale-[1.03]">
                 <Image
                   src="/logo.png"
                   alt="EZTopUp"
                   fill
                   className="object-contain object-left"
-                  sizes="188px"
+                  sizes="(max-width: 640px) 120px, (max-width: 768px) 160px, 200px"
                 />
               </div>
             </Link>
@@ -56,16 +64,25 @@ export default function Footer() {
             </p>
             {/* Social */}
             <div className="flex items-center gap-2 pt-2">
-              {socialLinks.map((social) => (
-                <a
-                  key={social.label}
-                  href={social.href}
-                  className="w-9 h-9 rounded-xl flex items-center justify-center text-text-muted hover:text-accent hover:bg-white/5 transition-all"
-                  aria-label={social.label}
-                >
-                  <social.icon size={18} />
-                </a>
-              ))}
+              {socialLinks.map((social) => {
+                const isMailto = social.href.startsWith("mailto:");
+                const isPlaceholder = social.href === "#";
+
+                return (
+                  <a
+                    key={social.label}
+                    href={isPlaceholder ? undefined : social.href}
+                    className="w-9 h-9 rounded-xl flex items-center justify-center text-text-muted hover:text-accent hover:bg-white/5 transition-all"
+                    aria-label={social.label}
+                    aria-disabled={isPlaceholder || undefined}
+                    {...(!isMailto && !isPlaceholder
+                      ? { target: "_blank", rel: "noopener noreferrer" }
+                      : {})}
+                  >
+                    <social.icon size={18} />
+                  </a>
+                );
+              })}
             </div>
           </div>
 
@@ -128,21 +145,10 @@ export default function Footer() {
         </div>
 
         {/* Bottom */}
-        <div className="mt-12 pt-8 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-text-muted">
+        <div className="mt-12 pt-8 border-t border-border flex justify-center">
+          <p className="text-xs text-text-muted text-center">
             &copy; {new Date().getFullYear()} EZTopUp. All rights reserved.
           </p>
-          <div className="flex items-center gap-1 text-xs text-text-muted">
-            <span>Payments powered by</span>
-            <a
-              href="https://nowpayments.io"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-accent hover:text-accent-hover transition-colors font-medium"
-            >
-              NOWPayments
-            </a>
-          </div>
         </div>
       </div>
     </footer>

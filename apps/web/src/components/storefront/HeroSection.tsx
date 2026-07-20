@@ -1,10 +1,11 @@
 "use client";
 
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { Button } from "@kupon/ui";
 import { FadeUp } from "@/components/motion/StaggerReveal";
 import { motion } from "framer-motion";
 import { ArrowRight, Lightning } from "@phosphor-icons/react";
-import Image from "next/image";
 
 const heroCards = [
   {
@@ -38,6 +39,17 @@ const heroCards = [
 ];
 
 export default function HeroSection() {
+  const router = useRouter();
+
+  const scrollToFaq = () => {
+    if (typeof window === "undefined") return;
+    if (window.location.pathname === "/") {
+      document.getElementById("faq")?.scrollIntoView({ behavior: "smooth" });
+      return;
+    }
+    router.push("/#faq");
+  };
+
   return (
     <section className="relative min-h-[100dvh] flex items-center overflow-hidden">
       {/* Background layers — heavy blurs only on md+ (mobile GPU killer) */}
@@ -90,11 +102,22 @@ export default function HeroSection() {
 
             <FadeUp delay={0.3}>
               <div className="flex flex-col sm:flex-row gap-3">
-                <Button size="lg">
+                <Button
+                  size="lg"
+                  type="button"
+                  className="w-full sm:w-auto"
+                  onClick={() => router.push("/products")}
+                >
                   Explore Products
                   <ArrowRight size={16} weight="bold" />
                 </Button>
-                <Button variant="outline" size="lg">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  type="button"
+                  className="w-full sm:w-auto"
+                  onClick={scrollToFaq}
+                >
                   How it works
                 </Button>
               </div>

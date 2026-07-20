@@ -4,36 +4,36 @@ import { FadeUp } from "@/components/motion/StaggerReveal";
 import {
   Lightning,
   ShieldCheck,
-  Headset,
-  CurrencyBtc,
+  CurrencyCircleDollar,
   Clock,
+  Headset,
 } from "@phosphor-icons/react";
 
 const features = [
   {
     icon: Lightning,
-    title: "Instant Delivery",
-    description: "Get your items within seconds",
+    title: "Fast Delivery",
+    description: "Codes after payment confirms",
   },
   {
     icon: ShieldCheck,
-    title: "Secure Payment",
-    description: "End-to-end encrypted transactions",
+    title: "Secure Checkout",
+    description: "Protected payment flow",
   },
   {
-    icon: CurrencyBtc,
-    title: "Crypto Accepted",
-    description: "BTC, ETH, USDT and more",
+    icon: CurrencyCircleDollar,
+    title: "USDT / USDC",
+    description: "Stablecoin crypto checkout",
   },
   {
     icon: Clock,
-    title: "24/7 Available",
-    description: "Shop anytime, anywhere",
+    title: "Always Online",
+    description: "Browse & order anytime",
   },
   {
     icon: Headset,
-    title: "Live Support",
-    description: "Real humans ready to help",
+    title: "24/7 Support",
+    description: "Help when you need it",
   },
 ];
 

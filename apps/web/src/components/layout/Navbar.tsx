@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { SignInButton, UserButton, useAuth } from "@clerk/nextjs";
+import { UserButton, useAuth } from "@clerk/nextjs";
 import {
   List,
   X,
@@ -64,28 +64,28 @@ export default function Navbar() {
       <header
         className={cn(
           "fixed top-0 left-0 right-0 z-50 transition-all duration-300 ease-out",
-          // Solid/opaque on mobile — liquid-glass backdrop-filter janks hard on phones
+          // Same vertical padding top/bottom (1rem / md 1.25rem); safe-area only adds to top
+          "pb-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] md:pb-5 md:pt-[calc(1.25rem+env(safe-area-inset-top,0px))]",
           scrolled
-            ? "bg-bg-primary/95 border-b border-border py-3 md:border-0 md:liquid-glass-subtle"
-            : "bg-transparent py-4 md:py-5"
+            ? "bg-bg-primary/95 border-b border-border md:border-0 md:liquid-glass-subtle"
+            : "bg-transparent"
         )}
-        style={{ paddingTop: "max(0px, env(safe-area-inset-top))" }}
       >
         <div className="max-w-[1400px] mx-auto px-4 md:px-8 flex items-center justify-between gap-3 sm:gap-4">
-          {/* Logo */}
+          {/* Logo — previous size × 1.25 (shared with footer) */}
           <Link
             href="/"
             className="flex items-center gap-2.5 group min-w-0"
             id="nav-logo"
             onClick={() => setMobileOpen(false)}
           >
-            <div className="relative h-9 w-32 sm:h-12 sm:w-44 md:h-14 md:w-60 transition-transform duration-300 group-hover:scale-[1.03]">
+            <div className="relative h-[35px] w-[120px] sm:h-10 sm:w-40 md:h-[45px] md:w-[200px] transition-transform duration-300 group-hover:scale-[1.03]">
               <Image
                 src="/logo.png"
                 alt="EZTopUp"
                 fill
                 className="object-contain object-left"
-                sizes="(max-width: 640px) 128px, 240px"
+                sizes="(max-width: 640px) 120px, (max-width: 768px) 160px, 200px"
                 priority
               />
             </div>
@@ -132,21 +132,19 @@ export default function Navbar() {
               </span>
             </button>
 
-            {/* Auth */}
+            {/* Auth — go to /login so Terms checkbox is always required */}
             <div className="hidden sm:flex items-center" id="nav-login-btn">
               {isSignedIn ? (
                 <AccountUserButton />
               ) : (
-                <SignInButton mode="modal">
-                  <button
-                    type="button"
-                    disabled={!isLoaded}
-                    className="flex items-center gap-1.5 h-9 px-4 rounded-xl bg-bg-card border border-border text-sm font-medium text-text-primary hover:border-accent/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <User size={16} />
-                    Login
-                  </button>
-                </SignInButton>
+                <Link
+                  href="/login"
+                  className="flex items-center gap-1.5 h-9 px-4 rounded-xl bg-bg-card border border-border text-sm font-medium text-text-primary hover:border-accent/30 transition-all"
+                  aria-disabled={!isLoaded}
+                >
+                  <User size={16} />
+                  Login
+                </Link>
               )}
             </div>
 
@@ -230,17 +228,14 @@ export default function Navbar() {
                   <AccountUserButton />
                 </div>
               ) : (
-                <SignInButton mode="modal">
-                  <button
-                    type="button"
-                    onClick={() => setMobileOpen(false)}
-                    disabled={!isLoaded}
-                    className="flex items-center justify-center gap-2 h-11 rounded-xl bg-accent text-bg-primary font-medium text-sm transition-opacity active:opacity-90 disabled:opacity-50 disabled:pointer-events-none"
-                  >
-                    <User size={16} weight="bold" />
-                    Login / Register
-                  </button>
-                </SignInButton>
+                <Link
+                  href="/login"
+                  onClick={() => setMobileOpen(false)}
+                  className="flex items-center justify-center gap-2 h-11 rounded-xl bg-accent text-bg-primary font-medium text-sm transition-opacity active:opacity-90"
+                >
+                  <User size={16} weight="bold" />
+                  Login / Register
+                </Link>
               )}
             </div>
           </motion.nav>

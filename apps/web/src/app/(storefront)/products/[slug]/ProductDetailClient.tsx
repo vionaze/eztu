@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { useAuth, useClerk, useUser } from "@clerk/nextjs";
+import { useAuth, useUser } from "@clerk/nextjs";
 import type { Product } from "@/types/product";
 import { formatPrice, cn } from "@/lib/utils";
 import {
@@ -46,9 +46,9 @@ function productRequiresGameAccount(product: Product) {
 
 export default function ProductDetailClient({ product, relatedProducts }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
   const { formatLocalPrice, country } = useCurrency();
   const { isLoaded, isSignedIn } = useAuth();
-  const { openSignIn } = useClerk();
   const { user } = useUser();
   
   const [selectedVariant, setSelectedVariant] = useState(
@@ -60,7 +60,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
   const [serverId, setServerId] = useState("");
   const [company, setCompany] = useState("");
   const [checkoutStartedAt] = useState(() => Date.now());
-  const [quantity, setQuantity] = useState(0);
+  const [quantity, setQuantity] = useState(1);
   const [showBulkModal, setShowBulkModal] = useState(false);
 
   const [isCheckingOut, setIsCheckingOut] = useState(false);
@@ -92,8 +92,12 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
     });
   };
 
+  const canStartLogin =
+    isLoaded && Boolean(selectedVariant) && quantity > 0 && gameAccountReady;
+  const canCheckout = canStartLogin && Boolean(recipientEmail.trim());
+
   const handleCheckout = async () => {
-    if (!variant || !recipientEmail.trim() || quantity <= 0) return;
+    if (!variant || quantity <= 0) return;
     if (requiresGameAccount && (!gameId.trim() || !serverId.trim())) {
       alert("Please enter your Mobile Legends User ID and Zone/Server ID.");
       return;
@@ -102,7 +106,14 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
     if (!isLoaded) return;
 
     if (!isSignedIn) {
-      openSignIn();
+      // Login page with ToS checkbox — email not required yet
+      const returnTo = pathname || `/products/${product.slug}`;
+      router.push(`/login?redirect_url=${encodeURIComponent(returnTo)}`);
+      return;
+    }
+
+    if (!recipientEmail.trim()) {
+      alert("Please enter a recipient email.");
       return;
     }
 
@@ -147,6 +158,8 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
   const totalUSD = variant ? Math.max(0, Number((variant.priceUSD * quantity).toFixed(2))) : 0;
   const isFree = quantity > 0 && totalUSD <= 0;
   const usesCryptoCheckout = Boolean(variant && variant.priceUSD > 0);
+  const checkoutDisabled =
+    isCheckingOut || (isSignedIn ? !canCheckout : !canStartLogin);
 
   return (
     <div className="min-h-[100dvh] pt-24 pb-20">
@@ -394,14 +407,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                 size="lg"
                 className="w-full"
                 onClick={handleCheckout}
-                disabled={
-                  !isLoaded ||
-                  !selectedVariant ||
-                  !recipientEmail.trim() ||
-                  !gameAccountReady ||
-                  quantity <= 0 ||
-                  isCheckingOut
-                }
+                disabled={checkoutDisabled}
               >
                 {isCheckingOut ? (
                   <>Processing...</>
