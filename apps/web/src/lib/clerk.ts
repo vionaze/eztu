@@ -51,23 +51,54 @@ function getPrimaryWallet(clerkUser: ClerkUser) {
 async function syncClerkUser(clerkUser: ClerkUser) {
   const email = getPrimaryEmail(clerkUser);
   const walletAddress = getPrimaryWallet(clerkUser);
+  const name = getDisplayName(clerkUser);
+  const image = clerkUser.imageUrl || null;
 
-  return prisma.user.upsert({
-    where: { clerkId: clerkUser.id },
-    update: {
-      name: getDisplayName(clerkUser),
-      email,
-      image: clerkUser.imageUrl || null,
-      walletAddress,
-    },
-    create: {
-      clerkId: clerkUser.id,
-      name: getDisplayName(clerkUser),
-      email,
-      image: clerkUser.imageUrl || null,
-      walletAddress,
-    },
-  });
+  try {
+    return await prisma.user.upsert({
+      where: { clerkId: clerkUser.id },
+      update: {
+        name,
+        email,
+        image,
+        walletAddress,
+      },
+      create: {
+        clerkId: clerkUser.id,
+        name,
+        email,
+        image,
+        walletAddress,
+      },
+    });
+  } catch (error) {
+    // Unique email/wallet conflicts must not 500 account pages for a valid Clerk session.
+    console.error("[Clerk] Full user sync failed, retrying without unique fields", error);
+
+    try {
+      return await prisma.user.upsert({
+        where: { clerkId: clerkUser.id },
+        update: {
+          name,
+          image,
+        },
+        create: {
+          clerkId: clerkUser.id,
+          name,
+          image,
+          // leave email/wallet null on conflict so the page can still load
+        },
+      });
+    } catch (retryError) {
+      console.error("[Clerk] Minimal user sync failed", retryError);
+      // Last resort: return existing row by clerkId if present
+      const existing = await prisma.user.findUnique({
+        where: { clerkId: clerkUser.id },
+      });
+      if (existing) return existing;
+      throw retryError;
+    }
+  }
 }
 
 export async function requireClerkUser(): Promise<AuthenticatedClerkUser> {

@@ -131,7 +131,7 @@ const labelsByLocale: Record<"id" | "en", Labels> = {
     active: "Aktif",
     emptyTitle: "Belum ada pembelian",
     emptyBody:
-      "Pesanan akan muncul di sini setelah kamu memulai checkout. Detail voucher yang selesai hanya ditampilkan untuk akun yang sedang login.",
+      "Kamu belum punya pesanan. Jelajahi produk untuk beli voucher atau top-up — riwayat akan muncul di sini setelah checkout.",
     browseProducts: "Lihat Produk",
     orderTotal: "Total pesanan",
     pay: "Bayar",
@@ -171,7 +171,7 @@ const labelsByLocale: Record<"id" | "en", Labels> = {
     active: "Active",
     emptyTitle: "No purchases yet",
     emptyBody:
-      "Orders will appear here after you start checkout. Completed voucher details are shown in this page for your signed-in account only.",
+      "You have not completed any orders yet. Browse products to buy vouchers or top-ups — your history will show up here after checkout.",
     browseProducts: "Browse Products",
     orderTotal: "Order total",
     pay: "Pay",
@@ -329,9 +329,9 @@ function DetailRow({
 
 function EmptyState({ labels }: { labels: Labels }) {
   return (
-    <div className="rounded-2xl border border-white/[0.08] bg-bg-card p-8 text-center shadow-[var(--shadow-card)]">
+    <div className="rounded-2xl border border-white/[0.08] bg-bg-card p-10 md:p-12 text-center shadow-[var(--shadow-card)]">
       <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-bg-elevated text-accent">
-        <Receipt size={28} weight="bold" />
+        <Package size={28} weight="bold" />
       </div>
       <h2 className="mt-5 text-xl font-semibold text-text-primary">
         {labels.emptyTitle}
@@ -339,12 +339,22 @@ function EmptyState({ labels }: { labels: Labels }) {
       <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-text-secondary">
         {labels.emptyBody}
       </p>
-      <Link href="/products" className="mt-6 inline-flex">
-        <Button>
-          {labels.browseProducts}
-          <ArrowSquareOut size={16} weight="bold" />
-        </Button>
-      </Link>
+      <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+        <Link href="/products" className="inline-flex">
+          <Button>
+            {labels.browseProducts}
+            <ArrowSquareOut size={16} weight="bold" />
+          </Button>
+        </Link>
+        <Link
+          href="/vouchers"
+          className="text-sm font-medium text-accent hover:text-accent-hover transition-colors"
+        >
+          {labels.browseProducts === "Lihat Produk"
+            ? "Atau lihat voucher"
+            : "Or browse vouchers"}
+        </Link>
+      </div>
     </div>
   );
 }

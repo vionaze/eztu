@@ -21,35 +21,10 @@ function toIsoString(value: Date | null) {
   return value ? value.toISOString() : null;
 }
 
-export default async function PurchaseHistoryPage() {
-  let authenticatedUser;
-
-  try {
-    authenticatedUser = await requireClerkUser();
-  } catch (error) {
-    if (error instanceof AuthenticationRequiredError) {
-      redirect("/login?redirect_url=/account/purchases");
-    }
-
-    throw error;
-  }
-
-  const orders = await prisma.order.findMany({
-    where: { userId: authenticatedUser.dbUserId },
-    orderBy: { createdAt: "desc" },
-    include: {
-      items: {
-        include: {
-          product: true,
-          variant: true,
-        },
-      },
-      supplierOrder: true,
-      promoCode: true,
-    },
-  });
-
-  const purchaseOrders: PurchaseHistoryOrder[] = orders.map((order) => {
+function mapOrdersToPurchaseHistory(
+  orders: Awaited<ReturnType<typeof loadOrders>>
+): PurchaseHistoryOrder[] {
+  return orders.map((order) => {
     const expiresAt =
       order.status === "PENDING"
         ? resolvePaymentExpiresAt({
@@ -93,24 +68,78 @@ export default async function PurchaseHistoryPage() {
             fulfilledAt: toIsoString(order.supplierOrder.fulfilledAt),
           }
         : null,
-      items: order.items.map((item) => ({
-        id: item.id,
-        quantity: item.quantity,
-        priceIDR: item.priceIDR,
-        priceUSD: item.priceUSD,
-        product: {
-          name: item.product.name,
-        },
-        variant: {
-          name: item.variant.name,
-        },
-      })),
+      items: order.items
+        .filter((item) => item.product && item.variant)
+        .map((item) => ({
+          id: item.id,
+          quantity: item.quantity,
+          priceIDR: item.priceIDR,
+          priceUSD: item.priceUSD,
+          product: {
+            name: item.product.name,
+          },
+          variant: {
+            name: item.variant.name,
+          },
+        })),
     };
   });
+}
+
+async function loadOrders(userId: string) {
+  return prisma.order.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    include: {
+      items: {
+        include: {
+          product: true,
+          variant: true,
+        },
+      },
+      supplierOrder: true,
+      promoCode: true,
+    },
+  });
+}
+
+export default async function PurchaseHistoryPage() {
+  let accountEmail: string | null = null;
+  let purchaseOrders: PurchaseHistoryOrder[] = [];
+
+  try {
+    let authenticatedUser;
+    try {
+      authenticatedUser = await requireClerkUser();
+    } catch (error) {
+      if (error instanceof AuthenticationRequiredError) {
+        redirect("/login?redirect_url=/account/purchases");
+      }
+      console.error("[PurchaseHistory] auth/sync failed", error);
+      // Authenticated session may exist but DB sync failed — still show empty shell
+      return (
+        <PurchaseHistoryClient accountEmail={null} orders={[]} />
+      );
+    }
+
+    accountEmail = authenticatedUser.email;
+
+    try {
+      const orders = await loadOrders(authenticatedUser.dbUserId);
+      purchaseOrders = mapOrdersToPurchaseHistory(orders);
+    } catch (error) {
+      console.error("[PurchaseHistory] order query failed", error);
+      purchaseOrders = [];
+    }
+  } catch (error) {
+    // Never surface a hard 500 for this account page — empty state is preferred.
+    console.error("[PurchaseHistory] unexpected failure", error);
+    return <PurchaseHistoryClient accountEmail={null} orders={[]} />;
+  }
 
   return (
     <PurchaseHistoryClient
-      accountEmail={authenticatedUser.email}
+      accountEmail={accountEmail}
       orders={purchaseOrders}
     />
   );
