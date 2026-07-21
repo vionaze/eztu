@@ -1,9 +1,9 @@
 /**
  * POST /api/payment/webhook
  *
- * Receives payment status updates from NOWPayments.
- * Verifies the webhook signature, updates order status,
- * and sends a Telegram notification.
+ * Receives payment status updates from Cryptomus.
+ * Verifies the webhook body signature, updates order status,
+ * and triggers fulfillment when paid.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -17,20 +17,20 @@ import { applyPaymentEventToOrder } from "@/lib/payment-orders";
 export async function POST(request: NextRequest) {
   try {
     const rawBody = await request.text();
-    const signature = request.headers.get("x-nowpayments-sig");
     const requestContext = getRequestContext(request);
 
-    if (!verifyPaymentWebhook(rawBody, signature)) {
-      console.warn("[Webhook] Invalid signature");
+    // Cryptomus sends `sign` inside the JSON body (not a header).
+    if (!verifyPaymentWebhook(rawBody, null)) {
+      console.warn("[Webhook] Invalid Cryptomus signature");
       await notifySecurityEvent({
         eventType: "payment_webhook_invalid_signature",
         severity: "high",
         action: "blocked",
-        reasons: ["NOWPayments webhook signature verification failed"],
+        reasons: ["Cryptomus webhook signature verification failed"],
         requestContext,
         metadata: {
           bodyLength: rawBody.length,
-          signaturePresent: Boolean(signature),
+          provider: "cryptomus",
         },
       });
 
@@ -47,11 +47,12 @@ export async function POST(request: NextRequest) {
         eventType: "payment_webhook_missing_fields",
         severity: "high",
         action: "blocked",
-        reasons: ["NOWPayments webhook missing orderId or providerPaymentId"],
+        reasons: ["Cryptomus webhook missing orderId or providerPaymentId"],
         requestContext,
         metadata: {
           providerPaymentId: event.providerPaymentId || null,
           orderId: event.orderId || null,
+          provider: "cryptomus",
         },
       });
 
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!result.ok && result.status === 409) {
-      console.warn(`[Webhook] Payment ID mismatch for order: ${event.orderId}`);
+      console.warn(`[Webhook] Payment integrity issue for order: ${event.orderId}`);
       return NextResponse.json(
         { error: result.error },
         { status: 409 }

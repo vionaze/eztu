@@ -21,7 +21,7 @@ const faqs = [
   {
     question: "Which payment methods are supported?",
     answer:
-      "Checkout is crypto-first. Supported assets depend on the active payment gateway (e.g. USDT and other crypto options when configured).",
+      "Checkout is crypto-first via Cryptomus. We accept USDT and USDC stablecoins when enabled in checkout.",
   },
   {
     question: "Why do you only ask for email?",

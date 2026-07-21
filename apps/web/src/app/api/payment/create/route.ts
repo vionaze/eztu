@@ -1,7 +1,7 @@
 /**
  * POST /api/payment/create
  *
- * Creates a new order and generates a NOWPayments crypto invoice.
+ * Creates a new order and generates a Cryptomus crypto invoice.
  * Returns the payment URL for client-side redirect.
  */
 
@@ -36,16 +36,20 @@ function getPaymentErrorMessage(error: unknown) {
     return "Failed to create payment";
   }
 
-  if (error.message.includes("NOWPayments API error: 403")) {
-    return "NOWPayments rejected the API key. Use sandbox credentials for sandbox mode.";
+  if (error.message.includes("Cryptomus API error: 401") || error.message.includes("Cryptomus API error: 403")) {
+    return "Cryptomus rejected the merchant credentials. Check CRYPTOMUS_MERCHANT_ID and CRYPTOMUS_PAYMENT_API_KEY.";
   }
 
-  if (error.message.includes("NOWPAYMENTS_API_KEY")) {
-    return "NOWPayments API key is not configured.";
+  if (error.message.includes("CRYPTOMUS_PAYMENT_API_KEY") || error.message.includes("CRYPTOMUS_API_KEY")) {
+    return "Cryptomus payment API key is not configured.";
   }
 
-  if (error.message.includes("NOWPAYMENTS_API_URL")) {
-    return "NOWPayments API URL is invalid.";
+  if (error.message.includes("CRYPTOMUS_MERCHANT_ID")) {
+    return "Cryptomus merchant ID is not configured.";
+  }
+
+  if (error.message.includes("CRYPTOMUS_API_URL")) {
+    return "Cryptomus API URL is invalid.";
   }
 
   return "Failed to create payment";
@@ -251,6 +255,7 @@ export async function POST(request: NextRequest) {
         amountUSD: totalUSD,
         description: `${variant.product.name} - ${variant.name}`,
         customerEmail: email,
+        // URLs default to NEXT_PUBLIC_APP_URL inside @kupon/payments when omitted
       });
 
       await prisma.order.update({

@@ -434,7 +434,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
               </Button>
               {usesCryptoCheckout && (
                 <p className="text-center text-xs text-text-muted mt-2">
-                  Powered by NOWPayments · USDT checkout supported
+                  Powered by Cryptomus · USDT / USDC checkout
                 </p>
               )}
             </FadeUp>

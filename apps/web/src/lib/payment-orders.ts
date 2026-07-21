@@ -173,14 +173,18 @@ export async function applyPaymentEventToOrder(
     }
   }
 
-  const providerPriceAmount = getRawNumber(event.raw, "price_amount");
+  // NOWPayments used price_amount; Cryptomus invoice amount is usually `amount` (USD string).
+  const providerPriceAmount =
+    getRawNumber(event.raw, "price_amount") ??
+    getRawNumber(event.raw, "amount") ??
+    getRawNumber(event.raw, "payment_amount_usd");
   if (
     event.status === "paid" &&
     providerPriceAmount !== null &&
-    Math.abs(providerPriceAmount - order.totalUSD) > 0.01
+    Math.abs(providerPriceAmount - order.totalUSD) > 0.05
   ) {
     orderIntegrityReasons.push(
-      `Provider price_amount=${providerPriceAmount} does not match order totalUSD=${order.totalUSD}`
+      `Provider amount=${providerPriceAmount} does not match order totalUSD=${order.totalUSD}`
     );
   }
 

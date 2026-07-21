@@ -15,10 +15,12 @@ export default function AdminSettingsPage() {
   const [siteDescription, setSiteDescription] = useState(
     "Digital Voucher Marketplace"
   );
-  const [apiKey, setApiKey] = useState("");
-  const [ipnSecret, setIpnSecret] = useState("");
-  const [payCurrency, setPayCurrency] = useState("usdttrc20");
-  const [webhookUrl, setWebhookUrl] = useState("");
+  const [merchantId, setMerchantId] = useState("");
+  const [paymentApiKey, setPaymentApiKey] = useState("");
+  const [currencies, setCurrencies] = useState("USDT,USDC");
+  const [webhookUrl, setWebhookUrl] = useState(
+    "https://eztopup.io/api/payment/webhook"
+  );
   const [telegramBotToken, setTelegramBotToken] = useState("");
   const [telegramChatId, setTelegramChatId] = useState("");
 
@@ -46,50 +48,52 @@ export default function AdminSettingsPage() {
         </Card>
       </FadeUp>
 
-      {/* NOWPayments */}
+      {/* Cryptomus */}
       <FadeUp delay={0.1}>
         <Card variant="default" padding="lg" className="space-y-5">
           <div className="flex items-center gap-2">
             <Key size={18} className="text-accent" />
             <h3 className="text-sm font-semibold text-text-primary">
-              NOWPayments Crypto Payment
+              Cryptomus Crypto Payment
             </h3>
           </div>
           <Input
-            label="API Key"
+            label="Merchant ID (UUID)"
+            type="text"
+            placeholder="Merchant UUID from Cryptomus settings"
+            value={merchantId}
+            onChange={(e) => setMerchantId(e.target.value)}
+          />
+          <Input
+            label="Payment API Key"
             type="password"
-            placeholder="Your NOWPayments API key"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
+            placeholder="Payment API key (not payout key)"
+            value={paymentApiKey}
+            onChange={(e) => setPaymentApiKey(e.target.value)}
           />
           <Input
-            label="IPN Secret"
-            type="password"
-            placeholder="Your NOWPayments IPN secret"
-            value={ipnSecret}
-            onChange={(e) => setIpnSecret(e.target.value)}
+            label="Allowed Currencies"
+            placeholder="USDT,USDC"
+            value={currencies}
+            onChange={(e) => setCurrencies(e.target.value)}
           />
           <Input
-            label="Default Pay Currency"
-            placeholder="usdttrc20"
-            value={payCurrency}
-            onChange={(e) => setPayCurrency(e.target.value)}
-          />
-          <Input
-            label="Webhook URL"
-            placeholder="https://yourdomain.com/api/payment/webhook"
+            label="Webhook URL (url_callback)"
+            placeholder="https://eztopup.io/api/payment/webhook"
             value={webhookUrl}
             onChange={(e) => setWebhookUrl(e.target.value)}
           />
           <p className="text-xs text-text-muted">
-            Get your credentials from{" "}
+            Configure secrets in server env (
+            <code className="text-text-secondary">CRYPTOMUS_*</code>
+            ). Docs:{" "}
             <a
-              href="https://nowpayments.io"
+              href="https://doc.cryptomus.com/merchant-api/request-format"
               target="_blank"
               rel="noopener noreferrer"
               className="text-accent hover:text-accent-hover transition-colors"
             >
-              nowpayments.io
+              Cryptomus Merchant API
             </a>
           </p>
         </Card>

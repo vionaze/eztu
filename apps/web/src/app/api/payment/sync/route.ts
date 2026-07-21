@@ -1,9 +1,8 @@
 /**
  * POST /api/payment/sync
  *
- * Pulls a NOWPayments payment status and applies it to the local order.
- * This is useful in local development where NOWPayments cannot reach localhost
- * webhooks directly.
+ * Pulls a Cryptomus payment status and applies it to the local order.
+ * Useful in local development where Cryptomus cannot reach localhost webhooks.
  */
 
 import { NextRequest, NextResponse } from "next/server";

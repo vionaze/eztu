@@ -4,13 +4,13 @@ Kupon is managed as a pnpm workspace.
 
 ## Apps
 
-- `apps/web` - Next.js storefront, admin, Clerk auth, Prisma, NOWPayments crypto checkout.
+- `apps/web` - Next.js storefront, admin, Clerk auth, Prisma, Cryptomus crypto checkout.
 
 ## Packages
 
 - `packages/db` - Prisma schema, migrations, generated client workflow, and shared Prisma singleton.
 - `packages/ui` - Shared low-level UI primitives used by the web app.
-- `packages/payments` - NOWPayments invoice creation and IPN webhook verification.
+- `packages/payments` - Cryptomus invoice creation and webhook signature verification.
 
 ## Common Commands
 

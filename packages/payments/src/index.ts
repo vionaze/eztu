@@ -1,8 +1,8 @@
 import crypto from "node:crypto";
 
-const DEFAULT_NOWPAYMENTS_API_URL = "https://api.nowpayments.io/v1";
+const DEFAULT_CRYPTOMUS_API_URL = "https://api.cryptomus.com/v1";
 
-export type PaymentProvider = "nowpayments";
+export type PaymentProvider = "cryptomus";
 
 export type NormalizedPaymentStatus =
   | "pending"
@@ -49,89 +49,82 @@ export interface PaymentWebhookEvent {
   raw: unknown;
 }
 
-type NowPaymentsInvoiceResponse = {
-  id?: string | number;
-  invoice_id?: string | number;
-  order_id?: string;
-  token_id?: string;
-  invoice_url?: string;
-  payment_url?: string;
-  success_url?: string;
-  cancel_url?: string;
-  partially_paid_url?: string;
-  price_amount?: number;
-  price_currency?: string;
-  pay_currency?: string;
-  payment_status?: string;
-  created_at?: string;
-  updated_at?: string;
+type CryptomusApiEnvelope<T> = {
+  state?: number;
+  result?: T;
+  message?: string;
+  errors?: Record<string, string[]>;
 };
 
-type NowPaymentsIpnPayload = {
-  payment_id?: string | number;
-  invoice_id?: string | number;
+type CryptomusPaymentResult = {
+  uuid?: string;
   order_id?: string;
+  amount?: string | number;
+  payment_amount?: string | number | null;
+  payment_amount_usd?: string | number | null;
+  payer_amount?: string | number | null;
+  payer_currency?: string | null;
+  currency?: string | null;
+  network?: string | null;
+  address?: string | null;
+  from?: string | null;
+  txid?: string | null;
   payment_status?: string;
-  pay_currency?: string;
-  pay_amount?: number | string;
-  actually_paid?: number | string;
-  outcome_amount?: number | string;
-  outcome_currency?: string;
-  purchase_id?: string;
-  price_amount?: number | string;
-  price_currency?: string;
-  pay_address?: string;
-  tx_hash?: string;
-  updated_at?: string;
+  status?: string;
+  url?: string;
+  expired_at?: number | string;
+  is_final?: boolean;
+  additional_data?: string | null;
+  merchant_amount?: string | number | null;
 };
 
-type NowPaymentsPaymentResponse = {
-  payment_id?: string | number;
-  invoice_id?: string | number;
-  order_id?: string;
+type CryptomusWebhookPayload = CryptomusPaymentResult & {
+  type?: string;
+  sign?: string;
+  is_final?: boolean;
+  status?: string;
   payment_status?: string;
-  pay_currency?: string;
-  pay_amount?: number | string;
-  actually_paid?: number | string;
-  outcome_amount?: number | string;
-  outcome_currency?: string;
-  purchase_id?: string;
-  price_amount?: number | string;
-  price_currency?: string;
-  pay_address?: string;
-  tx_hash?: string;
-  updated_at?: string;
 };
 
-function getNowPaymentsApiKey() {
-  const apiKey = process.env.NOWPAYMENTS_API_KEY;
+function getCryptomusMerchantId() {
+  const merchantId =
+    process.env.CRYPTOMUS_MERCHANT_ID?.trim() ||
+    process.env.CRYPTOMUS_MERCHANT_UUID?.trim() ||
+    "";
+
+  if (!merchantId) {
+    throw new Error(
+      "CRYPTOMUS_MERCHANT_ID is required to create crypto payments."
+    );
+  }
+
+  return merchantId;
+}
+
+function getCryptomusPaymentApiKey() {
+  const apiKey =
+    process.env.CRYPTOMUS_PAYMENT_API_KEY?.trim() ||
+    process.env.CRYPTOMUS_API_KEY?.trim() ||
+    "";
 
   if (!apiKey) {
-    throw new Error("NOWPAYMENTS_API_KEY is required to create crypto payments.");
+    throw new Error(
+      "CRYPTOMUS_PAYMENT_API_KEY is required to create crypto payments."
+    );
   }
 
   return apiKey;
 }
 
-function getNowPaymentsApiUrl() {
-  const apiUrl = process.env.NOWPAYMENTS_API_URL || DEFAULT_NOWPAYMENTS_API_URL;
+function getCryptomusApiUrl() {
+  const apiUrl = process.env.CRYPTOMUS_API_URL || DEFAULT_CRYPTOMUS_API_URL;
   const normalizedApiUrl = apiUrl.replace(/\/$/, "");
 
   if (!normalizedApiUrl.startsWith("https://")) {
-    throw new Error("NOWPAYMENTS_API_URL must use https.");
+    throw new Error("CRYPTOMUS_API_URL must use https.");
   }
 
   return normalizedApiUrl;
-}
-
-function getNowPaymentsIpnSecret() {
-  const ipnSecret = process.env.NOWPAYMENTS_IPN_SECRET;
-
-  if (!ipnSecret) {
-    throw new Error("NOWPAYMENTS_IPN_SECRET is required to verify crypto payment webhooks.");
-  }
-
-  return ipnSecret;
 }
 
 function getAppUrl() {
@@ -144,7 +137,21 @@ function getAppUrl() {
   return appUrl.replace(/\/$/, "");
 }
 
-function toNumber(value: number | string | undefined) {
+/**
+ * Cryptomus sign: md5(base64(jsonBody) + API_KEY)
+ * PHP json_encode escapes slashes; Node must escape "/" as "\/" for webhook verify.
+ */
+export function createCryptomusSign(bodyJson: string, apiKey: string) {
+  const base64Body = Buffer.from(bodyJson, "utf8").toString("base64");
+  return crypto.createHash("md5").update(base64Body + apiKey).digest("hex");
+}
+
+function encodeCryptomusJson(payload: unknown) {
+  // Match PHP json_encode default slash escaping for signature compatibility.
+  return JSON.stringify(payload).replace(/\//g, "\\/");
+}
+
+function toNumber(value: number | string | null | undefined) {
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
   if (typeof value === "string" && value.trim()) {
     const parsed = Number(value);
@@ -153,215 +160,271 @@ function toNumber(value: number | string | undefined) {
   return null;
 }
 
-function normalizeNowPaymentsStatus(status: string | undefined): NormalizedPaymentStatus {
-  switch ((status || "").toLowerCase()) {
-    case "finished":
-    case "confirmed":
-    case "sending":
+/**
+ * Cryptomus payment_status / status values → normalized.
+ * @see https://doc.cryptomus.com/merchant-api/payments/payment-statuses
+ */
+export function normalizeCryptomusStatus(
+  status: string | undefined,
+  isFinal?: boolean
+): NormalizedPaymentStatus {
+  const value = (status || "").toLowerCase();
+
+  switch (value) {
+    case "paid":
+    case "paid_over":
       return "paid";
+    case "confirm_check":
+    case "process":
     case "confirming":
-    case "partially_paid":
+    case "wrong_amount_waiting":
+    case "check":
       return "processing";
-    case "failed":
-      return "failed";
-    case "expired":
-      return "expired";
-    case "refunded":
+    case "refund_process":
+      return "processing";
+    case "refund_paid":
       return "refunded";
-    case "waiting":
+    case "fail":
+    case "system_fail":
+    case "wrong_amount":
+    case "refund_fail":
+      return "failed";
+    case "cancel":
+    case "cancelled":
+    case "canceled":
+      return isFinal === false ? "pending" : "expired";
+    case "locked":
+      return "processing";
     default:
-      return "pending";
+      return isFinal ? "failed" : "pending";
   }
 }
 
-function mapPaymentUrl(data: NowPaymentsInvoiceResponse) {
-  return data.invoice_url || data.payment_url;
+function resolveLifetimeSeconds() {
+  const minutes = Number(process.env.PAYMENT_INVOICE_EXPIRY_MINUTES || "60");
+  const seconds = Math.round(
+    (Number.isFinite(minutes) && minutes > 0 ? minutes : 60) * 60
+  );
+  return Math.min(43200, Math.max(300, seconds));
 }
 
-function mapProviderPaymentId(data: NowPaymentsInvoiceResponse) {
-  return data.id?.toString() || data.invoice_id?.toString();
+function buildAllowedCurrencies() {
+  const raw =
+    process.env.CRYPTOMUS_CURRENCIES?.trim() ||
+    process.env.CRYPTOMUS_ALLOWED_CURRENCIES?.trim() ||
+    "USDT,USDC";
+
+  return raw
+    .split(",")
+    .map((part) => part.trim().toUpperCase())
+    .filter(Boolean)
+    .map((currency) => {
+      const [code, network] = currency.split(":");
+      if (network) {
+        return { currency: code, network: network.toLowerCase() };
+      }
+      return { currency: code };
+    });
 }
 
-function resolvePayCurrency(value?: string | null) {
-  const payCurrency = value?.trim().toLowerCase();
+async function cryptomusRequest<T>(
+  path: string,
+  payload: Record<string, unknown>
+): Promise<T> {
+  const bodyJson = encodeCryptomusJson(payload);
+  const sign = createCryptomusSign(bodyJson, getCryptomusPaymentApiKey());
 
-  if (!payCurrency || payCurrency === "all") {
-    return null;
+  const response = await fetch(`${getCryptomusApiUrl()}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      merchant: getCryptomusMerchantId(),
+      sign,
+    },
+    body: bodyJson,
+  });
+
+  const data = (await response.json().catch(() => null)) as
+    | CryptomusApiEnvelope<T>
+    | null;
+
+  if (!response.ok || !data || data.state !== 0 || data.result == null) {
+    const message =
+      data?.message ||
+      (data?.errors ? JSON.stringify(data.errors) : null) ||
+      "Unknown Cryptomus API error";
+    throw new Error(
+      `Cryptomus API error: ${response.status} ${message}`.trim()
+    );
   }
 
-  return payCurrency;
+  return data.result;
+}
+
+function mapExpiresAt(expiredAt: number | string | undefined): Date | null {
+  if (typeof expiredAt === "number" && Number.isFinite(expiredAt)) {
+    // Cryptomus expired_at is unix timestamp (seconds)
+    return new Date(expiredAt * 1000);
+  }
+  if (typeof expiredAt === "string" && expiredAt.trim()) {
+    const asNumber = Number(expiredAt);
+    if (Number.isFinite(asNumber) && asNumber > 1_000_000_000) {
+      return new Date(asNumber * 1000);
+    }
+    const parsed = new Date(expiredAt);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  return null;
 }
 
 export async function createPaymentInvoice(
   params: CreatePaymentInvoiceParams
 ): Promise<PaymentInvoice> {
   const appUrl = getAppUrl();
-  const payCurrency = resolvePayCurrency(
-    params.payCurrency || process.env.NOWPAYMENTS_PAY_CURRENCY
-  );
-  const body: Record<string, string | number | boolean> = {
-    price_amount: Number(params.amountUSD.toFixed(2)),
-    price_currency: "usd",
+  const amount = params.amountUSD.toFixed(2);
+  const lifetime = resolveLifetimeSeconds();
+
+  const payload: Record<string, unknown> = {
+    amount,
+    currency: "USD",
     order_id: params.orderId,
-    order_description: params.description || `EZTopUp order ${params.orderNumber}`,
-    ipn_callback_url: params.callbackUrl || `${appUrl}/api/payment/webhook`,
-    success_url: params.successUrl || `${appUrl}/order/success`,
-    cancel_url: params.cancelUrl || `${appUrl}/order/failed`,
-    partially_paid_url: params.cancelUrl || `${appUrl}/order/failed`,
-    is_fixed_rate: true,
-    is_fee_paid_by_user: false,
+    url_return: params.cancelUrl || `${appUrl}/order/failed`,
+    url_success: params.successUrl || `${appUrl}/order/success`,
+    url_callback: params.callbackUrl || `${appUrl}/api/payment/webhook`,
+    lifetime,
+    is_payment_multiple: false,
+    additional_data: params.description || `EZTopUp ${params.orderNumber}`,
   };
 
-  if (payCurrency) {
-    body.pay_currency = payCurrency;
+  // Prefer stablecoins: either force to_currency or restrict currencies list
+  const toCurrency =
+    params.payCurrency?.trim().toUpperCase() ||
+    process.env.CRYPTOMUS_TO_CURRENCY?.trim().toUpperCase() ||
+    "";
+
+  if (toCurrency) {
+    payload.to_currency = toCurrency;
+  } else {
+    const currencies = buildAllowedCurrencies();
+    if (currencies.length > 0) {
+      payload.currencies = currencies;
+    }
   }
 
-  const response = await fetch(`${getNowPaymentsApiUrl()}/invoice`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": getNowPaymentsApiKey(),
-    },
-    body: JSON.stringify(body),
-  });
+  const result = await cryptomusRequest<CryptomusPaymentResult>(
+    "/payment",
+    payload
+  );
 
-  const data = (await response.json().catch(() => null)) as
-    | NowPaymentsInvoiceResponse
-    | { message?: string; error?: string }
-    | null;
-
-  if (!response.ok) {
-    const message =
-      data && "message" in data
-        ? data.message
-        : data && "error" in data
-          ? data.error
-          : "Unknown NOWPayments API error";
-    throw new Error(`NOWPayments API error: ${response.status} ${message || ""}`.trim());
+  if (!result.uuid || !result.url) {
+    throw new Error(
+      "Cryptomus API response did not include a payment uuid or url."
+    );
   }
 
-  if (!data || !("invoice_url" in data || "payment_url" in data)) {
-    throw new Error("NOWPayments API response did not include a payment URL.");
-  }
-
-  const providerPaymentId = mapProviderPaymentId(data);
-  const paymentUrl = mapPaymentUrl(data);
-
-  if (!providerPaymentId || !paymentUrl) {
-    throw new Error("NOWPayments API response did not include a usable invoice ID.");
-  }
+  const providerStatus = result.payment_status || result.status || "check";
 
   return {
-    provider: "nowpayments",
-    providerPaymentId,
-    providerInvoiceId: data.invoice_id?.toString() || null,
-    paymentUrl,
-    status: normalizeNowPaymentsStatus(data.payment_status),
-    payCurrency: data.pay_currency || payCurrency,
-    expiresAt: null,
-    raw: data,
+    provider: "cryptomus",
+    providerPaymentId: result.uuid,
+    providerInvoiceId: result.uuid,
+    paymentUrl: result.url,
+    status: normalizeCryptomusStatus(providerStatus, result.is_final),
+    payCurrency: result.payer_currency || result.currency || toCurrency || null,
+    expiresAt: mapExpiresAt(result.expired_at),
+    raw: result,
   };
 }
 
-export async function getPaymentStatus(paymentId: string): Promise<PaymentWebhookEvent> {
-  const response = await fetch(`${getNowPaymentsApiUrl()}/payment/${paymentId}`, {
-    headers: {
-      "x-api-key": getNowPaymentsApiKey(),
-    },
-  });
-
-  const data = (await response.json().catch(() => null)) as
-    | NowPaymentsPaymentResponse
-    | { message?: string; error?: string }
-    | null;
-
-  if (!response.ok) {
-    const message =
-      data && "message" in data
-        ? data.message
-        : data && "error" in data
-          ? data.error
-          : "Unknown NOWPayments API error";
-    throw new Error(`NOWPayments API error: ${response.status} ${message || ""}`.trim());
+export async function getPaymentStatus(
+  paymentId: string
+): Promise<PaymentWebhookEvent> {
+  const uuid = paymentId.trim();
+  if (!uuid) {
+    throw new Error("paymentId is required.");
   }
 
-  if (!data || !("payment_id" in data || "invoice_id" in data)) {
-    throw new Error("NOWPayments payment response did not include a usable payment ID.");
-  }
+  const result = await cryptomusRequest<CryptomusPaymentResult>(
+    "/payment/info",
+    { uuid }
+  );
 
-  return mapNowPaymentsPaymentEvent(data);
+  return mapCryptomusPaymentEvent(result);
 }
 
-function sortForSignature(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map(sortForSignature);
-  }
-
-  if (value && typeof value === "object") {
-    return Object.keys(value as Record<string, unknown>)
-      .sort()
-      .reduce<Record<string, unknown>>((sorted, key) => {
-        sorted[key] = sortForSignature((value as Record<string, unknown>)[key]);
-        return sorted;
-      }, {});
-  }
-
-  return value;
-}
-
-export function verifyPaymentWebhook(rawBody: string, signature: string | null): boolean {
-  if (!signature) return false;
-
-  let parsed: unknown;
+/**
+ * Verify Cryptomus webhook body signature (sign field inside JSON).
+ */
+export function verifyPaymentWebhook(
+  rawBody: string,
+  _signatureHeader?: string | null
+): boolean {
+  let parsed: Record<string, unknown>;
   try {
-    parsed = JSON.parse(rawBody) as unknown;
+    parsed = JSON.parse(rawBody) as Record<string, unknown>;
   } catch {
     return false;
   }
 
-  const sortedBody = JSON.stringify(sortForSignature(parsed));
-  const calculated = crypto
-    .createHmac("sha512", getNowPaymentsIpnSecret())
-    .update(sortedBody)
-    .digest("hex");
+  const sign = typeof parsed.sign === "string" ? parsed.sign : null;
+  if (!sign) return false;
+
+  const { sign: _sign, ...rest } = parsed;
+  const encoded = encodeCryptomusJson(rest);
+  let apiKey: string;
+  try {
+    apiKey = getCryptomusPaymentApiKey();
+  } catch {
+    return false;
+  }
+
+  const calculated = createCryptomusSign(encoded, apiKey);
 
   try {
     return crypto.timingSafeEqual(
-      Buffer.from(calculated, "hex"),
-      Buffer.from(signature, "hex")
+      Buffer.from(calculated, "utf8"),
+      Buffer.from(sign, "utf8")
     );
   } catch {
-    return false;
+    return calculated === sign;
   }
 }
 
 export function parsePaymentWebhook(rawBody: string): PaymentWebhookEvent {
-  const body = JSON.parse(rawBody) as NowPaymentsIpnPayload;
-  return mapNowPaymentsPaymentEvent(body);
+  const body = JSON.parse(rawBody) as CryptomusWebhookPayload;
+  return mapCryptomusPaymentEvent(body);
 }
 
-function mapNowPaymentsPaymentEvent(
-  body: NowPaymentsIpnPayload | NowPaymentsPaymentResponse
+function mapCryptomusPaymentEvent(
+  body: CryptomusPaymentResult | CryptomusWebhookPayload
 ): PaymentWebhookEvent {
-  const providerPaymentId = body.payment_id?.toString() || body.invoice_id?.toString();
-  const orderId = body.order_id;
-  const providerStatus = body.payment_status || "unknown";
+  const providerPaymentId = body.uuid?.toString();
+  const orderId = body.order_id?.toString();
+  const providerStatus =
+    body.status || body.payment_status || "unknown";
 
   if (!providerPaymentId || !orderId) {
-    throw new Error("NOWPayments webhook payload is missing payment_id or order_id.");
+    throw new Error(
+      "Cryptomus webhook payload is missing uuid or order_id."
+    );
   }
 
+  const isFinal =
+    typeof body.is_final === "boolean" ? body.is_final : undefined;
+
   return {
-    provider: "nowpayments",
+    provider: "cryptomus",
     providerPaymentId,
-    providerInvoiceId: body.invoice_id?.toString() || null,
+    providerInvoiceId: body.uuid?.toString() || null,
     orderId,
-    status: normalizeNowPaymentsStatus(providerStatus),
+    status: normalizeCryptomusStatus(providerStatus, isFinal),
     providerStatus,
-    payCurrency: body.pay_currency || body.outcome_currency || null,
-    payAmount: toNumber(body.pay_amount),
-    actuallyPaid: toNumber(body.actually_paid ?? body.outcome_amount),
-    txHash: body.tx_hash || null,
+    payCurrency: body.payer_currency || body.currency || null,
+    payAmount: toNumber(body.payer_amount ?? body.amount),
+    actuallyPaid: toNumber(
+      body.payment_amount_usd ?? body.payment_amount ?? body.merchant_amount
+    ),
+    txHash: body.txid || null,
     raw: body,
   };
 }
