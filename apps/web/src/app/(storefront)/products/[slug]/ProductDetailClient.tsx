@@ -38,10 +38,21 @@ interface Props {
 
 /** Direct top-up products that need in-game account fields (not voucher codes). */
 function productRequiresGameAccount(product: Product) {
-  if (product.slug === "mobile-legends") return true;
-  return product.variants.some((variant) =>
-    /^ML[\d_]/i.test(variant.supplierSku || "")
-  );
+  const slug = product.slug.toLowerCase();
+  const name = product.name.toLowerCase();
+  if (
+    slug === "mobile-legends" ||
+    slug.includes("mobile-legends") ||
+    name.includes("mobile legends") ||
+    name.includes("mlbb")
+  ) {
+    return true;
+  }
+  return product.variants.some((variant) => {
+    const sku = (variant.supplierSku || "").trim();
+    // Supplier codes like ML15_2-S121
+    return /^ML[\d_]/i.test(sku) || /^MLBB/i.test(sku);
+  });
 }
 
 export default function ProductDetailClient({ product, relatedProducts }: Props) {
@@ -69,9 +80,11 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
   const variant = product.variants.find((v) => v.id === selectedVariant);
   const loginEmail = user?.primaryEmailAddress?.emailAddress || "";
   const recipientEmail = emailWasEdited ? email : loginEmail;
+  const gameIdReady = gameId.trim().length > 0;
+  const serverIdReady = serverId.trim().length > 0;
+  // MLBB User ID + Zone are mandatory before Pay / Login to Pay
   const gameAccountReady =
-    !requiresGameAccount ||
-    (gameId.trim().length > 0 && serverId.trim().length > 0);
+    !requiresGameAccount || (gameIdReady && serverIdReady);
 
   const openBulkPurchaseModal = () => {
     setShowBulkModal(true);
@@ -311,28 +324,33 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
               </div>
             </FadeUp>
 
-            {/* Direct top-up account (e.g. Mobile Legends) */}
+            {/* MLBB / direct top-up — User ID + Zone required before pay */}
             {requiresGameAccount && (
               <FadeUp delay={0.29}>
                 <div className="space-y-3">
                   <Input
-                    label="User ID"
+                    label="User ID *"
                     type="text"
                     placeholder="Your MLBB User ID"
                     value={gameId}
                     onChange={(e) => setGameId(e.target.value)}
                     autoComplete="off"
+                    required
+                    aria-required="true"
                   />
                   <Input
-                    label="Zone / Server ID"
+                    label="Zone / Server ID *"
                     type="text"
                     placeholder="Zone ID (e.g. 1234)"
                     value={serverId}
                     onChange={(e) => setServerId(e.target.value)}
                     autoComplete="off"
+                    required
+                    aria-required="true"
                   />
                   <p className="text-xs text-text-muted">
-                    Open Mobile Legends → profile → copy User ID and Zone ID.
+                    Required for Mobile Legends top-up. Open MLBB → profile →
+                    copy User ID and Zone ID.
                   </p>
                 </div>
               </FadeUp>
@@ -415,6 +433,8 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                   <>Loading...</>
                 ) : quantity <= 0 ? (
                   <>Select Quantity</>
+                ) : requiresGameAccount && !gameAccountReady ? (
+                  <>Enter User ID &amp; Zone ID</>
                 ) : !isSignedIn ? (
                   <>
                     <User size={18} weight="bold" />
@@ -432,7 +452,12 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                   </>
                 )}
               </Button>
-              {usesCryptoCheckout && (
+              {requiresGameAccount && !gameAccountReady && (
+                <p className="text-center text-xs text-amber-400/90 mt-2">
+                  Enter your MLBB User ID and Zone ID to enable checkout.
+                </p>
+              )}
+              {usesCryptoCheckout && gameAccountReady && (
                 <p className="text-center text-xs text-text-muted mt-2">
                   Powered by Cryptomus · USDT / USDC checkout
                 </p>
