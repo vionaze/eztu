@@ -84,29 +84,29 @@ export default async function DashboardPage() {
   ];
 
   return (
-    <div className="space-y-8">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <>
+      <div className="admin-bento admin-bento-4">
         {stats.map((stat) => (
-          <Card key={stat.label} variant="default" padding="md" className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
-                <stat.icon size={20} className="text-accent" />
-              </div>
+          <div key={stat.label} className="admin-tile gap-2.5">
+            <div className="w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center">
+              <stat.icon size={18} className="text-accent" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-text-primary tracking-tight">
+              <p className="text-xl font-bold text-text-primary tracking-tight tabular-nums">
                 {stat.value}
               </p>
-              <p className="text-xs text-text-muted mt-1">{stat.label}</p>
+              <p className="text-[11px] text-text-muted mt-0.5">{stat.label}</p>
             </div>
-          </Card>
+          </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card variant="default" padding="none" className="lg:col-span-2 overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-            <h2 className="text-sm font-semibold text-text-primary">Recent Orders</h2>
+      <div className="admin-bento admin-bento-3">
+        <Card variant="default" padding="none" className="lg:col-span-2 overflow-hidden !p-0">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border/80">
+            <h2 className="text-[13px] font-semibold text-text-primary">
+              Recent Orders
+            </h2>
             <Link
               href="/admin/orders"
               className="text-xs font-medium text-accent hover:text-accent-hover inline-flex items-center gap-1"
@@ -116,7 +116,7 @@ export default async function DashboardPage() {
           </div>
           <div className="divide-y divide-border">
             {recentOrders.length === 0 ? (
-              <p className="px-5 py-10 text-sm text-text-muted text-center">
+              <p className="px-4 py-8 text-sm text-text-muted text-center">
                 No orders yet.
               </p>
             ) : (
@@ -128,7 +128,7 @@ export default async function DashboardPage() {
                 return (
                   <div
                     key={order.id}
-                    className="flex items-center justify-between gap-4 px-5 py-3.5"
+                    className="flex items-center justify-between gap-3 px-4 py-2.5"
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -163,8 +163,8 @@ export default async function DashboardPage() {
           </div>
         </Card>
 
-        <Card variant="default" padding="md" className="space-y-3 h-fit">
-          <h2 className="text-sm font-semibold text-text-primary">Quick Actions</h2>
+        <div className="admin-tile h-fit gap-2">
+          <p className="admin-tile-title">Quick actions</p>
           {[
             { label: "Add Product", href: "/admin/products/new" },
             { label: "View Orders", href: "/admin/orders" },
@@ -175,14 +175,14 @@ export default async function DashboardPage() {
             <Link
               key={action.href}
               href={action.href}
-              className="flex items-center justify-between rounded-xl border border-border px-3 py-2.5 text-sm text-text-secondary hover:text-text-primary hover:border-accent/30 transition-colors"
+              className="flex items-center justify-between rounded-lg border border-border/80 px-2.5 py-2 text-[13px] text-text-secondary hover:text-text-primary hover:border-accent/30 transition-colors"
             >
               {action.label}
               <ArrowRight size={14} />
             </Link>
           ))}
-        </Card>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

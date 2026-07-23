@@ -93,6 +93,111 @@ body {
 }
 
 /* ============================================================
+   Admin UI — density + bento (professional console layout)
+   ============================================================ */
+
+.admin-scope {
+  --admin-gap: 1.25rem;
+  --admin-tile-pad: 1.125rem;
+}
+
+.admin-page {
+  width: 100%;
+  max-width: 72rem; /* ~1152px — readable console width */
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--admin-gap);
+}
+
+.admin-page-wide {
+  max-width: 80rem; /* tables / logs */
+}
+
+.admin-bento {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .admin-bento {
+    gap: 1rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .admin-bento-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .admin-bento-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .admin-bento-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.admin-tile {
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-card);
+  padding: var(--admin-tile-pad);
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  min-width: 0;
+}
+
+.admin-tile-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.admin-tile-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+.admin-tile-desc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin-top: 0.2rem;
+}
+
+.admin-page-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+}
+
+.admin-page-toolbar p {
+  margin: 0;
+}
+
+/* Tighter form stacks inside admin tiles */
+.admin-scope .admin-field-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.admin-scope .admin-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+/* ============================================================
    Liquid Glass Effect
    ============================================================ */
 

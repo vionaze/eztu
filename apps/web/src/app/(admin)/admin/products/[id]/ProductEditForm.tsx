@@ -216,7 +216,7 @@ export default function ProductEditForm({
   };
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="space-y-4">
       <FadeUp>
         <Link
           href="/admin/products"

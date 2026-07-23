@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Button, Card, Input } from "@kupon/ui";
+import { Button, Input } from "@kupon/ui";
 import {
   MagicWand,
   SpinnerGap,
@@ -238,165 +238,171 @@ export default function BlogAiSettingsForm({ initial }: { initial: Initial }) {
   };
 
   return (
-    <Card variant="default" padding="lg" className="space-y-5 border-fuchsia-400/15">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <MagicWand size={18} className="text-fuchsia-300" />
-          <h3 className="text-sm font-semibold text-text-primary">
-            Blog AI auto articles
-          </h3>
+    <div className="space-y-3">
+      {/* Master + scope */}
+      <div className="admin-bento admin-bento-2">
+        <div className="admin-tile border-fuchsia-400/15 lg:col-span-1">
+          <div className="admin-tile-header">
+            <div className="flex items-center gap-2 min-w-0">
+              <MagicWand size={16} className="text-fuchsia-300 shrink-0" />
+              <div>
+                <p className="admin-tile-title">Blog AI</p>
+                <p className="admin-tile-desc">
+                  Master switch — OFF memblokir generate &amp; cron.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={enabled}
+              onClick={() => setEnabled((v) => !v)}
+              className={`relative h-6 w-11 shrink-0 rounded-full transition-colors cursor-pointer ${
+                enabled ? "bg-emerald-500/80" : "bg-zinc-600"
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+                  enabled ? "translate-x-5" : ""
+                }`}
+              />
+            </button>
+          </div>
         </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={enabled}
-          onClick={() => setEnabled((v) => !v)}
-          className={`relative h-7 w-12 rounded-full transition-colors cursor-pointer ${
-            enabled ? "bg-emerald-500/80" : "bg-zinc-600"
-          }`}
-        >
-          <span
-            className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white transition-transform ${
-              enabled ? "translate-x-5" : ""
-            }`}
-          />
-        </button>
+        <div className="admin-tile border-sky-400/15 bg-sky-400/[0.04]">
+          <p className="text-xs leading-relaxed text-sky-100/90">
+            <strong className="text-sky-300">Scope:</strong> hanya konten{" "}
+            <strong>BlogPost</strong> (generate / publish blog). Tidak menyentuh
+            payment, order, user, atau admin lain.
+          </p>
+        </div>
       </div>
 
-      <p className="text-xs text-text-muted leading-relaxed">
-        Master switch for AI article generation. When{" "}
-        <strong className="text-text-secondary">OFF</strong>, manual generate
-        and scheduled jobs are blocked.
-      </p>
-      <p className="text-xs rounded-xl border border-sky-400/25 bg-sky-400/5 px-3 py-2 text-sky-100/90 leading-relaxed">
-        <strong className="text-sky-300">Scope:</strong> AI hanya membuat konten{" "}
-        <strong>BlogPost</strong> (generate + optional auto-publish ke storefront
-        blog). Tidak menyentuh payment, order, user, atau admin lain.
-      </p>
-
-      <Input
-        label="AI Base URL"
-        placeholder="https://api.openai.com/v1"
-        value={baseUrl}
-        onChange={(e) => setBaseUrl(e.target.value)}
-      />
-      <Input
-        label={
-          initial.hasApiKey
-            ? "API Key (leave blank to keep current)"
-            : "API Key"
-        }
-        type="password"
-        placeholder={initial.hasApiKey ? "•••• currently set ••••" : "sk-…"}
-        value={apiKey}
-        onChange={(e) => setApiKey(e.target.value)}
-        autoComplete="off"
-      />
-      <Input
-        label="Model"
-        placeholder="gpt-4o-mini"
-        value={model}
-        onChange={(e) => setModel(e.target.value)}
-      />
-      {/* Editable country list */}
-      <div className="space-y-3 rounded-xl border border-border bg-bg-elevated/30 p-4">
+      {/* API credentials bento */}
+      <div className="admin-tile">
         <div>
-          <p className="text-sm font-semibold text-text-primary">
-            Negara / market target (editable)
-          </p>
-          <p className="text-xs text-text-muted mt-0.5">
-            Tambah atau hapus kode negara bebas (contoh:{" "}
-            <code className="text-text-secondary">ID</code>,{" "}
-            <code className="text-text-secondary">BR</code>,{" "}
-            <code className="text-text-secondary">GLOBAL</code>). List ini
-            dipakai di form artikel + jadwal AI.
+          <p className="admin-tile-title">API connection</p>
+          <p className="admin-tile-desc">
+            OpenAI-compatible endpoint (OpenAI, OpenRouter, Groq, …)
           </p>
         </div>
-
-        {countryList.length === 0 ? (
-          <p className="text-xs text-amber-400">
-            Belum ada negara. Tambah minimal satu (mis. GLOBAL atau ID).
-          </p>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {countryList.map((code) => (
-              <span
-                key={code}
-                className="inline-flex items-center gap-1 rounded-full border border-border bg-bg-card pl-3 pr-1 py-1 text-xs font-medium text-text-primary"
-              >
-                {code}
-                <button
-                  type="button"
-                  onClick={() => removeCountry(code)}
-                  className="w-6 h-6 rounded-full flex items-center justify-center text-text-muted hover:text-red-400 hover:bg-red-400/10 cursor-pointer"
-                  aria-label={`Hapus ${code}`}
-                  title={`Hapus ${code}`}
-                >
-                  <X size={12} weight="bold" />
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-
-        <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
-          <div className="flex-1">
+        <div className="admin-bento admin-bento-3 admin-field-stack !gap-3">
+          <div className="lg:col-span-2">
             <Input
-              label="Tambah kode negara"
-              placeholder="mis. ID, MY, BR, GLOBAL"
-              value={newCountry}
-              onChange={(e) => setNewCountry(e.target.value.toUpperCase())}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  addCountry(newCountry);
-                }
-              }}
+              label="Base URL"
+              placeholder="https://api.openai.com/v1"
+              value={baseUrl}
+              onChange={(e) => setBaseUrl(e.target.value)}
             />
           </div>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => addCountry(newCountry)}
-            disabled={!normalizeCountryCode(newCountry)}
-          >
-            <Plus size={14} weight="bold" />
-            Tambah
-          </Button>
+          <Input
+            label="Model"
+            placeholder="gpt-4o-mini"
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+          />
+          <div className="lg:col-span-3">
+            <Input
+              label={
+                initial.hasApiKey
+                  ? "API Key (kosongkan = tetap pakai yang tersimpan)"
+                  : "API Key"
+              }
+              type="password"
+              placeholder={
+                initial.hasApiKey ? "•••• currently set ••••" : "sk-…"
+              }
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              autoComplete="off"
+            />
+          </div>
         </div>
+      </div>
 
-        {presetToAdd.length > 0 ? (
-          <div className="space-y-1.5">
-            <p className="text-[11px] text-text-muted">Quick add:</p>
-            <div className="flex flex-wrap gap-1.5">
-              {presetToAdd.map((code) => (
+      {/* Countries + schedule side by side on lg */}
+      <div className="admin-bento admin-bento-2">
+        {/* Countries */}
+        <div className="admin-tile">
+          <div>
+            <p className="admin-tile-title">Negara / market</p>
+            <p className="admin-tile-desc">
+              Chip editable — dipakai form artikel &amp; jadwal AI.
+            </p>
+          </div>
+
+          {countryList.length === 0 ? (
+            <p className="text-xs text-amber-400">
+              Belum ada negara. Tambah minimal satu.
+            </p>
+          ) : (
+            <div className="admin-chip-row">
+              {countryList.map((code) => (
+                <span
+                  key={code}
+                  className="inline-flex items-center gap-0.5 rounded-full border border-border bg-bg-elevated/50 pl-2.5 pr-0.5 py-0.5 text-[11px] font-medium text-text-primary"
+                >
+                  {code}
+                  <button
+                    type="button"
+                    onClick={() => removeCountry(code)}
+                    className="w-5 h-5 rounded-full flex items-center justify-center text-text-muted hover:text-red-400 hover:bg-red-400/10 cursor-pointer"
+                    aria-label={`Hapus ${code}`}
+                  >
+                    <X size={10} weight="bold" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div className="flex gap-2 items-end">
+            <div className="flex-1 min-w-0">
+              <Input
+                label="Tambah kode"
+                placeholder="ID, MY, BR…"
+                value={newCountry}
+                onChange={(e) => setNewCountry(e.target.value.toUpperCase())}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addCountry(newCountry);
+                  }
+                }}
+              />
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => addCountry(newCountry)}
+              disabled={!normalizeCountryCode(newCountry)}
+            >
+              <Plus size={14} weight="bold" />
+              Add
+            </Button>
+          </div>
+
+          {presetToAdd.length > 0 ? (
+            <div className="admin-chip-row">
+              {presetToAdd.slice(0, 8).map((code) => (
                 <button
                   key={code}
                   type="button"
                   onClick={() => addCountry(code)}
-                  className="rounded-md border border-dashed border-border px-2 py-0.5 text-[11px] text-text-muted hover:text-accent hover:border-accent/40 cursor-pointer"
+                  className="rounded-md border border-dashed border-border px-1.5 py-0.5 text-[10px] text-text-muted hover:text-accent hover:border-accent/40 cursor-pointer"
                 >
-                  + {code}
+                  +{code}
                 </button>
               ))}
             </div>
-          </div>
-        ) : null}
+          ) : null}
 
-        <div className="space-y-2 pt-2 border-t border-border">
-          <p className="text-sm font-medium text-text-secondary">
-            Aktifkan AI otomatis per negara
-          </p>
-          <p className="text-xs text-text-muted">
-            Centang negara yang ikut jadwal auto-generate. Bahasa mengikuti
-            negara (ID→Indonesia, MY→EN-MY, dll.).
-          </p>
-          {countryList.length === 0 ? (
-            <p className="text-xs text-text-muted">
-              Tambah negara dulu di atas.
+          <div className="pt-2 border-t border-border/80 space-y-2">
+            <p className="text-[11px] font-medium text-text-secondary">
+              Auto-generate aktif
             </p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
+            <div className="admin-chip-row">
               {countryList.map((code) => {
                 const on = autoCountries.includes(code);
                 return (
@@ -404,7 +410,7 @@ export default function BlogAiSettingsForm({ initial }: { initial: Initial }) {
                     key={code}
                     type="button"
                     onClick={() => toggleAuto(code)}
-                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors cursor-pointer ${
+                    className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium cursor-pointer ${
                       on
                         ? "border-fuchsia-400/40 bg-fuchsia-400/15 text-fuchsia-200"
                         : "border-border text-text-muted hover:text-text-primary"
@@ -416,158 +422,147 @@ export default function BlogAiSettingsForm({ initial }: { initial: Initial }) {
                 );
               })}
             </div>
-          )}
+          </div>
         </div>
-      </div>
 
-      {/* Schedule */}
-      <div className="space-y-4 pt-2 border-t border-border">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Clock size={18} className="text-amber-300" />
-            <div>
-              <p className="text-sm font-semibold text-text-primary">
-                Jadwal artikel otomatis
-              </p>
-              <p className="text-xs text-text-muted">
-                Cron hit hourly; sistem jalan sesuai interval di bawah.
-              </p>
+        {/* Schedule */}
+        <div className="admin-tile">
+          <div className="admin-tile-header">
+            <div className="flex items-center gap-2 min-w-0">
+              <Clock size={16} className="text-amber-300 shrink-0" />
+              <div>
+                <p className="admin-tile-title">Jadwal otomatis</p>
+                <p className="admin-tile-desc">
+                  Cron hourly · throttle by interval
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={scheduleEnabled}
+              onClick={() => setScheduleEnabled((v) => !v)}
+              className={`relative h-6 w-11 shrink-0 rounded-full transition-colors cursor-pointer ${
+                scheduleEnabled ? "bg-amber-500/80" : "bg-zinc-600"
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+                  scheduleEnabled ? "translate-x-5" : ""
+                }`}
+              />
+            </button>
+          </div>
+
+          <div className="space-y-1.5">
+            <p className="text-[11px] font-medium text-text-secondary">
+              Interval
+            </p>
+            <div className="admin-chip-row">
+              {(initial.intervalOptions.length
+                ? initial.intervalOptions
+                : [1, 2, 4, 8, 12]
+              ).map((h) => (
+                <button
+                  key={h}
+                  type="button"
+                  onClick={() => setIntervalHours(h)}
+                  className={`rounded-full border px-2.5 py-1 text-[11px] font-medium cursor-pointer ${
+                    intervalHours === h
+                      ? "border-amber-400/50 bg-amber-400/15 text-amber-200"
+                      : "border-border text-text-muted hover:text-text-primary"
+                  }`}
+                >
+                  {h}h
+                </button>
+              ))}
             </div>
           </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={scheduleEnabled}
-            onClick={() => setScheduleEnabled((v) => !v)}
-            className={`relative h-7 w-12 rounded-full transition-colors cursor-pointer ${
-              scheduleEnabled ? "bg-amber-500/80" : "bg-zinc-600"
-            }`}
-          >
-            <span
-              className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white transition-transform ${
-                scheduleEnabled ? "translate-x-5" : ""
-              }`}
-            />
-          </button>
-        </div>
 
-        <div className="space-y-2">
-          <p className="text-xs font-medium text-text-secondary">
-            Interval
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {(initial.intervalOptions.length
-              ? initial.intervalOptions
-              : [1, 2, 4, 8, 12]
-            ).map((h) => (
-              <button
-                key={h}
-                type="button"
-                onClick={() => setIntervalHours(h)}
-                className={`rounded-full border px-3 py-1.5 text-xs font-medium cursor-pointer transition-colors ${
-                  intervalHours === h
-                    ? "border-amber-400/50 bg-amber-400/15 text-amber-200"
-                    : "border-border text-text-muted hover:text-text-primary"
-                }`}
-              >
-                Setiap {h} jam
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <p className="text-xs font-medium text-text-secondary">
-            Jumlah artikel per run
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {(initial.countOptions.length
-              ? initial.countOptions
-              : [1, 2, 5, 6, 7, 8, 10, 12]
-            ).map((n) => (
-              <button
-                key={n}
-                type="button"
-                onClick={() => setArticlesPerRun(n)}
-                className={`rounded-full border px-3 py-1.5 text-xs font-medium cursor-pointer transition-colors ${
-                  articlesPerRun === n
-                    ? "border-fuchsia-400/50 bg-fuchsia-400/15 text-fuchsia-200"
-                    : "border-border text-text-muted hover:text-text-primary"
-                }`}
-              >
-                {n} artikel
-              </button>
-            ))}
-          </div>
-          <p className="text-[11px] text-text-muted">
-            Contoh: 6 artikel + negara ID,MY → dirotasi ID, MY, ID, MY, ID, MY.
-          </p>
-        </div>
-
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-bg-elevated/40 px-3 py-2.5">
-          <div>
-            <p className="text-sm font-medium text-text-secondary">
-              Auto-publish
+          <div className="space-y-1.5">
+            <p className="text-[11px] font-medium text-text-secondary">
+              Artikel / run
             </p>
-            <p className="text-xs text-text-muted">
-              ON = langsung live di /blog. OFF = simpan sebagai draft.
-            </p>
+            <div className="admin-chip-row">
+              {(initial.countOptions.length
+                ? initial.countOptions
+                : [1, 2, 5, 6, 7, 8, 10, 12]
+              ).map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setArticlesPerRun(n)}
+                  className={`rounded-full border px-2.5 py-1 text-[11px] font-medium cursor-pointer ${
+                    articlesPerRun === n
+                      ? "border-fuchsia-400/50 bg-fuchsia-400/15 text-fuchsia-200"
+                      : "border-border text-text-muted hover:text-text-primary"
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
           </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={autoPublish}
-            onClick={() => setAutoPublish((v) => !v)}
-            className={`relative h-7 w-12 rounded-full transition-colors cursor-pointer ${
-              autoPublish ? "bg-emerald-500/80" : "bg-zinc-600"
-            }`}
-          >
-            <span
-              className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white transition-transform ${
-                autoPublish ? "translate-x-5" : ""
+
+          <div className="flex items-center justify-between gap-2 rounded-lg border border-border/80 bg-bg-elevated/30 px-2.5 py-2">
+            <div className="min-w-0">
+              <p className="text-[12px] font-medium text-text-secondary">
+                Auto-publish
+              </p>
+              <p className="text-[10px] text-text-muted">Live di /blog</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={autoPublish}
+              onClick={() => setAutoPublish((v) => !v)}
+              className={`relative h-6 w-11 shrink-0 rounded-full cursor-pointer ${
+                autoPublish ? "bg-emerald-500/80" : "bg-zinc-600"
               }`}
-            />
-          </button>
-        </div>
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+                  autoPublish ? "translate-x-5" : ""
+                }`}
+              />
+            </button>
+          </div>
 
-        {lastRunAt ? (
-          <p className="text-[11px] text-text-muted font-mono">
-            Last run: {new Date(lastRunAt).toLocaleString()}
+          <p className="text-[10px] text-text-muted font-mono">
+            {lastRunAt
+              ? `Last: ${new Date(lastRunAt).toLocaleString()}`
+              : "Belum pernah dijalankan"}
           </p>
-        ) : (
-          <p className="text-[11px] text-text-muted">Belum pernah dijalankan.</p>
-        )}
 
-        <div className="flex flex-wrap gap-2">
           <Button
             type="button"
             variant="secondary"
+            size="sm"
             onClick={runNow}
             disabled={running || saving || !enabled}
+            className="w-full sm:w-auto"
           >
             {running ? (
-              <SpinnerGap size={16} className="animate-spin" />
+              <SpinnerGap size={14} className="animate-spin" />
             ) : (
-              <Play size={16} weight="fill" />
+              <Play size={14} weight="fill" />
             )}
             {running ? "Running…" : "Run now"}
           </Button>
         </div>
       </div>
 
-      {/* Editable system prompt */}
-      <div className="space-y-2 pt-2 border-t border-border">
-        <div className="flex items-start justify-between gap-3 flex-wrap">
+      {/* Prompt full width */}
+      <div className="admin-tile">
+        <div className="admin-tile-header">
           <div>
-            <p className="text-sm font-medium text-text-secondary">
-              System prompt (editable)
-            </p>
-            <p className="text-xs text-text-muted mt-0.5">
-              Scope lock blog-only tetap ditambah di server.{" "}
+            <p className="admin-tile-title">System prompt</p>
+            <p className="admin-tile-desc">
+              Scope lock blog-only ditambah server.{" "}
               {hasCustom ? (
-                <span className="text-fuchsia-300">Custom prompt aktif.</span>
+                <span className="text-fuchsia-300">Custom aktif.</span>
               ) : (
-                <span className="text-text-muted">Default bawaan.</span>
+                <span>Default bawaan.</span>
               )}
             </p>
           </div>
@@ -582,28 +577,36 @@ export default function BlogAiSettingsForm({ initial }: { initial: Initial }) {
             }}
           >
             <ArrowCounterClockwise size={14} />
-            Reset default
+            Reset
           </Button>
         </div>
         <textarea
           value={systemPrompt}
           onChange={(e) => setSystemPrompt(e.target.value)}
-          rows={12}
+          rows={10}
           spellCheck={false}
-          className="w-full rounded-xl bg-bg-card border border-border px-3 py-2.5 text-xs font-mono text-text-primary placeholder:text-text-muted leading-relaxed resize-y min-h-[180px] focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/20"
+          className="w-full rounded-xl bg-bg-elevated/40 border border-border px-3 py-2.5 text-xs font-mono text-text-primary leading-relaxed resize-y min-h-[140px] focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/20"
           placeholder={initial.defaultSystemPrompt}
         />
       </div>
 
-      {message ? (
-        <p className="text-xs text-emerald-400 whitespace-pre-wrap">{message}</p>
-      ) : null}
-      {error ? <p className="text-xs text-red-400">{error}</p> : null}
+      {(message || error) && (
+        <div className="space-y-1">
+          {message ? (
+            <p className="text-xs text-emerald-400 whitespace-pre-wrap">
+              {message}
+            </p>
+          ) : null}
+          {error ? <p className="text-xs text-red-400">{error}</p> : null}
+        </div>
+      )}
 
-      <Button onClick={() => save()} disabled={saving || running}>
-        {saving ? <SpinnerGap size={16} className="animate-spin" /> : null}
-        {saving ? "Saving…" : "Save Blog AI settings"}
-      </Button>
-    </Card>
+      <div className="flex flex-wrap gap-2 pt-0.5">
+        <Button onClick={() => save()} disabled={saving || running}>
+          {saving ? <SpinnerGap size={16} className="animate-spin" /> : null}
+          {saving ? "Saving…" : "Save Blog AI settings"}
+        </Button>
+      </div>
+    </div>
   );
 }

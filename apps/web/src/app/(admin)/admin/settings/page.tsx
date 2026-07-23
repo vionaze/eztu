@@ -3,7 +3,6 @@ import {
   getBlogAiSettings,
 } from "@/lib/settings";
 import BlogAiSettingsForm from "./BlogAiSettingsForm";
-import { Card } from "@kupon/ui";
 import { Key, Bell, Globe } from "@phosphor-icons/react/dist/ssr";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +18,7 @@ export default async function AdminSettingsPage() {
         : "";
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <>
       <BlogAiSettingsForm
         initial={{
           enabled: ai.enabled,
@@ -42,56 +41,42 @@ export default async function AdminSettingsPage() {
         }}
       />
 
-      {/* Payments — env only (security) */}
-      <Card variant="default" padding="lg" className="space-y-3">
-        <div className="flex items-center gap-2">
-          <Key size={18} className="text-accent" />
-          <h3 className="text-sm font-semibold text-text-primary">
-            Cryptomus (env only)
-          </h3>
+      {/* Infra info bento */}
+      <div className="admin-bento admin-bento-3">
+        <div className="admin-tile">
+          <div className="flex items-center gap-2">
+            <Key size={16} className="text-accent shrink-0" />
+            <p className="admin-tile-title">Cryptomus</p>
+          </div>
+          <p className="admin-tile-desc">
+            Secrets hanya di env VPS:{" "}
+            <code className="text-text-secondary">CRYPTOMUS_*</code> — tidak
+            diedit dari browser.
+          </p>
         </div>
-        <p className="text-xs text-text-muted leading-relaxed">
-          Payment secrets stay in server environment variables — not editable
-          from the browser. Set{" "}
-          <code className="text-text-secondary">CRYPTOMUS_MERCHANT_ID</code>,{" "}
-          <code className="text-text-secondary">CRYPTOMUS_PAYMENT_API_KEY</code>
-          , and{" "}
-          <code className="text-text-secondary">CRYPTOMUS_CURRENCIES</code> on
-          the VPS.
-        </p>
-      </Card>
-
-      {/* Discord sales */}
-      <Card variant="default" padding="lg" className="space-y-3">
-        <div className="flex items-center gap-2">
-          <Bell size={18} className="text-emerald-400" />
-          <h3 className="text-sm font-semibold text-text-primary">
-            Sales → Discord
-          </h3>
+        <div className="admin-tile">
+          <div className="flex items-center gap-2">
+            <Bell size={16} className="text-emerald-400 shrink-0" />
+            <p className="admin-tile-title">Sales → Discord</p>
+          </div>
+          <p className="admin-tile-desc">
+            Paid orders →{" "}
+            <code className="text-text-secondary">DISCORD_WEBHOOK_URL</code>.
+            Fraud →{" "}
+            <code className="text-text-secondary">DISCORD_FRAUD_WEBHOOK_URL</code>
+            .
+          </p>
         </div>
-        <p className="text-xs text-text-muted leading-relaxed">
-          Paid orders are sent to{" "}
-          <code className="text-text-secondary">DISCORD_WEBHOOK_URL</code>{" "}
-          (sales channel only). Fraud uses{" "}
-          <code className="text-text-secondary">DISCORD_FRAUD_WEBHOOK_URL</code>
-          . Also logged under{" "}
-          <span className="text-emerald-300 font-medium">Sales</span> on the
-          Logs page.
-        </p>
-      </Card>
-
-      <Card variant="glass" padding="md">
-        <div className="flex items-center gap-2 mb-2">
-          <Globe size={18} className="text-accent" />
-          <h3 className="text-sm font-semibold text-text-primary">Site</h3>
-        </div>
-        <p className="text-xs text-text-muted">
-          Public site URL:{" "}
-          <code className="text-text-secondary">
+        <div className="admin-tile">
+          <div className="flex items-center gap-2">
+            <Globe size={16} className="text-accent shrink-0" />
+            <p className="admin-tile-title">Site URL</p>
+          </div>
+          <p className="admin-tile-desc font-mono break-all">
             {process.env.NEXT_PUBLIC_APP_URL || "not set"}
-          </code>
-        </p>
-      </Card>
-    </div>
+          </p>
+        </div>
+      </div>
+    </>
   );
 }

@@ -41,46 +41,46 @@ function SidebarContent({
 }) {
   return (
     <div className="flex flex-col h-full">
-      {/* Logo — single wordmark, matches storefront scale */}
-      <div className="flex items-center gap-2.5 px-4 py-4 border-b border-border">
+      {/* Logo */}
+      <div className="flex items-center gap-2 px-3 py-3 border-b border-border/80">
         <Link
           href="/admin/dashboard"
           onClick={onNavigate}
           className="flex items-center gap-2 min-w-0"
         >
           {!collapsed ? (
-            <div className="relative h-8 w-[140px] shrink-0">
+            <div className="relative h-7 w-[128px] shrink-0">
               <Image
                 src="/logo.png"
                 alt="EZTopUp"
                 fill
                 className="object-contain object-left"
-                sizes="140px"
+                sizes="128px"
                 priority
               />
             </div>
           ) : (
-            <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-lg">
+            <div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-md">
               <Image
                 src="/logo.png"
                 alt="EZTopUp"
                 fill
                 className="object-cover object-left"
-                sizes="32px"
+                sizes="28px"
                 priority
               />
             </div>
           )}
         </Link>
         {!collapsed && (
-          <span className="text-[10px] text-text-muted whitespace-nowrap">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-text-muted">
             Admin
           </span>
         )}
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-1">
+      <nav className="flex-1 px-2.5 py-3 space-y-0.5">
         {sidebarLinks.map((link) => {
           const active = isActive(link.href);
           return (
@@ -89,10 +89,10 @@ function SidebarContent({
               href={link.href}
               onClick={onNavigate}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
+                "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium transition-colors",
                 active
                   ? "bg-accent/10 text-accent border border-accent/20"
-                  : "text-text-secondary hover:text-text-primary hover:bg-white/5"
+                  : "text-text-secondary hover:text-text-primary hover:bg-white/[0.04] border border-transparent"
               )}
             >
               <link.icon
@@ -107,11 +107,10 @@ function SidebarContent({
       </nav>
 
       {/* Bottom Actions */}
-      <div className="px-3 py-4 border-t border-border space-y-1">
-        {/* Collapse toggle (desktop only) */}
+      <div className="px-2.5 py-3 border-t border-border/80 space-y-0.5">
         <button
           onClick={onToggleCollapsed}
-          className="hidden md:flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium text-text-muted hover:text-text-primary hover:bg-white/5 transition-all cursor-pointer"
+          className="hidden md:flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-[13px] font-medium text-text-muted hover:text-text-primary hover:bg-white/[0.04] transition-colors cursor-pointer"
         >
           <CaretLeft
             size={18}
@@ -123,10 +122,9 @@ function SidebarContent({
           {!collapsed && <span>Collapse</span>}
         </button>
 
-        {/* Back to storefront */}
         <Link
           href="/"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-text-muted hover:text-text-primary hover:bg-white/5 transition-all"
+          className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium text-text-muted hover:text-text-primary hover:bg-white/[0.04] transition-colors"
         >
           <SignOut size={18} className="flex-shrink-0" />
           {!collapsed && <span>Back to Store</span>}
@@ -149,8 +147,8 @@ export default function AdminSidebar() {
       {/* Desktop Sidebar */}
       <aside
         className={cn(
-          "hidden md:flex flex-col fixed top-0 left-0 bottom-0 z-40 bg-bg-secondary border-r border-border transition-all duration-300",
-          collapsed ? "w-[72px]" : "w-[240px]"
+          "hidden md:flex flex-col fixed top-0 left-0 bottom-0 z-40 bg-bg-secondary/95 border-r border-border/80 transition-all duration-300",
+          collapsed ? "w-[64px]" : "w-[232px]"
         )}
       >
         <SidebarContent
@@ -162,24 +160,22 @@ export default function AdminSidebar() {
       </aside>
 
       {/* Mobile Top Bar */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-40 h-14 bg-bg-secondary border-b border-border flex items-center px-4 gap-3">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-40 h-14 bg-bg-secondary/95 border-b border-border/80 flex items-center px-3 gap-2.5">
         <button
           onClick={() => setMobileOpen(true)}
-          className="w-9 h-9 rounded-xl flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-white/5 transition-all cursor-pointer"
+          className="w-9 h-9 rounded-lg flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-white/5 transition-colors cursor-pointer"
           aria-label="Open menu"
         >
           <List size={20} />
         </button>
-        <div className="flex items-center gap-2">
-          <div className="relative h-8 w-28">
-            <Image
-              src="/logo.png"
-              alt="EZTopUp"
-              fill
-              className="object-contain object-left"
-              sizes="112px"
-            />
-          </div>
+        <div className="relative h-7 w-28">
+          <Image
+            src="/logo.png"
+            alt="EZTopUp"
+            fill
+            className="object-contain object-left"
+            sizes="112px"
+          />
         </div>
       </div>
 
@@ -199,7 +195,7 @@ export default function AdminSidebar() {
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="md:hidden fixed top-0 left-0 bottom-0 z-50 w-[240px] bg-bg-secondary border-r border-border"
+              className="md:hidden fixed top-0 left-0 bottom-0 z-50 w-[232px] bg-bg-secondary border-r border-border/80"
             >
               <SidebarContent
                 collapsed={false}

@@ -21,26 +21,26 @@ export default async function AdminProductsPage() {
   const publishedCount = products.filter((p) => p.published).length;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <>
+      <div className="admin-page-toolbar">
         <div>
-          <p className="text-sm text-text-secondary">
+          <p className="text-[13px] text-text-secondary">
             {products.length} products · {publishedCount} published ·{" "}
             {products.length - publishedCount} hidden
           </p>
-          <p className="text-xs text-text-muted mt-0.5">
-            Klik produk untuk lihat detail, edit variant, hide/show storefront.
+          <p className="text-[11px] text-text-muted mt-0.5">
+            Klik produk untuk detail, edit variant, hide/show storefront.
           </p>
         </div>
         <Link href="/admin/products/new">
-          <Button>
-            <Plus size={16} weight="bold" />
+          <Button size="sm">
+            <Plus size={15} weight="bold" />
             New Product
           </Button>
         </Link>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         {products.length === 0 ? (
           <Card padding="lg" className="text-center text-sm text-text-muted">
             No products yet.{" "}
@@ -57,13 +57,13 @@ export default async function AdminProductsPage() {
               <Card
                 key={product.id}
                 padding="none"
-                className="flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3 hover:border-accent/25 transition-colors"
+                className="flex items-center gap-2.5 sm:gap-3 px-3 py-2.5 hover:border-accent/25 transition-colors"
               >
                 <Link
                   href={`/admin/products/${product.id}`}
-                  className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1 group"
+                  className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 group"
                 >
-                  <div className="relative h-14 w-14 rounded-xl overflow-hidden bg-bg-elevated shrink-0">
+                  <div className="relative h-12 w-12 rounded-lg overflow-hidden bg-bg-elevated shrink-0">
                     {product.image ? (
                       <Image
                         src={product.image}
@@ -142,6 +142,6 @@ export default async function AdminProductsPage() {
           })
         )}
       </div>
-    </div>
+    </>
   );
 }

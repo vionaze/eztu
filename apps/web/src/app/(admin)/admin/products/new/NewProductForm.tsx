@@ -133,11 +133,11 @@ export default function NewProductForm({
   };
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="space-y-4">
       <FadeUp>
         <Link
           href="/admin/products"
-          className="inline-flex items-center gap-1.5 text-sm text-text-secondary hover:text-accent transition-colors group"
+          className="inline-flex items-center gap-1.5 text-[13px] text-text-secondary hover:text-accent transition-colors group"
         >
           <ArrowLeft
             size={14}
@@ -165,8 +165,8 @@ export default function NewProductForm({
 
       {/* Fulfillment type */}
       <FadeUp delay={0.08}>
-        <Card variant="default" padding="lg" className="space-y-4">
-          <h3 className="text-sm font-semibold text-text-primary">
+        <Card variant="default" padding="md" className="space-y-3">
+          <h3 className="text-[13px] font-semibold text-text-primary">
             Tipe produk
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -239,8 +239,8 @@ export default function NewProductForm({
       </FadeUp>
 
       <FadeUp delay={0.1}>
-        <Card variant="default" padding="lg" className="space-y-5">
-          <h3 className="text-sm font-semibold text-text-primary">
+        <Card variant="default" padding="md" className="space-y-3.5">
+          <h3 className="text-[13px] font-semibold text-text-primary">
             Basic Information
           </h3>
           <Input
@@ -330,8 +330,8 @@ export default function NewProductForm({
       </FadeUp>
 
       <FadeUp delay={0.15}>
-        <Card variant="default" padding="lg" className="space-y-5">
-          <h3 className="text-sm font-semibold text-text-primary">
+        <Card variant="default" padding="md" className="space-y-3">
+          <h3 className="text-[13px] font-semibold text-text-primary">
             Product Image
           </h3>
           <Input
@@ -355,9 +355,9 @@ export default function NewProductForm({
       </FadeUp>
 
       <FadeUp delay={0.2}>
-        <Card variant="default" padding="lg" className="space-y-5">
+        <Card variant="default" padding="md" className="space-y-3.5">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-text-primary">
+            <h3 className="text-[13px] font-semibold text-text-primary">
               Variants ({variants.length})
             </h3>
             <Button variant="ghost" size="sm" onClick={addVariant}>

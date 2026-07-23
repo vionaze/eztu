@@ -79,13 +79,13 @@ export default async function AdminOrdersPage({
   });
 
   return (
-    <div className="space-y-6">
+    <>
       <OrdersFilterClient initialQ={q} initialStatus={status} />
-      <p className="text-xs text-text-muted">
-        Klik baris order untuk preview lengkap: package, qty, email, User ID /
-        Zone (top-up), payment &amp; fulfillment.
+      <p className="text-[11px] text-text-muted -mt-1">
+        Klik baris → preview lengkap (package, qty, email, User ID/Zone,
+        payment).
       </p>
       <OrdersTableClient orders={rows} />
-    </div>
+    </>
   );
 }

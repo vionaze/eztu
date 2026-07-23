@@ -185,60 +185,55 @@ export default function CategoriesManager({
     deleting != null && confirmName.trim() === deleting.name;
 
   return (
-    <div className="space-y-6 max-w-3xl">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <>
+      <div className="admin-page-toolbar">
         <div>
-          <p className="text-sm text-text-secondary">
+          <p className="text-[13px] text-text-secondary">
             {categories.length} categor
             {categories.length === 1 ? "y" : "ies"}
             {uncategorized > 0
               ? ` · ${uncategorized} uncategorized product(s)`
               : ""}
           </p>
-          <p className="text-xs text-text-muted mt-0.5">
-            Contoh: <strong className="text-text-secondary">Top-up</strong>,{" "}
-            <strong className="text-text-secondary">Game Vouchers</strong> /
-            kode voucher. Edit nama &amp; slug; hapus butuh konfirmasi nama.
+          <p className="text-[11px] text-text-muted mt-0.5">
+            Top-up, Game Vouchers, dll. Edit nama/slug · hapus = ketik nama
+            persis.
           </p>
         </div>
-        <Button type="button" onClick={() => setShowCreate(true)}>
-          <Plus size={16} weight="bold" />
+        <Button type="button" size="sm" onClick={() => setShowCreate(true)}>
+          <Plus size={15} weight="bold" />
           Add category
         </Button>
       </div>
 
       {message ? (
-        <p className="text-sm text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 rounded-xl px-4 py-3">
+        <p className="text-xs text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 rounded-xl px-3 py-2">
           {message}
         </p>
       ) : null}
       {error && !deleting ? (
-        <p className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-xl px-4 py-3">
+        <p className="text-xs text-red-400 bg-red-400/10 border border-red-400/20 rounded-xl px-3 py-2">
           {error}
         </p>
       ) : null}
 
       {uncategorized > 0 ? (
-        <Card
-          padding="md"
-          className="border-amber-400/25 bg-amber-400/5 text-sm text-amber-100/90"
-        >
-          <strong className="text-amber-300">{uncategorized} product(s)</strong>{" "}
-          tanpa kategori. Buka{" "}
-          <a href="/admin/products" className="text-accent underline">
-            Products
-          </a>{" "}
-          → edit produk → pilih kategori lagi.
-        </Card>
+        <div className="admin-tile border-amber-400/25 bg-amber-400/5 !gap-1">
+          <p className="text-[13px] text-amber-100/90">
+            <strong className="text-amber-300">{uncategorized} product(s)</strong>{" "}
+            tanpa kategori — assign di{" "}
+            <a href="/admin/products" className="text-accent underline">
+              Products
+            </a>
+            .
+          </p>
+        </div>
       ) : null}
 
-      {/* Create panel */}
       {showCreate ? (
-        <Card variant="default" padding="lg" className="space-y-4 border-accent/20">
+        <div className="admin-tile border-accent/20 gap-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-text-primary">
-              Kategori baru
-            </h3>
+            <h3 className="admin-tile-title">Kategori baru</h3>
             <button
               type="button"
               onClick={() => setShowCreate(false)}
@@ -265,36 +260,34 @@ export default function CategoriesManager({
             onChange={(e) => setNewSlug(e.target.value)}
           />
           <div className="flex gap-2">
-            <Button onClick={createCategory} disabled={creating}>
+            <Button size="sm" onClick={createCategory} disabled={creating}>
               {creating ? (
-                <SpinnerGap size={16} className="animate-spin" />
+                <SpinnerGap size={14} className="animate-spin" />
               ) : (
-                <Plus size={16} />
+                <Plus size={14} />
               )}
               {creating ? "Saving…" : "Create"}
             </Button>
-            <Button variant="ghost" onClick={() => setShowCreate(false)}>
+            <Button size="sm" variant="ghost" onClick={() => setShowCreate(false)}>
               Cancel
             </Button>
           </div>
-        </Card>
+        </div>
       ) : null}
 
-      {/* List */}
-      <div className="space-y-3">
+      <div className="admin-bento admin-bento-2">
         {categories.length === 0 ? (
-          <Card padding="lg" className="text-center text-sm text-text-muted">
-            Belum ada kategori. Klik <strong>Add category</strong> untuk mulai
-            (mis. Top-up, Game Vouchers).
-          </Card>
+          <div className="admin-tile text-center text-[13px] text-text-muted lg:col-span-2">
+            Belum ada kategori. Klik <strong>Add category</strong> (mis. Top-up,
+            Game Vouchers).
+          </div>
         ) : (
           categories.map((cat) => {
             const isEditing = editingId === cat.id;
             return (
-              <Card
+              <div
                 key={cat.id}
-                padding="md"
-                className="space-y-3 hover:border-white/10 transition-colors"
+                className="admin-tile gap-2.5 hover:border-white/12 transition-colors"
               >
                 {isEditing ? (
                   <div className="space-y-3">
@@ -366,13 +359,12 @@ export default function CategoriesManager({
                     </div>
                   </div>
                 )}
-              </Card>
+              </div>
             );
           })
         )}
       </div>
 
-      {/* Delete modal */}
       {deleting ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <button
@@ -385,11 +377,7 @@ export default function CategoriesManager({
               setError("");
             }}
           />
-          <Card
-            variant="default"
-            padding="lg"
-            className="relative w-full max-w-md space-y-4 border-red-400/30"
-          >
+          <div className="admin-tile relative w-full max-w-md border-red-400/30 z-10 gap-3">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-xl bg-red-400/15 flex items-center justify-center shrink-0">
                 <Warning size={22} className="text-red-400" />
@@ -467,9 +455,9 @@ export default function CategoriesManager({
                 Cancel
               </Button>
             </div>
-          </Card>
+          </div>
         </div>
       ) : null}
-    </div>
+    </>
   );
 }
