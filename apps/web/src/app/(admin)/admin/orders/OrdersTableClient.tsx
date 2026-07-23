@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { formatPrice, cn } from "@/lib/utils";
+import { formatPrice, cn, formatAdminDateTime } from "@/lib/utils";
 import { Badge, Button, Card } from "@kupon/ui";
 import { X } from "@phosphor-icons/react";
 
@@ -159,7 +159,7 @@ export default function OrdersTableClient({ orders }: { orders: AdminOrderRow[] 
 
       {selected ? (
         <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
           role="dialog"
           aria-modal="true"
         >
@@ -169,134 +169,135 @@ export default function OrdersTableClient({ orders }: { orders: AdminOrderRow[] 
             aria-label="Close"
             onClick={() => setSelectedId(null)}
           />
-          <div className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-t-2xl sm:rounded-2xl border border-border bg-bg-secondary shadow-2xl">
-            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-5 py-4 border-b border-border bg-bg-secondary/95 backdrop-blur">
-              <div>
-                <p className="text-xs text-text-muted uppercase tracking-wide">
+          {/* No max-height / no overflow scroll — compact single-screen panel */}
+          <div className="relative w-full max-w-2xl rounded-2xl border border-border bg-bg-secondary shadow-2xl overflow-hidden">
+            <div className="flex items-start justify-between gap-3 px-4 py-3 border-b border-border">
+              <div className="min-w-0">
+                <p className="text-[10px] text-text-muted uppercase tracking-wide">
                   Order detail
                 </p>
-                <h2 className="text-lg font-bold font-mono text-text-primary">
+                <h2 className="text-base font-bold font-mono text-text-primary">
                   {selected.orderNumber}
                 </h2>
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  <span
+                    className={cn(
+                      "text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full",
+                      statusStyles[selected.status]
+                    )}
+                  >
+                    {selected.status}
+                  </span>
+                  {selected.supplierStatus ? (
+                    <Badge variant="muted">{selected.supplierStatus}</Badge>
+                  ) : null}
+                  {selected.fulfillmentType ? (
+                    <Badge variant="muted">
+                      {selected.fulfillmentType === "TOP_UP"
+                        ? "Top-up"
+                        : "Voucher"}
+                    </Badge>
+                  ) : null}
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setSelectedId(null)}
-                className="w-9 h-9 rounded-xl flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-white/5 cursor-pointer"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-white/5 cursor-pointer shrink-0"
               >
-                <X size={18} />
+                <X size={16} />
               </button>
             </div>
 
-            <div className="p-5 space-y-5">
-              <div className="flex flex-wrap gap-2">
-                <span
-                  className={cn(
-                    "text-[10px] font-semibold uppercase px-2 py-1 rounded-full",
-                    statusStyles[selected.status]
-                  )}
-                >
-                  {selected.status}
-                </span>
-                {selected.supplierStatus ? (
-                  <Badge variant="muted">{selected.supplierStatus}</Badge>
-                ) : null}
-                {selected.fulfillmentType ? (
-                  <Badge variant="muted">
-                    {selected.fulfillmentType === "TOP_UP"
-                      ? "Top-up"
-                      : "Voucher"}
-                  </Badge>
-                ) : null}
-              </div>
-
-              {/* Product summary — mirrors storefront card */}
-              <Card variant="default" padding="md" className="space-y-2">
-                <p className="text-xs font-semibold text-text-muted uppercase">
+            <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Product */}
+              <div className="rounded-xl border border-border bg-bg-card/80 p-3 space-y-1.5 sm:col-span-2">
+                <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wide">
                   Product
                 </p>
                 <p className="text-sm font-semibold text-text-primary">
                   {selected.productName || "—"}
+                  {selected.variantName ? (
+                    <span className="font-normal text-text-secondary">
+                      {" "}
+                      · {selected.variantName}
+                    </span>
+                  ) : null}
                 </p>
-                <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="grid grid-cols-3 gap-2 text-xs">
                   <div>
-                    <p className="text-xs text-text-muted">Package</p>
-                    <p className="text-text-secondary">
-                      {selected.variantName || "—"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-text-muted">Quantity</p>
-                    <p className="text-text-secondary font-mono">
+                    <p className="text-text-muted">Qty</p>
+                    <p className="font-mono text-text-primary">
                       {selected.quantity}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-text-muted">Unit price</p>
-                    <p className="text-text-secondary font-mono">
+                    <p className="text-text-muted">Unit</p>
+                    <p className="font-mono text-text-primary">
                       {selected.unitPriceIDR != null
                         ? formatPrice(selected.unitPriceIDR)
                         : "—"}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-text-muted">Total</p>
-                    <p className="text-accent font-semibold font-mono">
+                    <p className="text-text-muted">Total</p>
+                    <p className="font-mono font-semibold text-accent">
                       {formatPrice(selected.totalIDR)}
                     </p>
-                    <p className="text-[11px] text-text-muted">
+                    <p className="text-[10px] text-text-muted">
                       ${selected.totalUSD.toFixed(2)}
                     </p>
                   </div>
                 </div>
-              </Card>
+              </div>
 
-              {/* Customer inputs — same fields as product checkout */}
-              <Card variant="default" padding="md" className="space-y-3">
-                <p className="text-xs font-semibold text-text-muted uppercase">
+              {/* Customer */}
+              <div className="rounded-xl border border-border bg-bg-card/80 p-3 space-y-1.5">
+                <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wide">
                   Customer inputs
                 </p>
                 <div>
-                  <p className="text-xs text-text-muted">Recipient Email</p>
-                  <p className="text-sm text-text-primary break-all">
+                  <p className="text-[10px] text-text-muted">Email</p>
+                  <p className="text-xs text-text-primary break-all">
                     {selected.email}
                   </p>
                 </div>
                 {showAccount ? (
-                  <>
+                  <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <p className="text-xs text-text-muted">
+                      <p className="text-[10px] text-text-muted">
                         {selected.gameIdLabel || "User ID"}
                       </p>
-                      <p className="text-sm font-mono text-text-primary">
+                      <p className="text-xs font-mono text-text-primary">
                         {selected.gameId || "—"}
                       </p>
                     </div>
                     {(selected.requiresServerId || selected.serverId) && (
                       <div>
-                        <p className="text-xs text-text-muted">
+                        <p className="text-[10px] text-text-muted">
                           {selected.serverIdLabel || "Zone / Server ID"}
                         </p>
-                        <p className="text-sm font-mono text-text-primary">
+                        <p className="text-xs font-mono text-text-primary">
                           {selected.serverId || "—"}
                         </p>
                       </div>
                     )}
-                  </>
+                  </div>
                 ) : (
-                  <p className="text-xs text-text-muted">
-                    Produk voucher — tidak ada User ID / Zone (hanya email).
+                  <p className="text-[11px] text-text-muted">
+                    Voucher — no User ID / Zone
                   </p>
                 )}
-              </Card>
+              </div>
 
-              <Card variant="default" padding="md" className="space-y-2">
-                <p className="text-xs font-semibold text-text-muted uppercase">
+              {/* Payment */}
+              <div className="rounded-xl border border-border bg-bg-card/80 p-3 space-y-1.5">
+                <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wide">
                   Payment
                 </p>
-                <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
-                    <p className="text-xs text-text-muted">Method</p>
+                    <p className="text-[10px] text-text-muted">Method</p>
                     <p className="text-text-secondary uppercase">
                       {selected.paymentCurrency ||
                         selected.paymentProvider ||
@@ -304,71 +305,56 @@ export default function OrdersTableClient({ orders }: { orders: AdminOrderRow[] 
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-text-muted">Paid at</p>
-                    <p className="text-text-secondary text-xs">
+                    <p className="text-[10px] text-text-muted">Paid at</p>
+                    <p className="text-text-secondary text-[11px] font-mono">
                       {selected.paidAt
-                        ? new Date(selected.paidAt).toLocaleString()
+                        ? formatAdminDateTime(selected.paidAt)
                         : "—"}
                     </p>
                   </div>
-                  {selected.discountIDR > 0 ? (
-                    <div>
-                      <p className="text-xs text-text-muted">Discount</p>
-                      <p className="text-text-secondary font-mono">
-                        {formatPrice(selected.discountIDR)}
-                      </p>
-                    </div>
-                  ) : null}
                 </div>
                 {selected.paymentUrl ? (
                   <a
                     href={selected.paymentUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-accent hover:underline break-all"
+                    className="text-[11px] text-accent hover:underline"
                     onClick={(e) => e.stopPropagation()}
                   >
                     Open payment URL
                   </a>
                 ) : null}
-              </Card>
+              </div>
 
-              {(selected.voucherCode || selected.supplierError) && (
-                <Card variant="default" padding="md" className="space-y-2">
-                  <p className="text-xs font-semibold text-text-muted uppercase">
-                    Fulfillment detail
+              {/* Fulfillment — always show row for consistency */}
+              <div className="rounded-xl border border-border bg-bg-card/80 p-3 space-y-1 sm:col-span-2">
+                <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wide">
+                  Fulfillment
+                </p>
+                {selected.voucherCode ? (
+                  <p className="text-xs font-mono text-emerald-300">
+                    Code: {selected.voucherCode}
                   </p>
-                  {selected.voucherCode ? (
-                    <div>
-                      <p className="text-xs text-text-muted">Voucher code</p>
-                      <p className="text-sm font-mono text-emerald-300">
-                        {selected.voucherCode}
-                      </p>
-                    </div>
-                  ) : null}
-                  {selected.supplierError ? (
-                    <div>
-                      <p className="text-xs text-text-muted">Error</p>
-                      <p className="text-sm text-red-400">
-                        {selected.supplierError}
-                      </p>
-                    </div>
-                  ) : null}
-                </Card>
-              )}
+                ) : null}
+                {selected.supplierError ? (
+                  <p className="text-xs text-red-400 break-words">
+                    {selected.supplierError}
+                  </p>
+                ) : !selected.voucherCode ? (
+                  <p className="text-[11px] text-text-muted">
+                    Status: {selected.supplierStatus || "—"}
+                  </p>
+                ) : null}
+                <p className="text-[10px] text-text-muted font-mono pt-0.5">
+                  Created {formatAdminDateTime(selected.createdAt)}
+                </p>
+              </div>
+            </div>
 
-              <p className="text-[11px] text-text-muted">
-                Created:{" "}
-                {new Date(selected.createdAt).toLocaleString("en-US", {
-                  dateStyle: "full",
-                  timeStyle: "medium",
-                  timeZone: "Asia/Jakarta",
-                })}{" "}
-                (WIB)
-              </p>
-
+            <div className="px-4 pb-3">
               <Button
                 variant="secondary"
+                size="sm"
                 className="w-full"
                 onClick={() => setSelectedId(null)}
               >
