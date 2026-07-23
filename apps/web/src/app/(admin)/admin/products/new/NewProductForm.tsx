@@ -9,10 +9,19 @@ import {
   Plus,
   Trash,
   ImageSquare,
+  SpinnerGap,
 } from "@phosphor-icons/react";
 import Link from "next/link";
 
 type CategoryOption = { id: string; name: string };
+
+type VariantRow = {
+  name: string;
+  priceIDR: string;
+  priceUSD: string;
+  supplierSku: string;
+  supplierCostIDR: string;
+};
 
 export default function NewProductForm({
   categories,
@@ -23,22 +32,46 @@ export default function NewProductForm({
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
-  const [categoryId, setCategoryId] = useState("");
+  const [categoryId, setCategoryId] = useState(categories[0]?.id || "");
   const [imageUrl, setImageUrl] = useState("");
   const [featured, setFeatured] = useState(false);
-  const [variants, setVariants] = useState([
-    { name: "", priceIDR: "", priceUSD: "" },
+  const [published, setPublished] = useState(true);
+  const [fulfillmentType, setFulfillmentType] = useState<"TOP_UP" | "VOUCHER">(
+    "VOUCHER"
+  );
+  const [requiresServerId, setRequiresServerId] = useState(false);
+  const [gameIdLabel, setGameIdLabel] = useState("User ID");
+  const [serverIdLabel, setServerIdLabel] = useState("Zone / Server ID");
+  const [variants, setVariants] = useState<VariantRow[]>([
+    {
+      name: "",
+      priceIDR: "",
+      priceUSD: "",
+      supplierSku: "",
+      supplierCostIDR: "",
+    },
   ]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   const addVariant = () => {
-    setVariants([...variants, { name: "", priceIDR: "", priceUSD: "" }]);
+    setVariants([
+      ...variants,
+      {
+        name: "",
+        priceIDR: "",
+        priceUSD: "",
+        supplierSku: "",
+        supplierCostIDR: "",
+      },
+    ]);
   };
 
   const removeVariant = (index: number) => {
     setVariants(variants.filter((_, i) => i !== index));
   };
 
-  const updateVariant = (index: number, field: string, value: string) => {
+  const updateVariant = (index: number, field: keyof VariantRow, value: string) => {
     const updated = [...variants];
     updated[index] = { ...updated[index], [field]: value };
     setVariants(updated);
@@ -53,6 +86,54 @@ export default function NewProductForm({
         .replace(/[\s_-]+/g, "-")
         .replace(/^-+|-+$/g, "")
     );
+  };
+
+  const save = async () => {
+    setError("");
+    if (!name.trim()) {
+      setError("Product name is required.");
+      return;
+    }
+    if (!categoryId) {
+      setError("Select a category.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch("/api/admin/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          slug,
+          description,
+          image: imageUrl || undefined,
+          categoryId,
+          featured,
+          published,
+          fulfillmentType,
+          requiresServerId:
+            fulfillmentType === "TOP_UP" ? requiresServerId : false,
+          gameIdLabel,
+          serverIdLabel,
+          variants: variants.map((v) => ({
+            name: v.name,
+            priceIDR: v.priceIDR,
+            priceUSD: v.priceUSD || String(Number(v.priceIDR) / 15500),
+            supplierSku: v.supplierSku || null,
+            supplierCostIDR: v.supplierCostIDR || null,
+          })),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Save failed");
+      router.push("/admin/products");
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -75,9 +156,90 @@ export default function NewProductForm({
           New Product
         </h2>
         <p className="text-xs text-text-muted mt-1">
-          Scaffold form — full product create API can be wired next. Categories
-          load from the live database.
+          Pilih tipe fulfillment: <strong>Top-up</strong> (butuh User ID / Zone)
+          atau <strong>Kode voucher</strong> (kirim kode saja).
         </p>
+      </FadeUp>
+
+      {error ? (
+        <p className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-xl px-4 py-3">
+          {error}
+        </p>
+      ) : null}
+
+      {/* Fulfillment type */}
+      <FadeUp delay={0.08}>
+        <Card variant="default" padding="lg" className="space-y-4">
+          <h3 className="text-sm font-semibold text-text-primary">
+            Tipe produk
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setFulfillmentType("TOP_UP")}
+              className={`rounded-xl border px-4 py-3 text-left transition-colors cursor-pointer ${
+                fulfillmentType === "TOP_UP"
+                  ? "border-accent/50 bg-accent/10 text-text-primary"
+                  : "border-border text-text-muted hover:text-text-primary"
+              }`}
+            >
+              <p className="text-sm font-semibold">Top-up (akun game)</p>
+              <p className="text-xs mt-1 opacity-80">
+                Customer isi User ID (± Zone). Disimpan di order sebagai gameId /
+                serverId.
+              </p>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setFulfillmentType("VOUCHER");
+                setRequiresServerId(false);
+              }}
+              className={`rounded-xl border px-4 py-3 text-left transition-colors cursor-pointer ${
+                fulfillmentType === "VOUCHER"
+                  ? "border-accent/50 bg-accent/10 text-text-primary"
+                  : "border-border text-text-muted hover:text-text-primary"
+              }`}
+            >
+              <p className="text-sm font-semibold">Kode voucher</p>
+              <p className="text-xs mt-1 opacity-80">
+                Tidak minta User ID/Zone. Kirim kode voucher ke email.
+              </p>
+            </button>
+          </div>
+
+          {fulfillmentType === "TOP_UP" ? (
+            <div className="space-y-3 pt-2 border-t border-border">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={requiresServerId}
+                  onChange={(e) => setRequiresServerId(e.target.checked)}
+                  className="rounded border-border"
+                />
+                <span className="text-sm text-text-secondary">
+                  Wajib Zone / Server ID (contoh MLBB)
+                </span>
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Input
+                  label="Label field ID"
+                  value={gameIdLabel}
+                  onChange={(e) => setGameIdLabel(e.target.value)}
+                  placeholder="User ID"
+                />
+                {requiresServerId ? (
+                  <Input
+                    label="Label field Zone"
+                    value={serverIdLabel}
+                    onChange={(e) => setServerIdLabel(e.target.value)}
+                    placeholder="Zone / Server ID"
+                  />
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+        </Card>
       </FadeUp>
 
       <FadeUp delay={0.1}>
@@ -106,7 +268,7 @@ export default function NewProductForm({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Product description..."
               rows={3}
-              className="w-full rounded-xl bg-bg-card border border-border px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted transition-all focus:outline-none focus:border-accent/50 resize-none"
+              className="w-full rounded-xl bg-bg-card border border-border px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:border-accent/50"
             />
           </div>
           <div className="space-y-1.5">
@@ -127,26 +289,44 @@ export default function NewProductForm({
             </select>
             {categories.length === 0 ? (
               <p className="text-xs text-amber-400">
-                No categories in database yet.
+                No categories — buat kategori dulu di database/seed.
               </p>
             ) : null}
           </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setFeatured(!featured)}
-              className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer ${
-                featured ? "bg-accent" : "bg-bg-elevated"
-              }`}
-            >
-              <span
-                className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-                  featured ? "translate-x-5" : ""
+          <div className="flex flex-wrap gap-6">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <button
+                type="button"
+                onClick={() => setFeatured(!featured)}
+                className={`relative w-10 h-5 rounded-full transition-colors ${
+                  featured ? "bg-accent" : "bg-bg-elevated"
                 }`}
-              />
-            </button>
-            <span className="text-sm text-text-secondary">Featured product</span>
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                    featured ? "translate-x-5" : ""
+                  }`}
+                />
+              </button>
+              <span className="text-sm text-text-secondary">Featured</span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <button
+                type="button"
+                onClick={() => setPublished(!published)}
+                className={`relative w-10 h-5 rounded-full transition-colors ${
+                  published ? "bg-accent" : "bg-bg-elevated"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                    published ? "translate-x-5" : ""
+                  }`}
+                />
+              </button>
+              <span className="text-sm text-text-secondary">Published</span>
+            </label>
           </div>
         </Card>
       </FadeUp>
@@ -158,7 +338,7 @@ export default function NewProductForm({
           </h3>
           <Input
             label="Image URL"
-            placeholder="https://example.com/image.jpg"
+            placeholder="https://example.com/image.jpg or /images/…"
             value={imageUrl}
             onChange={(e) => setImageUrl(e.target.value)}
             icon={<ImageSquare size={16} />}
@@ -192,49 +372,53 @@ export default function NewProductForm({
             {variants.map((variant, i) => (
               <div
                 key={i}
-                className="grid grid-cols-1 sm:grid-cols-4 gap-3 p-4 rounded-xl bg-bg-secondary/50 border border-border"
+                className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-xl bg-bg-secondary/50 border border-border"
               >
-                <div className="sm:col-span-2">
-                  <Input
-                    placeholder="e.g. 86 Diamonds"
-                    value={variant.name}
-                    onChange={(e) => updateVariant(i, "name", e.target.value)}
-                    label={i === 0 ? "Name" : undefined}
-                  />
-                </div>
-                <div>
-                  <Input
-                    placeholder="19000"
-                    value={variant.priceIDR}
-                    onChange={(e) =>
-                      updateVariant(i, "priceIDR", e.target.value)
-                    }
-                    label={i === 0 ? "Price (IDR)" : undefined}
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <Input
-                      placeholder="1.20"
-                      value={variant.priceUSD}
-                      onChange={(e) =>
-                        updateVariant(i, "priceUSD", e.target.value)
-                      }
-                      label={i === 0 ? "Price (USD)" : undefined}
-                    />
-                  </div>
-                  {variants.length > 1 ? (
+                <Input
+                  placeholder="e.g. 86 Diamonds / IDR 50K"
+                  value={variant.name}
+                  onChange={(e) => updateVariant(i, "name", e.target.value)}
+                  label={i === 0 ? "Variant name" : undefined}
+                />
+                <Input
+                  placeholder="ML15_2-S121"
+                  value={variant.supplierSku}
+                  onChange={(e) =>
+                    updateVariant(i, "supplierSku", e.target.value)
+                  }
+                  label={i === 0 ? "Supplier SKU" : undefined}
+                />
+                <Input
+                  placeholder="19000"
+                  value={variant.priceIDR}
+                  onChange={(e) => updateVariant(i, "priceIDR", e.target.value)}
+                  label={i === 0 ? "Price (IDR)" : undefined}
+                />
+                <Input
+                  placeholder="1.20"
+                  value={variant.priceUSD}
+                  onChange={(e) => updateVariant(i, "priceUSD", e.target.value)}
+                  label={i === 0 ? "Price (USD)" : undefined}
+                />
+                <Input
+                  placeholder="optional cost"
+                  value={variant.supplierCostIDR}
+                  onChange={(e) =>
+                    updateVariant(i, "supplierCostIDR", e.target.value)
+                  }
+                  label={i === 0 ? "Supplier cost IDR" : undefined}
+                />
+                {variants.length > 1 ? (
+                  <div className="flex items-end">
                     <button
                       type="button"
                       onClick={() => removeVariant(i)}
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center text-text-muted hover:text-red-400 hover:bg-red-400/5 transition-all cursor-pointer flex-shrink-0 ${
-                        i === 0 ? "mt-6" : ""
-                      }`}
+                      className="w-10 h-10 rounded-xl flex items-center justify-center text-text-muted hover:text-red-400 hover:bg-red-400/5 cursor-pointer"
                     >
                       <Trash size={16} />
                     </button>
-                  ) : null}
-                </div>
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>
@@ -243,8 +427,11 @@ export default function NewProductForm({
 
       <FadeUp delay={0.25}>
         <div className="flex items-center gap-3">
-          <Button size="lg" disabled title="Create API coming next">
-            Save Product
+          <Button size="lg" onClick={save} disabled={saving}>
+            {saving ? (
+              <SpinnerGap size={16} className="animate-spin" />
+            ) : null}
+            {saving ? "Saving…" : "Save Product"}
           </Button>
           <Button variant="ghost" size="lg" onClick={() => router.back()}>
             Cancel

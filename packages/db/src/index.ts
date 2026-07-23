@@ -13,6 +13,7 @@ export type {
   OrderItem,
   OrderStatus,
   Product,
+  ProductFulfillmentType,
   ProductVariant,
   PromoCode,
   ReplenishmentRequest,

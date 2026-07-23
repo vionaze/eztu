@@ -181,6 +181,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Enforce top-up account fields from product config (server-side)
+    if (variant.product.fulfillmentType === "TOP_UP") {
+      if (!gameId || gameId === "voucher") {
+        return NextResponse.json(
+          {
+            error: `Please enter your ${variant.product.gameIdLabel || "User ID"}.`,
+          },
+          { status: 400 }
+        );
+      }
+      if (variant.product.requiresServerId && !serverId) {
+        return NextResponse.json(
+          {
+            error: `Please enter your ${variant.product.serverIdLabel || "Zone / Server ID"}.`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     if (shouldAlert) {
       await notifySecurityEvent({
         eventType: "checkout_create",

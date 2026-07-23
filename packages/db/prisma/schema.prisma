@@ -53,6 +53,13 @@ model Product {
   promoCodes  PromoCode[]
   featured    Boolean          @default(false)
   published   Boolean          @default(false)
+  /// TOP_UP = needs player account fields; VOUCHER = code delivery only
+  fulfillmentType ProductFulfillmentType @default(VOUCHER)
+  /// When TOP_UP: also require Zone/Server ID (e.g. MLBB)
+  requiresServerId Boolean @default(false)
+  /// Checkout field labels (optional)
+  gameIdLabel    String? @default("User ID")
+  serverIdLabel  String? @default("Zone / Server ID")
   orders      OrderItem[]
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
@@ -305,6 +312,11 @@ enum Role {
   USER
   ADMIN
   SUPERADMIN
+}
+
+enum ProductFulfillmentType {
+  TOP_UP
+  VOUCHER
 }
 
 enum SecuritySeverity {

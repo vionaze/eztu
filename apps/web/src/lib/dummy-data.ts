@@ -57,6 +57,10 @@ export const products: Product[] = [
     featured: true,
     published: true,
     createdAt: "2026-01-01T00:00:00Z",
+    fulfillmentType: "TOP_UP",
+    requiresServerId: true,
+    gameIdLabel: "User ID",
+    serverIdLabel: "Zone / Server ID",
   },
   {
     id: "prod-2",
@@ -74,6 +78,10 @@ export const products: Product[] = [
     featured: true,
     published: true,
     createdAt: "2026-01-02T00:00:00Z",
+    fulfillmentType: "VOUCHER",
+    requiresServerId: false,
+    gameIdLabel: "User ID",
+    serverIdLabel: "Zone / Server ID",
   },
   {
     id: "prod-3",
@@ -91,6 +99,10 @@ export const products: Product[] = [
     featured: true,
     published: true,
     createdAt: "2026-01-03T00:00:00Z",
+    fulfillmentType: "VOUCHER",
+    requiresServerId: false,
+    gameIdLabel: "User ID",
+    serverIdLabel: "Zone / Server ID",
   },
   {
     id: "prod-4",
@@ -108,6 +120,10 @@ export const products: Product[] = [
     featured: false,
     published: true,
     createdAt: "2026-01-04T00:00:00Z",
+    fulfillmentType: "VOUCHER",
+    requiresServerId: false,
+    gameIdLabel: "User ID",
+    serverIdLabel: "Zone / Server ID",
   },
   {
     id: "prod-5",
@@ -125,6 +141,10 @@ export const products: Product[] = [
     featured: true,
     published: true,
     createdAt: "2026-01-05T00:00:00Z",
+    fulfillmentType: "VOUCHER",
+    requiresServerId: false,
+    gameIdLabel: "User ID",
+    serverIdLabel: "Zone / Server ID",
   },
   {
     id: "prod-6",
@@ -142,6 +162,10 @@ export const products: Product[] = [
     featured: true,
     published: true,
     createdAt: "2026-01-06T00:00:00Z",
+    fulfillmentType: "VOUCHER",
+    requiresServerId: false,
+    gameIdLabel: "User ID",
+    serverIdLabel: "Zone / Server ID",
   },
   {
     id: "prod-7",
@@ -158,6 +182,10 @@ export const products: Product[] = [
     featured: false,
     published: true,
     createdAt: "2026-01-07T00:00:00Z",
+    fulfillmentType: "VOUCHER",
+    requiresServerId: false,
+    gameIdLabel: "User ID",
+    serverIdLabel: "Zone / Server ID",
   },
   {
     id: "prod-8",
@@ -174,6 +202,10 @@ export const products: Product[] = [
     featured: false,
     published: true,
     createdAt: "2026-01-08T00:00:00Z",
+    fulfillmentType: "VOUCHER",
+    requiresServerId: false,
+    gameIdLabel: "User ID",
+    serverIdLabel: "Zone / Server ID",
   },
   {
     id: "prod-9",
@@ -190,6 +222,10 @@ export const products: Product[] = [
     featured: true,
     published: true,
     createdAt: "2026-01-09T00:00:00Z",
+    fulfillmentType: "VOUCHER",
+    requiresServerId: false,
+    gameIdLabel: "User ID",
+    serverIdLabel: "Zone / Server ID",
   },
 ];
 

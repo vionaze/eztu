@@ -38,6 +38,10 @@ function toProduct(product: ProductWithRelations): Product {
     })),
     featured: product.featured,
     published: product.published,
+    fulfillmentType: product.fulfillmentType || "VOUCHER",
+    requiresServerId: Boolean(product.requiresServerId),
+    gameIdLabel: product.gameIdLabel || "User ID",
+    serverIdLabel: product.serverIdLabel || "Zone / Server ID",
     createdAt: product.createdAt.toISOString(),
   };
 }

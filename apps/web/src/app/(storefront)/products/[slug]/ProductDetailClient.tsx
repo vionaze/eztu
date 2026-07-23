@@ -36,25 +36,6 @@ interface Props {
   relatedProducts: Product[];
 }
 
-/** Direct top-up products that need in-game account fields (not voucher codes). */
-function productRequiresGameAccount(product: Product) {
-  const slug = product.slug.toLowerCase();
-  const name = product.name.toLowerCase();
-  if (
-    slug === "mobile-legends" ||
-    slug.includes("mobile-legends") ||
-    name.includes("mobile legends") ||
-    name.includes("mlbb")
-  ) {
-    return true;
-  }
-  return product.variants.some((variant) => {
-    const sku = (variant.supplierSku || "").trim();
-    // Supplier codes like ML15_2-S121
-    return /^ML[\d_]/i.test(sku) || /^MLBB/i.test(sku);
-  });
-}
-
 export default function ProductDetailClient({ product, relatedProducts }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -76,15 +57,20 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
 
   const [isCheckingOut, setIsCheckingOut] = useState(false);
 
-  const requiresGameAccount = productRequiresGameAccount(product);
+  // From DB: TOP_UP products need account fields; VOUCHER skips them
+  const requiresGameAccount = product.fulfillmentType === "TOP_UP";
+  const requiresServerId =
+    requiresGameAccount && Boolean(product.requiresServerId);
+  const gameIdLabel = product.gameIdLabel || "User ID";
+  const serverIdLabel = product.serverIdLabel || "Zone / Server ID";
   const variant = product.variants.find((v) => v.id === selectedVariant);
   const loginEmail = user?.primaryEmailAddress?.emailAddress || "";
   const recipientEmail = emailWasEdited ? email : loginEmail;
   const gameIdReady = gameId.trim().length > 0;
   const serverIdReady = serverId.trim().length > 0;
-  // MLBB User ID + Zone are mandatory before Pay / Login to Pay
   const gameAccountReady =
-    !requiresGameAccount || (gameIdReady && serverIdReady);
+    !requiresGameAccount ||
+    (gameIdReady && (!requiresServerId || serverIdReady));
 
   const openBulkPurchaseModal = () => {
     setShowBulkModal(true);
@@ -111,8 +97,12 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
 
   const handleCheckout = async () => {
     if (!variant || quantity <= 0) return;
-    if (requiresGameAccount && (!gameId.trim() || !serverId.trim())) {
-      alert("Please enter your Mobile Legends User ID and Zone/Server ID.");
+    if (requiresGameAccount && !gameId.trim()) {
+      alert(`Please enter your ${gameIdLabel}.`);
+      return;
+    }
+    if (requiresServerId && !serverId.trim()) {
+      alert(`Please enter your ${serverIdLabel}.`);
       return;
     }
 
@@ -329,28 +319,32 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
               <FadeUp delay={0.29}>
                 <div className="space-y-3">
                   <Input
-                    label="User ID *"
+                    label={`${gameIdLabel} *`}
                     type="text"
-                    placeholder="Your MLBB User ID"
+                    placeholder={`Your ${gameIdLabel}`}
                     value={gameId}
                     onChange={(e) => setGameId(e.target.value)}
                     autoComplete="off"
                     required
                     aria-required="true"
                   />
-                  <Input
-                    label="Zone / Server ID *"
-                    type="text"
-                    placeholder="Zone ID (e.g. 1234)"
-                    value={serverId}
-                    onChange={(e) => setServerId(e.target.value)}
-                    autoComplete="off"
-                    required
-                    aria-required="true"
-                  />
+                  {requiresServerId ? (
+                    <Input
+                      label={`${serverIdLabel} *`}
+                      type="text"
+                      placeholder={`${serverIdLabel} (e.g. 1234)`}
+                      value={serverId}
+                      onChange={(e) => setServerId(e.target.value)}
+                      autoComplete="off"
+                      required
+                      aria-required="true"
+                    />
+                  ) : null}
                   <p className="text-xs text-text-muted">
-                    Required for Mobile Legends top-up. Open MLBB → profile →
-                    copy User ID and Zone ID.
+                    Required for direct top-up delivery to your game account.
+                    {requiresServerId
+                      ? ` Enter both ${gameIdLabel} and ${serverIdLabel}.`
+                      : ` Enter your ${gameIdLabel}.`}
                   </p>
                 </div>
               </FadeUp>
@@ -434,7 +428,10 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                 ) : quantity <= 0 ? (
                   <>Select Quantity</>
                 ) : requiresGameAccount && !gameAccountReady ? (
-                  <>Enter User ID &amp; Zone ID</>
+                  <>
+                    Enter {gameIdLabel}
+                    {requiresServerId ? ` & ${serverIdLabel}` : ""}
+                  </>
                 ) : !isSignedIn ? (
                   <>
                     <User size={18} weight="bold" />
@@ -454,7 +451,9 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
               </Button>
               {requiresGameAccount && !gameAccountReady && (
                 <p className="text-center text-xs text-amber-400/90 mt-2">
-                  Enter your MLBB User ID and Zone ID to enable checkout.
+                  Enter your {gameIdLabel}
+                  {requiresServerId ? ` and ${serverIdLabel}` : ""} to enable
+                  checkout.
                 </p>
               )}
               {usesCryptoCheckout && gameAccountReady && (

@@ -1,3 +1,5 @@
+export type ProductFulfillmentType = "TOP_UP" | "VOUCHER";
+
 export interface Category {
   id: string;
   name: string;
@@ -26,5 +28,10 @@ export interface Product {
   variants: ProductVariant[];
   featured: boolean;
   published: boolean;
+  /** TOP_UP = account fields; VOUCHER = code only */
+  fulfillmentType: ProductFulfillmentType;
+  requiresServerId: boolean;
+  gameIdLabel: string;
+  serverIdLabel: string;
   createdAt: string;
 }

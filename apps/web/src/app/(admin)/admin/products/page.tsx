@@ -69,7 +69,14 @@ export default async function AdminProductsPage() {
                   </div>
                   <p className="text-xs text-text-muted mt-0.5">
                     {product.category?.name || "Uncategorized"} ·{" "}
-                    {product.variants.length} variant(s)
+                    {product.fulfillmentType === "TOP_UP"
+                      ? "Top-up"
+                      : "Voucher"}
+                    {product.fulfillmentType === "TOP_UP" &&
+                    product.requiresServerId
+                      ? " + Zone"
+                      : ""}{" "}
+                    · {product.variants.length} variant(s)
                     {minPrice != null ? ` · from ${formatPrice(minPrice)}` : ""}
                   </p>
                 </div>
