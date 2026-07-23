@@ -2,7 +2,7 @@ import Link from "next/link";
 import { prisma, type AppLogCategory } from "@kupon/db";
 import { Card } from "@kupon/ui";
 import { LOG_CATEGORY_META } from "@/lib/app-log";
-import { cn } from "@/lib/utils";
+import { cn, formatAdminDateTime } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -14,18 +14,6 @@ const LEVEL_STYLES: Record<string, string> = {
   WARNING: "text-amber-400",
   ERROR: "text-red-400",
 };
-
-function timeLabel(date: Date) {
-  return date.toLocaleString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  });
-}
 
 export default async function AdminLogsPage({
   searchParams,
@@ -79,7 +67,8 @@ export default async function AdminLogsPage({
             Every important action in the webapp is recorded here. Titles are
             color-coded by category so you can scan quickly — green for money
             (Sales), blue for payments, purple for delivery, amber for login,
-            red for security, pink for blog, orange for admin changes.
+            red for security, pink for blog, orange for admin changes. Times
+            are shown in <strong className="text-text-secondary">WIB (GMT+7, Asia/Jakarta)</strong>.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -175,8 +164,11 @@ export default async function AdminLogsPage({
                     >
                       {log.title}
                     </h3>
-                    <time className="text-[11px] text-text-muted font-mono shrink-0">
-                      {timeLabel(log.createdAt)}
+                    <time
+                      className="text-[11px] text-text-muted font-mono shrink-0"
+                      title="Asia/Jakarta (GMT+7)"
+                    >
+                      {formatAdminDateTime(log.createdAt)}
                     </time>
                   </div>
                   {log.message ? (

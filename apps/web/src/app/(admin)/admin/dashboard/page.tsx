@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@kupon/db";
 import { Card } from "@kupon/ui";
-import { formatPrice, cn } from "@/lib/utils";
+import { formatPrice, cn, formatAdminRelative } from "@/lib/utils";
 import {
   ShoppingCart,
   CurrencyDollar,
@@ -21,17 +21,6 @@ const statusColor: Record<string, string> = {
   EXPIRED: "bg-zinc-500/10 text-zinc-400",
   REFUNDED: "bg-violet-500/10 text-violet-400",
 };
-
-function timeAgo(date: Date) {
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} min ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} hr ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
 
 export default async function DashboardPage() {
   const [
@@ -152,8 +141,11 @@ export default async function DashboardPage() {
                       <p className="text-sm font-semibold text-text-primary">
                         {formatPrice(order.totalIDR)}
                       </p>
-                      <p className="text-[11px] text-text-muted">
-                        {timeAgo(order.createdAt)}
+                      <p
+                        className="text-[11px] text-text-muted"
+                        title="Asia/Jakarta (GMT+7)"
+                      >
+                        {formatAdminRelative(order.createdAt)}
                       </p>
                     </div>
                   </div>
