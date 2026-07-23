@@ -266,18 +266,8 @@ export default function BlogAiSettingsForm({ initial }: { initial: Initial }) {
       <p className="text-xs text-text-muted leading-relaxed">
         Master switch for AI article generation. When{" "}
         <strong className="text-text-secondary">OFF</strong>, manual generate
-        and scheduled jobs are blocked.{" "}
-        <strong className="text-amber-300">
-          Toggle saja belum cukup — wajib klik “Save Blog AI settings”.
-        </strong>
+        and scheduled jobs are blocked.
       </p>
-      {!enabled ? (
-        <p className="text-xs rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-amber-100 leading-relaxed">
-          Status sekarang: <strong>AI OFF</strong>. Cron akan menjawab{" "}
-          <code className="text-amber-200">Blog AI is disabled</code> sampai
-          switch di-ON lalu <strong>Save</strong>.
-        </p>
-      ) : null}
       <p className="text-xs rounded-xl border border-sky-400/25 bg-sky-400/5 px-3 py-2 text-sky-100/90 leading-relaxed">
         <strong className="text-sky-300">Scope:</strong> AI hanya membuat konten{" "}
         <strong>BlogPost</strong> (generate + optional auto-publish ke storefront
