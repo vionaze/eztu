@@ -23,14 +23,20 @@ export default async function AdminBlogPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-text-secondary">
-          {posts.length} post{posts.length === 1 ? "" : "s"} in database
-        </p>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <p className="text-sm text-text-secondary">
+            {posts.length} post{posts.length === 1 ? "" : "s"} in database
+          </p>
+          <p className="text-xs text-text-muted mt-0.5">
+            Tulis manual lewat form, atau pakai AI helper opsional. Keduanya
+            didukung.
+          </p>
+        </div>
         <Link href="/admin/blog/new">
           <Button>
             <Plus size={16} weight="bold" />
-            New Post
+            New Post (manual)
           </Button>
         </Link>
       </div>
@@ -39,10 +45,11 @@ export default async function AdminBlogPage() {
         {posts.length === 0 ? (
           <Card padding="lg" className="text-center space-y-3">
             <p className="text-sm text-text-muted">
-              No blog posts yet. Create one manually or generate with AI.
+              Belum ada artikel. Buat manual (title + konten + publish) — AI
+              tidak wajib.
             </p>
             <Link href="/admin/blog/new">
-              <Button variant="secondary">Create first post</Button>
+              <Button variant="secondary">Tulis artikel manual</Button>
             </Link>
           </Card>
         ) : (

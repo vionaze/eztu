@@ -90,6 +90,7 @@ export default function BlogPostForm({
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [aiTopic, setAiTopic] = useState("");
+  const [showAiHelper, setShowAiHelper] = useState(false);
   const [error, setError] = useState("");
   const [slugTouched, setSlugTouched] = useState(Boolean(initial?.slug));
 
@@ -222,76 +223,27 @@ export default function BlogPostForm({
 
       <FadeUp delay={0.05}>
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h2 className="text-2xl font-bold tracking-tight text-text-primary">
-            {form.id ? "Edit Post" : "New Blog Post"}
-          </h2>
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight text-text-primary">
+              {form.id ? "Edit Post" : "New Blog Post"}
+            </h2>
+            <p className="text-xs text-text-muted mt-1 max-w-xl">
+              <strong className="text-text-secondary">Manual writing is the default.</strong>{" "}
+              Isi title, konten, gambar, SEO, lalu Publish / Save draft. AI hanya
+              helper opsional — tidak wajib.
+            </p>
+          </div>
           <div className="flex items-center gap-2">
             {form.aiGenerated ? (
-              <Badge variant="muted">AI draft</Badge>
-            ) : null}
+              <Badge variant="muted">AI draft (editable)</Badge>
+            ) : (
+              <Badge variant="muted">Manual</Badge>
+            )}
             <Badge variant={form.published ? "accent" : "muted"}>
               {form.published ? "published" : "draft"}
             </Badge>
           </div>
         </div>
-      </FadeUp>
-
-      {/* AI generator */}
-      <FadeUp delay={0.08}>
-        <Card variant="default" padding="lg" className="space-y-4 border-fuchsia-400/20">
-          <div className="flex items-center gap-2">
-            <MagicWand size={18} className="text-fuchsia-300" />
-            <h3 className="text-sm font-semibold text-text-primary">
-              Generate with AI (AISEO 2026)
-            </h3>
-          </div>
-          <p className="text-xs text-text-muted">
-            Uses OpenAI-compatible API (base URL + key in Settings). Fills title,
-            SEO meta, FAQ, and HTML body.{" "}
-            <strong className="text-text-secondary">Hero &amp; thumbnail images stay manual</strong>{" "}
-            — paste URLs after generation.
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-[1fr_140px_auto] gap-3">
-            <Input
-              label="Topic"
-              placeholder="e.g. Cara top up MLBB dengan USDT di Indonesia"
-              value={aiTopic}
-              onChange={(e) => setAiTopic(e.target.value)}
-            />
-            <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-text-secondary">
-                Country
-              </label>
-              <select
-                value={form.countryCode}
-                onChange={(e) => set("countryCode", e.target.value)}
-                className="w-full rounded-xl bg-bg-card border border-border px-3 h-10 text-sm text-text-primary"
-              >
-                {(countries.length ? countries : defaultCountries).map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex items-end">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={generateAi}
-                disabled={generating}
-                className="w-full sm:w-auto"
-              >
-                {generating ? (
-                  <SpinnerGap size={16} className="animate-spin" />
-                ) : (
-                  <MagicWand size={16} />
-                )}
-                {generating ? "Generating…" : "Generate"}
-              </Button>
-            </div>
-          </div>
-        </Card>
       </FadeUp>
 
       {error ? (
@@ -300,9 +252,17 @@ export default function BlogPostForm({
         </p>
       ) : null}
 
+      {/* Primary: manual article form */}
       <FadeUp delay={0.1}>
         <Card variant="default" padding="lg" className="space-y-5">
-          <h3 className="text-sm font-semibold text-text-primary">Post Details</h3>
+          <div>
+            <h3 className="text-sm font-semibold text-text-primary">
+              Post details (manual)
+            </h3>
+            <p className="text-xs text-text-muted mt-0.5">
+              Tulis sendiri seperti editor biasa — tidak perlu nyalakan AI.
+            </p>
+          </div>
           <Input
             label="Title"
             placeholder="Your blog post title"
@@ -559,6 +519,88 @@ export default function BlogPostForm({
             Cancel
           </Button>
         </div>
+      </FadeUp>
+
+      {/* Optional AI helper — never required for manual posts */}
+      <FadeUp delay={0.22}>
+        <Card
+          variant="default"
+          padding="lg"
+          className="space-y-4 border-fuchsia-400/15 border-dashed"
+        >
+          <button
+            type="button"
+            onClick={() => setShowAiHelper((v) => !v)}
+            className="w-full flex items-center justify-between gap-3 text-left cursor-pointer"
+          >
+            <div className="flex items-center gap-2">
+              <MagicWand size={18} className="text-fuchsia-300" />
+              <div>
+                <h3 className="text-sm font-semibold text-text-primary">
+                  Optional: AI draft helper
+                </h3>
+                <p className="text-xs text-text-muted">
+                  Boleh diabaikan. Hanya mengisi form di atas — kamu tetap bisa
+                  edit manual penuh setelah generate.
+                </p>
+              </div>
+            </div>
+            <span className="text-xs text-text-muted shrink-0">
+              {showAiHelper ? "Hide" : "Show"}
+            </span>
+          </button>
+
+          {showAiHelper ? (
+            <div className="space-y-4 pt-2 border-t border-border">
+              <p className="text-xs text-text-muted">
+                Butuh AI on + base URL + API key di Settings. Gambar hero &amp;
+                thumbnail tetap manual (paste URL).
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_140px_auto] gap-3">
+                <Input
+                  label="Topic"
+                  placeholder="e.g. Cara top up MLBB dengan USDT di Indonesia"
+                  value={aiTopic}
+                  onChange={(e) => setAiTopic(e.target.value)}
+                />
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-medium text-text-secondary">
+                    Country
+                  </label>
+                  <select
+                    value={form.countryCode}
+                    onChange={(e) => set("countryCode", e.target.value)}
+                    className="w-full rounded-xl bg-bg-card border border-border px-3 h-10 text-sm text-text-primary"
+                  >
+                    {(countries.length ? countries : defaultCountries).map(
+                      (c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      )
+                    )}
+                  </select>
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={generateAi}
+                    disabled={generating}
+                    className="w-full sm:w-auto"
+                  >
+                    {generating ? (
+                      <SpinnerGap size={16} className="animate-spin" />
+                    ) : (
+                      <MagicWand size={16} />
+                    )}
+                    {generating ? "Generating…" : "Generate draft"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </Card>
       </FadeUp>
     </div>
   );
