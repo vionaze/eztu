@@ -63,22 +63,34 @@ async function syncClerkUser(clerkUser: ClerkUser) {
   });
 
   if (byClerkId) {
+    // Avoid unique email collision when another row already owns this email
+    let emailToSet = email;
+    if (email && email !== byClerkId.email) {
+      const emailOwner = await prisma.user.findUnique({ where: { email } });
+      if (emailOwner && emailOwner.id !== byClerkId.id) {
+        emailToSet = byClerkId.email; // keep existing / skip conflict
+      }
+    }
+
     try {
       return await prisma.user.update({
         where: { id: byClerkId.id },
         data: {
           name,
-          email,
+          ...(emailToSet ? { email: emailToSet } : {}),
           image,
           walletAddress,
         },
       });
     } catch (error) {
       // Unique email conflict: keep role, skip email update
-      console.error("[Clerk] Update by clerkId failed, updating non-unique fields", error);
+      console.error(
+        "[Clerk] Update by clerkId failed, updating non-unique fields",
+        error
+      );
       return prisma.user.update({
         where: { id: byClerkId.id },
-        data: { name, image },
+        data: { name, image, walletAddress },
       });
     }
   }
@@ -192,13 +204,24 @@ async function ensureAllowlistedAdmin(dbUser: User, clerkEmail: string | null) {
   }
 
   try {
-    return await prisma.user.update({
+    // Promote role first (never fail admin access on email uniqueness)
+    const promoted = await prisma.user.update({
       where: { id: dbUser.id },
-      data: {
-        role: "SUPERADMIN",
-        ...(dbUser.email || !clerkEmail ? {} : { email: clerkEmail }),
-      },
+      data: { role: "SUPERADMIN" },
     });
+
+    if (!promoted.email && clerkEmail) {
+      try {
+        return await prisma.user.update({
+          where: { id: promoted.id },
+          data: { email: clerkEmail },
+        });
+      } catch {
+        // Another row owns this email — role is enough for allowlist via clerk email
+        return promoted;
+      }
+    }
+    return promoted;
   } catch (error) {
     console.error("[Clerk] Failed to promote allowlisted admin", error);
     return dbUser;
