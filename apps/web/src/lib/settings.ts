@@ -80,17 +80,33 @@ export async function getBlogAiSettings() {
     autoPublish,
     lastRunAt,
   ] = await Promise.all([
-    getSetting(SETTING_KEYS.AI_ENABLED, "false"),
+    // DB Setting wins when present; env is fallback for first deploy / emergency enable
+    getSetting(
+      SETTING_KEYS.AI_ENABLED,
+      process.env.BLOG_AI_ENABLED || "false"
+    ),
     getSetting(SETTING_KEYS.AI_BASE_URL, process.env.BLOG_AI_BASE_URL || ""),
     getSetting(SETTING_KEYS.AI_API_KEY, process.env.BLOG_AI_API_KEY || ""),
     getSetting(SETTING_KEYS.AI_MODEL, process.env.BLOG_AI_MODEL || "gpt-4o-mini"),
     getSetting(SETTING_KEYS.AI_COUNTRIES, "ID,MY,US,GLOBAL"),
     getSetting(SETTING_KEYS.AI_AUTO_COUNTRIES, "ID,GLOBAL"),
     getSetting(SETTING_KEYS.AI_SYSTEM_PROMPT, ""),
-    getSetting(SETTING_KEYS.AI_SCHEDULE_ENABLED, "false"),
-    getSetting(SETTING_KEYS.AI_INTERVAL_HOURS, "4"),
-    getSetting(SETTING_KEYS.AI_ARTICLES_PER_RUN, "1"),
-    getSetting(SETTING_KEYS.AI_AUTO_PUBLISH, "true"),
+    getSetting(
+      SETTING_KEYS.AI_SCHEDULE_ENABLED,
+      process.env.BLOG_AI_SCHEDULE_ENABLED || "false"
+    ),
+    getSetting(
+      SETTING_KEYS.AI_INTERVAL_HOURS,
+      process.env.BLOG_AI_INTERVAL_HOURS || "4"
+    ),
+    getSetting(
+      SETTING_KEYS.AI_ARTICLES_PER_RUN,
+      process.env.BLOG_AI_ARTICLES_PER_RUN || "1"
+    ),
+    getSetting(
+      SETTING_KEYS.AI_AUTO_PUBLISH,
+      process.env.BLOG_AI_AUTO_PUBLISH || "true"
+    ),
     getSetting(SETTING_KEYS.AI_LAST_RUN_AT, ""),
   ]);
 
@@ -98,8 +114,10 @@ export async function getBlogAiSettings() {
     ? systemPromptRaw
     : DEFAULT_BLOG_AI_SYSTEM_PROMPT;
 
+  const truthy = (v: string) => v === "true" || v === "1" || v === "yes";
+
   return {
-    enabled: enabled === "true" || enabled === "1",
+    enabled: truthy(enabled),
     baseUrl: baseUrl.replace(/\/$/, ""),
     apiKey,
     model,
@@ -113,7 +131,7 @@ export async function getBlogAiSettings() {
       .filter(Boolean),
     systemPrompt,
     hasCustomSystemPrompt: Boolean(systemPromptRaw.trim()),
-    scheduleEnabled: scheduleEnabled === "true" || scheduleEnabled === "1",
+    scheduleEnabled: truthy(scheduleEnabled),
     intervalHours: parseAllowedNumber(
       intervalRaw,
       BLOG_AI_INTERVAL_OPTIONS,
