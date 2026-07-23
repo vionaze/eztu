@@ -47,15 +47,8 @@ export async function generateBlogArticleDraft(params: {
     params.language ||
     (country === "ID" ? "Indonesian" : country === "MY" ? "English (Malaysia)" : "English");
 
-  const system = `You are an expert SEO content strategist for 2026 Google quality systems (Helpful Content, E-E-A-T, people-first search).
-Write for EZTopUp (eztopup.io): digital vouchers and game top-ups paid with USDT/USDC crypto.
-Rules:
-- People-first, accurate, non-spammy. No keyword stuffing.
-- Clear structure: intro hook, H2 sections, short paragraphs, bullet lists where useful.
-- Include practical steps, FAQ (3-5 Q&A), and a short conclusion with soft CTA to eztopup.io.
-- Do NOT invent fake prices or guarantee "instant" if payment is pending.
-- Mention USDT/USDC only as payment options, not financial advice.
-- Return ONLY valid JSON matching the schema requested.`;
+  // Editable in Admin → Settings → Blog AI (system prompt)
+  const system = settings.systemPrompt;
 
   const user = `Create a blog article draft for country/market: ${country}.
 Language: ${language}.

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button, Card, Input } from "@kupon/ui";
-import { MagicWand, SpinnerGap } from "@phosphor-icons/react";
+import { MagicWand, SpinnerGap, ArrowCounterClockwise } from "@phosphor-icons/react";
 
 type Initial = {
   enabled: boolean;
@@ -12,6 +12,9 @@ type Initial = {
   model: string;
   countries: string;
   autoCountries: string[];
+  systemPrompt: string;
+  hasCustomSystemPrompt: boolean;
+  defaultSystemPrompt: string;
 };
 
 const SUGGESTED = ["GLOBAL", "ID", "MY", "US", "PH", "SG", "TH", "VN"];
@@ -25,6 +28,8 @@ export default function BlogAiSettingsForm({ initial }: { initial: Initial }) {
   const [autoCountries, setAutoCountries] = useState<string[]>(
     initial.autoCountries
   );
+  const [systemPrompt, setSystemPrompt] = useState(initial.systemPrompt);
+  const [hasCustom, setHasCustom] = useState(initial.hasCustomSystemPrompt);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -40,7 +45,7 @@ export default function BlogAiSettingsForm({ initial }: { initial: Initial }) {
     );
   };
 
-  const save = async () => {
+  const save = async (opts?: { resetSystemPrompt?: boolean }) => {
     setSaving(true);
     setMessage("");
     setError("");
@@ -55,6 +60,11 @@ export default function BlogAiSettingsForm({ initial }: { initial: Initial }) {
       if (apiKey.trim() && !apiKey.includes("•")) {
         body.apiKey = apiKey.trim();
       }
+      if (opts?.resetSystemPrompt) {
+        body.resetSystemPrompt = true;
+      } else {
+        body.systemPrompt = systemPrompt;
+      }
       const res = await fetch("/api/admin/settings/blog-ai", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -62,7 +72,19 @@ export default function BlogAiSettingsForm({ initial }: { initial: Initial }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Save failed");
-      setMessage("Blog AI settings saved.");
+
+      const s = data.settings as {
+        systemPrompt?: string;
+        hasCustomSystemPrompt?: boolean;
+      };
+      if (s?.systemPrompt != null) setSystemPrompt(s.systemPrompt);
+      if (s?.hasCustomSystemPrompt != null) setHasCustom(s.hasCustomSystemPrompt);
+
+      setMessage(
+        opts?.resetSystemPrompt
+          ? "System prompt reset to default and saved."
+          : "Blog AI settings saved."
+      );
       setApiKey("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");
@@ -167,12 +189,56 @@ export default function BlogAiSettingsForm({ initial }: { initial: Initial }) {
         </div>
       </div>
 
+      {/* Editable system prompt */}
+      <div className="space-y-2 pt-2 border-t border-border">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <p className="text-sm font-medium text-text-secondary">
+              System prompt (editable)
+            </p>
+            <p className="text-xs text-text-muted mt-0.5">
+              Instruksi utama ke AI saat generate artikel. Topic + negara tetap
+              dikirim terpisah di user message.{" "}
+              {hasCustom ? (
+                <span className="text-fuchsia-300">Custom prompt aktif.</span>
+              ) : (
+                <span className="text-text-muted">Menggunakan default bawaan.</span>
+              )}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={saving}
+            onClick={() => {
+              setSystemPrompt(initial.defaultSystemPrompt);
+              void save({ resetSystemPrompt: true });
+            }}
+          >
+            <ArrowCounterClockwise size={14} />
+            Reset default
+          </Button>
+        </div>
+        <textarea
+          value={systemPrompt}
+          onChange={(e) => setSystemPrompt(e.target.value)}
+          rows={14}
+          spellCheck={false}
+          className="w-full rounded-xl bg-bg-card border border-border px-3 py-2.5 text-xs font-mono text-text-primary placeholder:text-text-muted leading-relaxed resize-y min-h-[200px] focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/20"
+          placeholder={initial.defaultSystemPrompt}
+        />
+        <p className="text-[10px] text-text-muted">
+          {systemPrompt.length.toLocaleString()} characters · max ~12,000
+        </p>
+      </div>
+
       {message ? (
         <p className="text-xs text-emerald-400">{message}</p>
       ) : null}
       {error ? <p className="text-xs text-red-400">{error}</p> : null}
 
-      <Button onClick={save} disabled={saving}>
+      <Button onClick={() => save()} disabled={saving}>
         {saving ? (
           <SpinnerGap size={16} className="animate-spin" />
         ) : null}

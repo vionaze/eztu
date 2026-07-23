@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminUser } from "@/lib/clerk";
 import {
+  DEFAULT_BLOG_AI_SYSTEM_PROMPT,
   getBlogAiSettings,
   setSetting,
   SETTING_KEYS,
@@ -9,11 +10,10 @@ import { writeAppLog } from "@/lib/app-log";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  try {
-    await requireAdminUser();
-    const settings = await getBlogAiSettings();
-    // Never expose full API key — mask middle
+const MAX_SYSTEM_PROMPT = 12_000;
+
+function publicSettings() {
+  return getBlogAiSettings().then((settings) => {
     const key = settings.apiKey;
     const masked =
       key.length > 8
@@ -22,17 +22,25 @@ export async function GET() {
           ? "••••••••"
           : "";
 
-    return NextResponse.json({
-      settings: {
-        enabled: settings.enabled,
-        baseUrl: settings.baseUrl,
-        apiKey: masked,
-        hasApiKey: Boolean(key),
-        model: settings.model,
-        countries: settings.countries,
-        autoCountries: settings.autoCountries,
-      },
-    });
+    return {
+      enabled: settings.enabled,
+      baseUrl: settings.baseUrl,
+      apiKey: masked,
+      hasApiKey: Boolean(key),
+      model: settings.model,
+      countries: settings.countries,
+      autoCountries: settings.autoCountries,
+      systemPrompt: settings.systemPrompt,
+      hasCustomSystemPrompt: settings.hasCustomSystemPrompt,
+      defaultSystemPrompt: DEFAULT_BLOG_AI_SYSTEM_PROMPT,
+    };
+  });
+}
+
+export async function GET() {
+  try {
+    await requireAdminUser();
+    return NextResponse.json({ settings: await publicSettings() });
   } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -48,6 +56,8 @@ export async function PUT(request: Request) {
       model?: string;
       countries?: string[] | string;
       autoCountries?: string[] | string;
+      systemPrompt?: string;
+      resetSystemPrompt?: boolean;
     };
 
     if (body.enabled !== undefined) {
@@ -62,7 +72,6 @@ export async function PUT(request: Request) {
         String(body.baseUrl).replace(/\/$/, "").trim()
       );
     }
-    // Only update key if a non-masked value is provided
     if (body.apiKey !== undefined) {
       const raw = String(body.apiKey).trim();
       if (raw && !raw.includes("•")) {
@@ -96,6 +105,19 @@ export async function PUT(request: Request) {
           .join(",")
       );
     }
+    if (body.resetSystemPrompt) {
+      // Clear custom prompt → fall back to built-in default
+      await setSetting(SETTING_KEYS.AI_SYSTEM_PROMPT, "");
+    } else if (body.systemPrompt !== undefined) {
+      const prompt = String(body.systemPrompt).slice(0, MAX_SYSTEM_PROMPT);
+      if (!prompt.trim()) {
+        return NextResponse.json(
+          { error: "System prompt cannot be empty. Use Reset to default instead." },
+          { status: 400 }
+        );
+      }
+      await setSetting(SETTING_KEYS.AI_SYSTEM_PROMPT, prompt);
+    }
 
     const settings = await getBlogAiSettings();
 
@@ -109,28 +131,12 @@ export async function PUT(request: Request) {
         enabled: settings.enabled,
         model: settings.model,
         autoCountries: settings.autoCountries,
+        customPrompt: settings.hasCustomSystemPrompt,
+        promptLength: settings.systemPrompt.length,
       },
     });
 
-    const key = settings.apiKey;
-    const masked =
-      key.length > 8
-        ? `${key.slice(0, 4)}${"•".repeat(Math.min(key.length - 8, 12))}${key.slice(-4)}`
-        : key
-          ? "••••••••"
-          : "";
-
-    return NextResponse.json({
-      settings: {
-        enabled: settings.enabled,
-        baseUrl: settings.baseUrl,
-        apiKey: masked,
-        hasApiKey: Boolean(key),
-        model: settings.model,
-        countries: settings.countries,
-        autoCountries: settings.autoCountries,
-      },
-    });
+    return NextResponse.json({ settings: await publicSettings() });
   } catch (error) {
     console.error("[admin/settings/blog-ai]", error);
     return NextResponse.json(

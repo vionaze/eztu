@@ -1,4 +1,7 @@
-import { getBlogAiSettings } from "@/lib/settings";
+import {
+  DEFAULT_BLOG_AI_SYSTEM_PROMPT,
+  getBlogAiSettings,
+} from "@/lib/settings";
 import BlogAiSettingsForm from "./BlogAiSettingsForm";
 import { Card } from "@kupon/ui";
 import { Key, Bell, Globe } from "@phosphor-icons/react/dist/ssr";
@@ -26,6 +29,9 @@ export default async function AdminSettingsPage() {
           model: ai.model,
           countries: ai.countries.join(","),
           autoCountries: ai.autoCountries,
+          systemPrompt: ai.systemPrompt,
+          hasCustomSystemPrompt: ai.hasCustomSystemPrompt,
+          defaultSystemPrompt: DEFAULT_BLOG_AI_SYSTEM_PROMPT,
         }}
       />
 
