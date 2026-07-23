@@ -147,6 +147,64 @@ async function syncClerkUser(clerkUser: ClerkUser) {
   }
 }
 
+/**
+ * Comma-separated emails that always get admin access (and are auto-promoted in DB).
+ * Example: ADMIN_EMAILS=aigaktidur@gmail.com,ops@eztopup.io
+ */
+export function getAdminEmailAllowlist(): string[] {
+  const raw =
+    process.env.ADMIN_EMAILS?.trim() ||
+    process.env.SUPERADMIN_EMAILS?.trim() ||
+    "aigaktidur@gmail.com";
+
+  return raw
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+export function isAdminEmail(email: string | null | undefined): boolean {
+  if (!email) return false;
+  return getAdminEmailAllowlist().includes(email.trim().toLowerCase());
+}
+
+export function isAdminRole(role: Role, email?: string | null) {
+  if (role === "ADMIN" || role === "SUPERADMIN") return true;
+  return isAdminEmail(email);
+}
+
+async function ensureAllowlistedAdmin(dbUser: User, clerkEmail: string | null) {
+  const email = (dbUser.email || clerkEmail || "").toLowerCase() || null;
+  if (!isAdminEmail(email)) return dbUser;
+  if (dbUser.role === "ADMIN" || dbUser.role === "SUPERADMIN") {
+    // Still re-attach email if missing so allowlist keeps matching
+    if (!dbUser.email && clerkEmail) {
+      try {
+        return await prisma.user.update({
+          where: { id: dbUser.id },
+          data: { email: clerkEmail },
+        });
+      } catch {
+        return dbUser;
+      }
+    }
+    return dbUser;
+  }
+
+  try {
+    return await prisma.user.update({
+      where: { id: dbUser.id },
+      data: {
+        role: "SUPERADMIN",
+        ...(dbUser.email || !clerkEmail ? {} : { email: clerkEmail }),
+      },
+    });
+  } catch (error) {
+    console.error("[Clerk] Failed to promote allowlisted admin", error);
+    return dbUser;
+  }
+}
+
 export async function requireClerkUser(): Promise<AuthenticatedClerkUser> {
   const { userId } = await auth();
 
@@ -160,13 +218,17 @@ export async function requireClerkUser(): Promise<AuthenticatedClerkUser> {
     throw new AuthenticationRequiredError("Unable to verify the active Clerk user.");
   }
 
-  const dbUser = await syncClerkUser(clerkUser);
+  const clerkEmail = getPrimaryEmail(clerkUser);
+  let dbUser = await syncClerkUser(clerkUser);
+  dbUser = await ensureAllowlistedAdmin(dbUser, clerkEmail);
+
+  const email = dbUser.email || clerkEmail;
 
   return {
     clerkUserId: clerkUser.id,
     dbUserId: dbUser.id,
     dbUser,
-    email: dbUser.email,
+    email,
     walletAddress: dbUser.walletAddress,
     role: dbUser.role,
   };
@@ -175,7 +237,7 @@ export async function requireClerkUser(): Promise<AuthenticatedClerkUser> {
 export async function requireAdminUser() {
   const authenticatedUser = await requireClerkUser();
 
-  if (!isAdminRole(authenticatedUser.role)) {
+  if (!isAdminRole(authenticatedUser.role, authenticatedUser.email)) {
     console.warn("[Admin] Forbidden", {
       clerkUserId: authenticatedUser.clerkUserId,
       dbUserId: authenticatedUser.dbUserId,
@@ -188,14 +250,14 @@ export async function requireAdminUser() {
   return authenticatedUser;
 }
 
-export function isAdminRole(role: Role) {
-  return role === "ADMIN" || role === "SUPERADMIN";
-}
-
 export async function requireSuperAdminUser() {
   const authenticatedUser = await requireClerkUser();
 
-  if (authenticatedUser.role !== "SUPERADMIN") {
+  const ok =
+    authenticatedUser.role === "SUPERADMIN" ||
+    isAdminEmail(authenticatedUser.email);
+
+  if (!ok) {
     throw new AuthorizationRequiredError("Superadmin access is required.");
   }
 

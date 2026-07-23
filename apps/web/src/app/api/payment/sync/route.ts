@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
 
     if (
       localOrder.userId !== authenticatedUser.dbUserId &&
-      !isAdminRole(authenticatedUser.role)
+      !isAdminRole(authenticatedUser.role, authenticatedUser.email)
     ) {
       await notifySecurityEvent({
         eventType: "payment_sync_forbidden",

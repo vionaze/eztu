@@ -17,7 +17,7 @@ export async function GET() {
     return NextResponse.json({
       email: user.email,
       role: user.role,
-      isAdmin: isAdminRole(user.role),
+      isAdmin: isAdminRole(user.role, user.email),
     });
   } catch (error) {
     if (error instanceof AuthenticationRequiredError) {
