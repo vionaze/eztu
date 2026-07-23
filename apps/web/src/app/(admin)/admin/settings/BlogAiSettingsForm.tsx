@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button, Card, Input } from "@kupon/ui";
 import {
   MagicWand,
@@ -8,6 +8,8 @@ import {
   ArrowCounterClockwise,
   Clock,
   Play,
+  Plus,
+  X,
 } from "@phosphor-icons/react";
 
 type Initial = {
@@ -30,17 +32,47 @@ type Initial = {
   countOptions: number[];
 };
 
-const SUGGESTED = ["GLOBAL", "ID", "MY", "US", "PH", "SG", "TH", "VN"];
+/** Quick-add presets (not locked — you can add any ISO-like code). */
+const SUGGESTED = [
+  "GLOBAL",
+  "ID",
+  "MY",
+  "US",
+  "PH",
+  "SG",
+  "TH",
+  "VN",
+  "BR",
+  "IN",
+  "JP",
+  "KR",
+  "AE",
+  "TR",
+];
+
+function normalizeCountryCode(raw: string) {
+  return raw
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z]/g, "")
+    .slice(0, 12);
+}
 
 export default function BlogAiSettingsForm({ initial }: { initial: Initial }) {
   const [enabled, setEnabled] = useState(initial.enabled);
   const [baseUrl, setBaseUrl] = useState(initial.baseUrl);
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState(initial.model);
-  const [countries, setCountries] = useState(initial.countries);
-  const [autoCountries, setAutoCountries] = useState<string[]>(
-    initial.autoCountries
+  const [countryList, setCountryList] = useState<string[]>(() =>
+    initial.countries
+      .split(",")
+      .map((c) => normalizeCountryCode(c))
+      .filter(Boolean)
   );
+  const [autoCountries, setAutoCountries] = useState<string[]>(
+    initial.autoCountries.map(normalizeCountryCode).filter(Boolean)
+  );
+  const [newCountry, setNewCountry] = useState("");
   const [systemPrompt, setSystemPrompt] = useState(initial.systemPrompt);
   const [hasCustom, setHasCustom] = useState(initial.hasCustomSystemPrompt);
   const [scheduleEnabled, setScheduleEnabled] = useState(
@@ -55,12 +87,29 @@ export default function BlogAiSettingsForm({ initial }: { initial: Initial }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const countryList = countries
-    .split(",")
-    .map((c) => c.trim().toUpperCase())
-    .filter(Boolean);
+  const presetToAdd = useMemo(
+    () => SUGGESTED.filter((c) => !countryList.includes(c)),
+    [countryList]
+  );
+
+  const addCountry = (raw: string) => {
+    const code = normalizeCountryCode(raw);
+    if (!code) return;
+    setCountryList((prev) => {
+      if (prev.includes(code)) return prev;
+      return [...prev, code];
+    });
+    setNewCountry("");
+  };
+
+  const removeCountry = (code: string) => {
+    setCountryList((prev) => prev.filter((c) => c !== code));
+    // Also drop from auto-AI selection
+    setAutoCountries((prev) => prev.filter((c) => c !== code));
+  };
 
   const toggleAuto = (code: string) => {
+    if (!countryList.includes(code)) return;
     setAutoCountries((prev) =>
       prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
     );
@@ -76,7 +125,8 @@ export default function BlogAiSettingsForm({ initial }: { initial: Initial }) {
         baseUrl,
         model,
         countries: countryList,
-        autoCountries,
+        // Only keep auto flags for countries that still exist in the list
+        autoCountries: autoCountries.filter((c) => countryList.includes(c)),
         scheduleEnabled,
         intervalHours,
         articlesPerRun,
@@ -134,7 +184,7 @@ export default function BlogAiSettingsForm({ initial }: { initial: Initial }) {
           baseUrl,
           model,
           countries: countryList,
-          autoCountries,
+          autoCountries: autoCountries.filter((c) => countryList.includes(c)),
           scheduleEnabled,
           intervalHours,
           articlesPerRun,
@@ -248,40 +298,125 @@ export default function BlogAiSettingsForm({ initial }: { initial: Initial }) {
         value={model}
         onChange={(e) => setModel(e.target.value)}
       />
-      <Input
-        label="Available countries (comma-separated)"
-        placeholder="ID,MY,US,GLOBAL"
-        value={countries}
-        onChange={(e) => setCountries(e.target.value)}
-      />
+      {/* Editable country list */}
+      <div className="space-y-3 rounded-xl border border-border bg-bg-elevated/30 p-4">
+        <div>
+          <p className="text-sm font-semibold text-text-primary">
+            Negara / market target (editable)
+          </p>
+          <p className="text-xs text-text-muted mt-0.5">
+            Tambah atau hapus kode negara bebas (contoh:{" "}
+            <code className="text-text-secondary">ID</code>,{" "}
+            <code className="text-text-secondary">BR</code>,{" "}
+            <code className="text-text-secondary">GLOBAL</code>). List ini
+            dipakai di form artikel + jadwal AI.
+          </p>
+        </div>
 
-      <div className="space-y-2">
-        <p className="text-sm font-medium text-text-secondary">
-          Negara / bahasa untuk AI (centang)
-        </p>
-        <p className="text-xs text-text-muted">
-          Artikel otomatis di-rotate ke negara yang dicentang (bahasa mengikuti
-          negara: ID→Indonesia, MY→EN-MY, dll.).
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {(countryList.length ? countryList : SUGGESTED).map((code) => {
-            const on = autoCountries.includes(code);
-            return (
-              <button
+        {countryList.length === 0 ? (
+          <p className="text-xs text-amber-400">
+            Belum ada negara. Tambah minimal satu (mis. GLOBAL atau ID).
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {countryList.map((code) => (
+              <span
                 key={code}
-                type="button"
-                onClick={() => toggleAuto(code)}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors cursor-pointer ${
-                  on
-                    ? "border-fuchsia-400/40 bg-fuchsia-400/15 text-fuchsia-200"
-                    : "border-border text-text-muted hover:text-text-primary"
-                }`}
+                className="inline-flex items-center gap-1 rounded-full border border-border bg-bg-card pl-3 pr-1 py-1 text-xs font-medium text-text-primary"
               >
-                {on ? "✓ " : ""}
                 {code}
-              </button>
-            );
-          })}
+                <button
+                  type="button"
+                  onClick={() => removeCountry(code)}
+                  className="w-6 h-6 rounded-full flex items-center justify-center text-text-muted hover:text-red-400 hover:bg-red-400/10 cursor-pointer"
+                  aria-label={`Hapus ${code}`}
+                  title={`Hapus ${code}`}
+                >
+                  <X size={12} weight="bold" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
+          <div className="flex-1">
+            <Input
+              label="Tambah kode negara"
+              placeholder="mis. ID, MY, BR, GLOBAL"
+              value={newCountry}
+              onChange={(e) => setNewCountry(e.target.value.toUpperCase())}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addCountry(newCountry);
+                }
+              }}
+            />
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => addCountry(newCountry)}
+            disabled={!normalizeCountryCode(newCountry)}
+          >
+            <Plus size={14} weight="bold" />
+            Tambah
+          </Button>
+        </div>
+
+        {presetToAdd.length > 0 ? (
+          <div className="space-y-1.5">
+            <p className="text-[11px] text-text-muted">Quick add:</p>
+            <div className="flex flex-wrap gap-1.5">
+              {presetToAdd.map((code) => (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => addCountry(code)}
+                  className="rounded-md border border-dashed border-border px-2 py-0.5 text-[11px] text-text-muted hover:text-accent hover:border-accent/40 cursor-pointer"
+                >
+                  + {code}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        <div className="space-y-2 pt-2 border-t border-border">
+          <p className="text-sm font-medium text-text-secondary">
+            Aktifkan AI otomatis per negara
+          </p>
+          <p className="text-xs text-text-muted">
+            Centang negara yang ikut jadwal auto-generate. Bahasa mengikuti
+            negara (ID→Indonesia, MY→EN-MY, dll.).
+          </p>
+          {countryList.length === 0 ? (
+            <p className="text-xs text-text-muted">
+              Tambah negara dulu di atas.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {countryList.map((code) => {
+                const on = autoCountries.includes(code);
+                return (
+                  <button
+                    key={code}
+                    type="button"
+                    onClick={() => toggleAuto(code)}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors cursor-pointer ${
+                      on
+                        ? "border-fuchsia-400/40 bg-fuchsia-400/15 text-fuchsia-200"
+                        : "border-border text-text-muted hover:text-text-primary"
+                    }`}
+                  >
+                    {on ? "✓ " : ""}
+                    {code}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
