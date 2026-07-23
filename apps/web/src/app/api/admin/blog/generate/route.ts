@@ -7,6 +7,15 @@ import { writeAppLog } from "@/lib/app-log";
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
+/**
+ * POST /api/admin/blog/generate
+ *
+ * SCOPE: blog article draft JSON only.
+ * - Does NOT write BlogPost / Order / Setting / User
+ * - Does NOT publish, fulfill, or touch payments
+ * - Does NOT run AI against any admin domain other than this draft helper
+ * Human must review and save via /api/admin/blog (manual publish).
+ */
 export async function POST(request: Request) {
   try {
     const admin = await requireAdminUser();
@@ -16,14 +25,27 @@ export async function POST(request: Request) {
       language?: string;
     };
 
-    const topic = String(body.topic || "").trim();
+    // Reject payloads that try to smuggle non-blog fields into the AI path
+    const allowedKeys = new Set(["topic", "countryCode", "language"]);
+    for (const key of Object.keys(body || {})) {
+      if (!allowedKeys.has(key)) {
+        // ignore extras silently — do not forward to the model
+      }
+    }
+
+    const topic = String(body.topic || "").trim().slice(0, 500);
     if (!topic) {
       return NextResponse.json({ error: "Topic is required" }, { status: 400 });
     }
 
     const countryCode = String(body.countryCode || "GLOBAL")
       .toUpperCase()
-      .slice(0, 12);
+      .replace(/[^A-Z]/g, "")
+      .slice(0, 12) || "GLOBAL";
+
+    const language = body.language
+      ? String(body.language).trim().slice(0, 40)
+      : undefined;
 
     const settings = await getBlogAiSettings();
     if (!settings.enabled) {
@@ -32,7 +54,6 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-    // When autoCountries is configured, only allow listed markets for AI gen
     if (
       settings.autoCountries.length > 0 &&
       !settings.autoCountries.includes(countryCode)
@@ -45,28 +66,41 @@ export async function POST(request: Request) {
       );
     }
 
+    // Draft only — never auto-save / publish
     const draft = await generateBlogArticleDraft({
       topic,
       countryCode,
-      language: body.language,
+      language,
     });
 
     await writeAppLog({
       category: "BLOG",
       level: "SUCCESS",
-      title: `AI draft: ${draft.title}`,
+      title: `AI draft (blog only): ${draft.title}`,
       actor: admin.email || admin.dbUserId,
       route: "/api/admin/blog/generate",
       metadata: {
+        scope: "blog_article_draft_only",
         country: countryCode,
         model: settings.model,
         focusKeyword: draft.focusKeyword,
+        // Never log API key, base URL secrets, or full prompt
       },
     });
 
+    // Explicit whitelist response — no AI extras leak through
     return NextResponse.json({
+      scope: "blog_article_draft_only",
       draft: {
-        ...draft,
+        title: draft.title,
+        slug: draft.slug,
+        excerpt: draft.excerpt,
+        contentHtml: draft.contentHtml,
+        metaTitle: draft.metaTitle,
+        metaDescription: draft.metaDescription,
+        focusKeyword: draft.focusKeyword,
+        category: draft.category,
+        faq: draft.faq,
         countryCode,
         aiGenerated: true,
         aiModel: settings.model,

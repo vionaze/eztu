@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma, type Prisma } from "@kupon/db";
 import { requireAdminUser } from "@/lib/clerk";
 import { writeAppLog } from "@/lib/app-log";
+import { sanitizeBlogHtml } from "@/lib/blog-ai";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +58,9 @@ export async function PATCH(request: Request, ctx: RouteCtx) {
     if (body.excerpt !== undefined) {
       data.excerpt = body.excerpt ? String(body.excerpt).slice(0, 500) : null;
     }
-    if (body.content !== undefined) data.content = String(body.content);
+    if (body.content !== undefined) {
+      data.content = sanitizeBlogHtml(String(body.content));
+    }
     if (body.coverImage !== undefined) {
       data.coverImage = body.coverImage ? String(body.coverImage) : null;
     }

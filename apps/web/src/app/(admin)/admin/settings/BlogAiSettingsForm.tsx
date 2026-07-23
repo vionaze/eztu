@@ -125,6 +125,12 @@ export default function BlogAiSettingsForm({ initial }: { initial: Initial }) {
         blocked. Configure an OpenAI-compatible endpoint (OpenAI, OpenRouter,
         Groq, Azure, self-hosted, etc.).
       </p>
+      <p className="text-xs rounded-xl border border-emerald-400/25 bg-emerald-400/5 px-3 py-2 text-emerald-200/90 leading-relaxed">
+        <strong className="text-emerald-300">Scope lock:</strong> AI hanya
+        untuk draft artikel blog. Tidak bisa masuk admin, payment, order, user,
+        DB, atau sistem webapp lain. Output = JSON artikel saja; publish tetap
+        manual oleh admin.
+      </p>
 
       <Input
         label="AI Base URL"
@@ -198,7 +204,8 @@ export default function BlogAiSettingsForm({ initial }: { initial: Initial }) {
             </p>
             <p className="text-xs text-text-muted mt-0.5">
               Instruksi utama ke AI saat generate artikel. Topic + negara tetap
-              dikirim terpisah di user message.{" "}
+              dikirim terpisah. Scope lock immutable (blog-only) selalu ditambah
+              otomatis di server — tidak bisa di-override dari sini.{" "}
               {hasCustom ? (
                 <span className="text-fuchsia-300">Custom prompt aktif.</span>
               ) : (

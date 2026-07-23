@@ -230,7 +230,8 @@ export default function BlogPostForm({
             <p className="text-xs text-text-muted mt-1 max-w-xl">
               <strong className="text-text-secondary">Manual writing is the default.</strong>{" "}
               Isi title, konten, gambar, SEO, lalu Publish / Save draft. AI hanya
-              helper opsional — tidak wajib.
+              helper opsional untuk draft teks artikel blog — tidak menyentuh
+              admin, payment, order, atau sistem lain.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -537,11 +538,11 @@ export default function BlogPostForm({
               <MagicWand size={18} className="text-fuchsia-300" />
               <div>
                 <h3 className="text-sm font-semibold text-text-primary">
-                  Optional: AI draft helper
+                  Optional: AI draft helper (blog only)
                 </h3>
                 <p className="text-xs text-text-muted">
-                  Boleh diabaikan. Hanya mengisi form di atas — kamu tetap bisa
-                  edit manual penuh setelah generate.
+                  Scope: isi form artikel di atas saja. AI tidak publish, tidak
+                  akses admin/payment/DB. Review manual sebelum Publish.
                 </p>
               </div>
             </div>
