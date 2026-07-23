@@ -23,7 +23,7 @@ export interface Product {
   slug: string;
   description: string;
   image: string;
-  categoryId: string;
+  categoryId: string | null;
   category?: Category;
   variants: ProductVariant[];
   featured: boolean;

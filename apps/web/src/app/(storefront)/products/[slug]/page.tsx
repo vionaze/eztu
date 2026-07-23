@@ -38,7 +38,13 @@ export default async function ProductDetailPage({ params }: Props) {
 
   const products = await getStorefrontProducts();
   const related = products
-    .filter((p) => p.categoryId === product.categoryId && p.id !== product.id && p.published)
+    .filter(
+      (p) =>
+        p.id !== product.id &&
+        p.published &&
+        product.categoryId != null &&
+        p.categoryId === product.categoryId
+    )
     .slice(0, 4);
 
   return <ProductDetailClient product={product} relatedProducts={related} />;

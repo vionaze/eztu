@@ -47,8 +47,9 @@ model Product {
   slug        String           @unique
   description String
   image       String
-  categoryId  String
-  category    Category         @relation(fields: [categoryId], references: [id])
+  /// Null = Uncategorized (after category delete or manual clear)
+  categoryId  String?
+  category    Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   variants    ProductVariant[]
   promoCodes  PromoCode[]
   featured    Boolean          @default(false)

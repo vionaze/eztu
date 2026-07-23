@@ -64,19 +64,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
     }
 
-    const categoryId = String(body.categoryId || "").trim();
-    if (!categoryId) {
-      return NextResponse.json(
-        { error: "Category is required" },
-        { status: 400 }
-      );
-    }
-
-    const category = await prisma.category.findUnique({
-      where: { id: categoryId },
-    });
-    if (!category) {
-      return NextResponse.json({ error: "Category not found" }, { status: 400 });
+    const categoryIdRaw = String(body.categoryId || "").trim();
+    let categoryId: string | null = categoryIdRaw || null;
+    if (categoryId) {
+      const category = await prisma.category.findUnique({
+        where: { id: categoryId },
+      });
+      if (!category) {
+        return NextResponse.json(
+          { error: "Category not found" },
+          { status: 400 }
+        );
+      }
     }
 
     let slug = slugify(String(body.slug || name));

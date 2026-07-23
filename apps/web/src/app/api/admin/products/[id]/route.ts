@@ -103,7 +103,7 @@ export async function PATCH(request: Request, ctx: RouteCtx) {
       slug?: string;
       description?: string;
       image?: string;
-      categoryId?: string;
+      categoryId?: string | null;
       featured?: boolean;
       published?: boolean;
       fulfillmentType?: ProductFulfillmentType;
@@ -126,7 +126,19 @@ export async function PATCH(request: Request, ctx: RouteCtx) {
     }
     if (body.image !== undefined) data.image = String(body.image).trim();
     if (body.categoryId !== undefined) {
-      data.categoryId = String(body.categoryId).trim();
+      const cid = String(body.categoryId || "").trim();
+      data.categoryId = cid || null;
+      if (data.categoryId) {
+        const cat = await prisma.category.findUnique({
+          where: { id: data.categoryId },
+        });
+        if (!cat) {
+          return NextResponse.json(
+            { error: "Category not found" },
+            { status: 400 }
+          );
+        }
+      }
     }
     if (body.featured !== undefined) data.featured = Boolean(body.featured);
     if (body.published !== undefined) data.published = Boolean(body.published);

@@ -94,10 +94,6 @@ export default function NewProductForm({
       setError("Product name is required.");
       return;
     }
-    if (!categoryId) {
-      setError("Select a category.");
-      return;
-    }
     setSaving(true);
     try {
       const res = await fetch("/api/admin/products", {
@@ -280,18 +276,20 @@ export default function NewProductForm({
               onChange={(e) => setCategoryId(e.target.value)}
               className="w-full rounded-xl bg-bg-card border border-border px-3 h-10 text-sm text-text-primary"
             >
-              <option value="">Select category</option>
+              <option value="">Uncategorized</option>
               {categories.map((cat) => (
                 <option key={cat.id} value={cat.id}>
                   {cat.name}
                 </option>
               ))}
             </select>
-            {categories.length === 0 ? (
-              <p className="text-xs text-amber-400">
-                No categories — buat kategori dulu di database/seed.
-              </p>
-            ) : null}
+            <p className="text-xs text-text-muted">
+              Kelola daftar kategori di{" "}
+              <a href="/admin/categories" className="text-accent underline">
+                Categories
+              </a>
+              .
+            </p>
           </div>
 
           <div className="flex flex-wrap gap-6">

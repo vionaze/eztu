@@ -36,7 +36,7 @@ type ProductInitial = {
   slug: string;
   description: string;
   image: string;
-  categoryId: string;
+  categoryId: string | null;
   featured: boolean;
   published: boolean;
   fulfillmentType: "TOP_UP" | "VOUCHER";
@@ -59,7 +59,7 @@ export default function ProductEditForm({
   const [name, setName] = useState(initial.name);
   const [slug, setSlug] = useState(initial.slug);
   const [description, setDescription] = useState(initial.description);
-  const [categoryId, setCategoryId] = useState(initial.categoryId);
+  const [categoryId, setCategoryId] = useState(initial.categoryId || "");
   const [imageUrl, setImageUrl] = useState(initial.image);
   const [featured, setFeatured] = useState(initial.featured);
   const [published, setPublished] = useState(initial.published);
@@ -415,12 +415,20 @@ export default function ProductEditForm({
               onChange={(e) => setCategoryId(e.target.value)}
               className="w-full rounded-xl bg-bg-card border border-border px-3 h-10 text-sm text-text-primary"
             >
+              <option value="">Uncategorized</option>
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
                 </option>
               ))}
             </select>
+            <p className="text-xs text-text-muted">
+              Kelola kategori di{" "}
+              <a href="/admin/categories" className="text-accent underline">
+                Categories
+              </a>
+              .
+            </p>
           </div>
           <Input
             label="Image URL"

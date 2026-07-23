@@ -19,7 +19,7 @@ function toProduct(product: ProductWithRelations): Product {
     slug: product.slug,
     description: product.description,
     image: product.image,
-    categoryId: product.categoryId,
+    categoryId: product.categoryId ?? null,
     category: product.category
       ? {
           id: product.category.id,

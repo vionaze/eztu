@@ -92,7 +92,15 @@ export default async function AdminProductsPage() {
                       </Badge>
                     </div>
                     <p className="text-xs text-text-muted mt-0.5">
-                      {product.category?.name || "Uncategorized"}
+                      <span
+                        className={
+                          product.category
+                            ? ""
+                            : "text-amber-400/90 font-medium"
+                        }
+                      >
+                        {product.category?.name || "Uncategorized"}
+                      </span>
                       {product.fulfillmentType === "TOP_UP" &&
                       product.requiresServerId
                         ? " · Zone required"

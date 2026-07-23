@@ -37,7 +37,7 @@ export default async function AdminProductDetailPage({
         slug: product.slug,
         description: product.description,
         image: product.image,
-        categoryId: product.categoryId,
+        categoryId: product.categoryId || null,
         featured: product.featured,
         published: product.published,
         fulfillmentType: product.fulfillmentType,
