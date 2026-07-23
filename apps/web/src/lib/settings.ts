@@ -9,15 +9,31 @@ export const SETTING_KEYS = {
   AI_COUNTRIES: "blog.ai.countries",
   AI_AUTO_COUNTRIES: "blog.ai.autoCountries",
   AI_SYSTEM_PROMPT: "blog.ai.systemPrompt",
+  /** Master switch for scheduled auto generate+publish */
+  AI_SCHEDULE_ENABLED: "blog.ai.scheduleEnabled",
+  /** Hours between runs: 1 | 2 | 4 | 8 | 12 */
+  AI_INTERVAL_HOURS: "blog.ai.intervalHours",
+  /** Articles per scheduled run: 1|2|5|6|7|8|10|12 */
+  AI_ARTICLES_PER_RUN: "blog.ai.articlesPerRun",
+  /** When true, scheduled (and optional one-shot) jobs publish immediately */
+  AI_AUTO_PUBLISH: "blog.ai.autoPublish",
+  /** ISO timestamp of last successful scheduled run */
+  AI_LAST_RUN_AT: "blog.ai.lastRunAt",
 } as const;
+
+export const BLOG_AI_INTERVAL_OPTIONS = [1, 2, 4, 8, 12] as const;
+export const BLOG_AI_COUNT_OPTIONS = [1, 2, 5, 6, 7, 8, 10, 12] as const;
+
+export type BlogAiIntervalHours = (typeof BLOG_AI_INTERVAL_OPTIONS)[number];
+export type BlogAiArticlesPerRun = (typeof BLOG_AI_COUNT_OPTIONS)[number];
 
 /**
  * Default system prompt used when none is saved in Settings.
- * Scope is blog article drafts only — an immutable lock is always appended in blog-ai.ts.
+ * Scope is blog article content only — an immutable lock is always appended in blog-ai.ts.
  */
 export const DEFAULT_BLOG_AI_SYSTEM_PROMPT = `You are an expert SEO content strategist for 2026 Google quality systems (Helpful Content, E-E-A-T, people-first search).
 Write for EZTopUp (eztopup.io): digital vouchers and game top-ups paid with USDT/USDC crypto.
-You ONLY write public blog article drafts. You do not access or control any website admin, payments, or backend systems.
+You ONLY write public blog article content. You do not access or control any website admin, payments, or backend systems.
 Rules:
 - People-first, accurate, non-spammy. No keyword stuffing.
 - Clear structure: intro hook, H2 sections, short paragraphs, bullet lists where useful.
@@ -39,6 +55,16 @@ export async function setSetting(key: string, value: string): Promise<void> {
   });
 }
 
+function parseAllowedNumber<T extends number>(
+  raw: string,
+  allowed: readonly T[],
+  fallback: T
+): T {
+  const n = Number(raw);
+  if (allowed.includes(n as T)) return n as T;
+  return fallback;
+}
+
 export async function getBlogAiSettings() {
   const [
     enabled,
@@ -48,6 +74,11 @@ export async function getBlogAiSettings() {
     countriesRaw,
     autoCountriesRaw,
     systemPromptRaw,
+    scheduleEnabled,
+    intervalRaw,
+    countRaw,
+    autoPublish,
+    lastRunAt,
   ] = await Promise.all([
     getSetting(SETTING_KEYS.AI_ENABLED, "false"),
     getSetting(SETTING_KEYS.AI_BASE_URL, process.env.BLOG_AI_BASE_URL || ""),
@@ -56,6 +87,11 @@ export async function getBlogAiSettings() {
     getSetting(SETTING_KEYS.AI_COUNTRIES, "ID,MY,US,GLOBAL"),
     getSetting(SETTING_KEYS.AI_AUTO_COUNTRIES, "ID,GLOBAL"),
     getSetting(SETTING_KEYS.AI_SYSTEM_PROMPT, ""),
+    getSetting(SETTING_KEYS.AI_SCHEDULE_ENABLED, "false"),
+    getSetting(SETTING_KEYS.AI_INTERVAL_HOURS, "4"),
+    getSetting(SETTING_KEYS.AI_ARTICLES_PER_RUN, "1"),
+    getSetting(SETTING_KEYS.AI_AUTO_PUBLISH, "true"),
+    getSetting(SETTING_KEYS.AI_LAST_RUN_AT, ""),
   ]);
 
   const systemPrompt = systemPromptRaw.trim()
@@ -76,7 +112,19 @@ export async function getBlogAiSettings() {
       .map((c) => c.trim().toUpperCase())
       .filter(Boolean),
     systemPrompt,
-    /** True when a custom prompt is stored in DB (not just the built-in default). */
     hasCustomSystemPrompt: Boolean(systemPromptRaw.trim()),
+    scheduleEnabled: scheduleEnabled === "true" || scheduleEnabled === "1",
+    intervalHours: parseAllowedNumber(
+      intervalRaw,
+      BLOG_AI_INTERVAL_OPTIONS,
+      4
+    ),
+    articlesPerRun: parseAllowedNumber(
+      countRaw,
+      BLOG_AI_COUNT_OPTIONS,
+      1
+    ),
+    autoPublish: autoPublish !== "false" && autoPublish !== "0",
+    lastRunAt: lastRunAt || null,
   };
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminUser } from "@/lib/clerk";
 import { generateBlogArticleDraft } from "@/lib/blog-ai";
+import { persistBlogDraft } from "@/lib/blog-ai-publish";
 import { getBlogAiSettings } from "@/lib/settings";
 import { writeAppLog } from "@/lib/app-log";
 
@@ -10,11 +11,9 @@ export const maxDuration = 120;
 /**
  * POST /api/admin/blog/generate
  *
- * SCOPE: blog article draft JSON only.
- * - Does NOT write BlogPost / Order / Setting / User
- * - Does NOT publish, fulfill, or touch payments
- * - Does NOT run AI against any admin domain other than this draft helper
- * Human must review and save via /api/admin/blog (manual publish).
+ * Blog article only.
+ * - Default: return draft JSON for the form
+ * - publish: true → create BlogPost and publish immediately
  */
 export async function POST(request: Request) {
   try {
@@ -23,29 +22,25 @@ export async function POST(request: Request) {
       topic?: string;
       countryCode?: string;
       language?: string;
+      publish?: boolean;
     };
-
-    // Reject payloads that try to smuggle non-blog fields into the AI path
-    const allowedKeys = new Set(["topic", "countryCode", "language"]);
-    for (const key of Object.keys(body || {})) {
-      if (!allowedKeys.has(key)) {
-        // ignore extras silently — do not forward to the model
-      }
-    }
 
     const topic = String(body.topic || "").trim().slice(0, 500);
     if (!topic) {
       return NextResponse.json({ error: "Topic is required" }, { status: 400 });
     }
 
-    const countryCode = String(body.countryCode || "GLOBAL")
-      .toUpperCase()
-      .replace(/[^A-Z]/g, "")
-      .slice(0, 12) || "GLOBAL";
+    const countryCode =
+      String(body.countryCode || "GLOBAL")
+        .toUpperCase()
+        .replace(/[^A-Z]/g, "")
+        .slice(0, 12) || "GLOBAL";
 
     const language = body.language
       ? String(body.language).trim().slice(0, 40)
       : undefined;
+
+    const publish = Boolean(body.publish);
 
     const settings = await getBlogAiSettings();
     if (!settings.enabled) {
@@ -60,18 +55,47 @@ export async function POST(request: Request) {
     ) {
       return NextResponse.json(
         {
-          error: `Country ${countryCode} is not enabled for auto AI articles. Enable it under Settings → Blog AI.`,
+          error: `Country ${countryCode} is not enabled for AI articles. Enable it under Settings → Blog AI.`,
         },
         { status: 400 }
       );
     }
 
-    // Draft only — never auto-save / publish
     const draft = await generateBlogArticleDraft({
       topic,
       countryCode,
       language,
     });
+
+    if (publish) {
+      const post = await persistBlogDraft({
+        draft,
+        countryCode,
+        published: true,
+        aiModel: settings.model,
+        actor: admin.email || admin.dbUserId,
+      });
+
+      return NextResponse.json({
+        scope: "blog_article_only",
+        published: true,
+        post,
+        draft: {
+          title: draft.title,
+          slug: post.slug,
+          excerpt: draft.excerpt,
+          contentHtml: draft.contentHtml,
+          metaTitle: draft.metaTitle,
+          metaDescription: draft.metaDescription,
+          focusKeyword: draft.focusKeyword,
+          category: draft.category,
+          faq: draft.faq,
+          countryCode,
+          aiGenerated: true,
+          aiModel: settings.model,
+        },
+      });
+    }
 
     await writeAppLog({
       category: "BLOG",
@@ -83,14 +107,12 @@ export async function POST(request: Request) {
         scope: "blog_article_draft_only",
         country: countryCode,
         model: settings.model,
-        focusKeyword: draft.focusKeyword,
-        // Never log API key, base URL secrets, or full prompt
       },
     });
 
-    // Explicit whitelist response — no AI extras leak through
     return NextResponse.json({
       scope: "blog_article_draft_only",
+      published: false,
       draft: {
         title: draft.title,
         slug: draft.slug,

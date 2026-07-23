@@ -152,7 +152,7 @@ export default function BlogPostForm({
     }
   };
 
-  const generateAi = async () => {
+  const generateAi = async (publish: boolean) => {
     setError("");
     if (!aiTopic.trim()) {
       setError("Enter a topic for AI generation.");
@@ -166,10 +166,18 @@ export default function BlogPostForm({
         body: JSON.stringify({
           topic: aiTopic,
           countryCode: form.countryCode,
+          publish,
         }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "AI generation failed");
+
+      if (publish && data.post) {
+        router.push("/admin/blog");
+        router.refresh();
+        return;
+      }
+
       const d = data.draft as {
         title: string;
         slug: string;
@@ -197,6 +205,7 @@ export default function BlogPostForm({
         aiModel: d.aiModel || "",
         ogTitle: d.metaTitle,
         ogDescription: d.metaDescription,
+        published: false,
       }));
       setSlugTouched(true);
     } catch (e) {
@@ -582,20 +591,31 @@ export default function BlogPostForm({
                     )}
                   </select>
                 </div>
-                <div className="flex items-end">
+                <div className="flex items-end gap-2 flex-wrap sm:flex-nowrap">
                   <Button
                     type="button"
                     variant="secondary"
-                    onClick={generateAi}
+                    onClick={() => generateAi(false)}
                     disabled={generating}
-                    className="w-full sm:w-auto"
                   >
                     {generating ? (
                       <SpinnerGap size={16} className="animate-spin" />
                     ) : (
                       <MagicWand size={16} />
                     )}
-                    {generating ? "Generating…" : "Generate draft"}
+                    {generating ? "…" : "Draft"}
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => generateAi(true)}
+                    disabled={generating}
+                  >
+                    {generating ? (
+                      <SpinnerGap size={16} className="animate-spin" />
+                    ) : (
+                      <MagicWand size={16} weight="fill" />
+                    )}
+                    {generating ? "…" : "Generate & publish"}
                   </Button>
                 </div>
               </div>

@@ -32,6 +32,13 @@ export default async function AdminSettingsPage() {
           systemPrompt: ai.systemPrompt,
           hasCustomSystemPrompt: ai.hasCustomSystemPrompt,
           defaultSystemPrompt: DEFAULT_BLOG_AI_SYSTEM_PROMPT,
+          scheduleEnabled: ai.scheduleEnabled,
+          intervalHours: ai.intervalHours,
+          articlesPerRun: ai.articlesPerRun,
+          autoPublish: ai.autoPublish,
+          lastRunAt: ai.lastRunAt,
+          intervalOptions: [1, 2, 4, 8, 12],
+          countOptions: [1, 2, 5, 6, 7, 8, 10, 12],
         }}
       />
 

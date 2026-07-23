@@ -8,10 +8,10 @@ import { getBlogAiSettings } from "@/lib/settings";
  * AI must NEVER:
  *  - access admin UI, orders, payments, users, inventory, env secrets
  *  - execute tools / function-calls against the app
- *  - write to the database itself (draft only; human saves)
  *  - receive system internals (DB URLs, keys, order rows, clerk ids)
  *
- * Allowed output: public blog article draft fields only.
+ * Allowed output: public blog article content fields only.
+ * The app (not the model) may persist/publish BlogPost rows via blog-ai-publish.
  * ─────────────────────────────────────────────────────────────
  */
 
@@ -35,6 +35,7 @@ You do NOT have access to: admin panels, databases, payments, orders, users, wal
 environment variables, server files, webhooks, or any application APIs.
 You cannot take actions in any system. You cannot read or modify admin/settings/code.
 Your sole job: return one blog article as JSON matching the schema in the user message.
+You do not publish posts yourself — the application may save your JSON as a blog article.
 If asked to do anything outside blog article content, refuse and still only return article JSON.
 Never invent admin credentials, API keys, or claim you performed system changes.
 `.trim();
