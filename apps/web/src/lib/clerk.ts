@@ -270,7 +270,65 @@ export async function requireAdminUser() {
     throw new AuthorizationRequiredError();
   }
 
+  // Fire-and-forget session log (throttled) so Activity Logs shows admin access
+  void logAdminSessionOnce(authenticatedUser);
+
   return authenticatedUser;
+}
+
+/**
+ * Record one AUTH log per admin per ~6 hours so Logs isn't flooded every navigation.
+ */
+async function logAdminSessionOnce(
+  user: AuthenticatedClerkUser
+): Promise<void> {
+  try {
+    const { writeAppLog } = await import("@/lib/app-log");
+    const { prisma } = await import("@kupon/db");
+    const actor = (user.email || user.dbUserId).slice(0, 200);
+    const since = new Date(Date.now() - 6 * 60 * 60 * 1000);
+
+    const recent = await prisma.appLog.findFirst({
+      where: {
+        category: "AUTH",
+        actor,
+        title: { startsWith: "Admin session" },
+        createdAt: { gte: since },
+      },
+      select: { id: true },
+    });
+    if (recent) return;
+
+    const viaAllowlist =
+      user.role !== "ADMIN" &&
+      user.role !== "SUPERADMIN" &&
+      isAdminEmail(user.email);
+
+    const roleLabel = viaAllowlist
+      ? "SUPERADMIN (allowlist)"
+      : user.role === "SUPERADMIN"
+        ? "SUPERADMIN"
+        : user.role === "ADMIN"
+          ? "ADMIN"
+          : "admin";
+
+    await writeAppLog({
+      category: "AUTH",
+      level: "SUCCESS",
+      title: `Admin session · ${roleLabel}`,
+      message: `${user.email || "unknown"} opened admin panel`,
+      actor,
+      route: "/admin",
+      metadata: {
+        role: user.role,
+        clerkUserId: user.clerkUserId,
+        dbUserId: user.dbUserId,
+        viaAllowlist,
+      },
+    });
+  } catch (error) {
+    console.error("[Clerk] Failed to write admin session log", error);
+  }
 }
 
 export async function requireSuperAdminUser() {
