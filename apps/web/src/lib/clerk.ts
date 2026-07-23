@@ -48,22 +48,86 @@ function getPrimaryWallet(clerkUser: ClerkUser) {
   return wallet?.toLowerCase() ?? null;
 }
 
+/**
+ * Sync Clerk identity into local User.
+ * Prefer clerkId match; if missing, link existing row by email so ADMIN/SUPERADMIN is preserved.
+ */
 async function syncClerkUser(clerkUser: ClerkUser) {
   const email = getPrimaryEmail(clerkUser);
   const walletAddress = getPrimaryWallet(clerkUser);
   const name = getDisplayName(clerkUser);
   const image = clerkUser.imageUrl || null;
 
+  const byClerkId = await prisma.user.findUnique({
+    where: { clerkId: clerkUser.id },
+  });
+
+  if (byClerkId) {
+    try {
+      return await prisma.user.update({
+        where: { id: byClerkId.id },
+        data: {
+          name,
+          email,
+          image,
+          walletAddress,
+        },
+      });
+    } catch (error) {
+      // Unique email conflict: keep role, skip email update
+      console.error("[Clerk] Update by clerkId failed, updating non-unique fields", error);
+      return prisma.user.update({
+        where: { id: byClerkId.id },
+        data: { name, image },
+      });
+    }
+  }
+
+  // No row for this clerkId yet — link existing account by email (preserves SUPERADMIN/ADMIN).
+  if (email) {
+    const byEmail = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (byEmail) {
+      try {
+        return await prisma.user.update({
+          where: { id: byEmail.id },
+          data: {
+            clerkId: clerkUser.id,
+            name,
+            image,
+            walletAddress,
+          },
+        });
+      } catch (error) {
+        console.error("[Clerk] Relink by email failed", error);
+        // clerkId may already be taken by a stub USER row — merge carefully
+        const stub = await prisma.user.findUnique({
+          where: { clerkId: clerkUser.id },
+        });
+        if (stub && stub.id !== byEmail.id) {
+          // Stub owns this clerkId (USER). Copy admin role from the email row
+          // without moving email (unique). Prefer this session's row for auth.
+          return prisma.user.update({
+            where: { id: stub.id },
+            data: {
+              name,
+              image,
+              walletAddress,
+              role: byEmail.role,
+            },
+          });
+        }
+        throw error;
+      }
+    }
+  }
+
+  // Brand-new user
   try {
-    return await prisma.user.upsert({
-      where: { clerkId: clerkUser.id },
-      update: {
-        name,
-        email,
-        image,
-        walletAddress,
-      },
-      create: {
+    return await prisma.user.create({
+      data: {
         clerkId: clerkUser.id,
         name,
         email,
@@ -72,32 +136,14 @@ async function syncClerkUser(clerkUser: ClerkUser) {
       },
     });
   } catch (error) {
-    // Unique email/wallet conflicts must not 500 account pages for a valid Clerk session.
-    console.error("[Clerk] Full user sync failed, retrying without unique fields", error);
-
-    try {
-      return await prisma.user.upsert({
-        where: { clerkId: clerkUser.id },
-        update: {
-          name,
-          image,
-        },
-        create: {
-          clerkId: clerkUser.id,
-          name,
-          image,
-          // leave email/wallet null on conflict so the page can still load
-        },
-      });
-    } catch (retryError) {
-      console.error("[Clerk] Minimal user sync failed", retryError);
-      // Last resort: return existing row by clerkId if present
-      const existing = await prisma.user.findUnique({
-        where: { clerkId: clerkUser.id },
-      });
-      if (existing) return existing;
-      throw retryError;
-    }
+    console.error("[Clerk] Create user failed, retry without unique fields", error);
+    return prisma.user.create({
+      data: {
+        clerkId: clerkUser.id,
+        name,
+        image,
+      },
+    });
   }
 }
 
@@ -130,6 +176,12 @@ export async function requireAdminUser() {
   const authenticatedUser = await requireClerkUser();
 
   if (!isAdminRole(authenticatedUser.role)) {
+    console.warn("[Admin] Forbidden", {
+      clerkUserId: authenticatedUser.clerkUserId,
+      dbUserId: authenticatedUser.dbUserId,
+      email: authenticatedUser.email,
+      role: authenticatedUser.role,
+    });
     throw new AuthorizationRequiredError();
   }
 

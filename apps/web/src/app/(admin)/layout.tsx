@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import AdminShell from "@/components/layout/AdminShell";
 import {
   AuthenticationRequiredError,
@@ -14,10 +14,13 @@ export default async function AdminLayout({
   try {
     await requireAdminUser();
   } catch (error) {
-    if (
-      error instanceof AuthenticationRequiredError ||
-      error instanceof AuthorizationRequiredError
-    ) {
+    // Not signed in → login (middleware usually handles this first)
+    if (error instanceof AuthenticationRequiredError) {
+      redirect("/login?redirect_url=/admin/dashboard");
+    }
+
+    // Signed in but not ADMIN/SUPERADMIN → still 404 (do not leak admin existence)
+    if (error instanceof AuthorizationRequiredError) {
       notFound();
     }
 
