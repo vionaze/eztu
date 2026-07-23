@@ -13,6 +13,7 @@ import {
   ShoppingCart,
   User,
   Receipt,
+  SquaresFour,
 } from "@phosphor-icons/react";
 import CountrySelector from "@/components/ui/CountrySelector";
 
@@ -22,7 +23,7 @@ const navLinks = [
   { label: "Blog", href: "/blog" },
 ];
 
-function AccountUserButton() {
+function AccountUserButton({ isAdmin }: { isAdmin: boolean }) {
   return (
     <UserButton>
       <UserButton.MenuItems>
@@ -31,6 +32,13 @@ function AccountUserButton() {
           label="Purchase history"
           labelIcon={<Receipt size={16} weight="bold" />}
         />
+        {isAdmin ? (
+          <UserButton.Link
+            href="/admin/dashboard"
+            label="Admin panel"
+            labelIcon={<SquaresFour size={16} weight="bold" />}
+          />
+        ) : null}
       </UserButton.MenuItems>
     </UserButton>
   );
@@ -40,12 +48,41 @@ export default function Navbar() {
   const { isLoaded, isSignedIn } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // Resolve DB role (ADMIN / SUPERADMIN) for navbar Admin link
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    if (!isSignedIn) {
+      setIsAdmin(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    fetch("/api/account/me", { credentials: "same-origin" })
+      .then(async (res) => {
+        if (!res.ok) return { isAdmin: false };
+        return res.json() as Promise<{ isAdmin?: boolean }>;
+      })
+      .then((data) => {
+        if (!cancelled) setIsAdmin(Boolean(data.isAdmin));
+      })
+      .catch(() => {
+        if (!cancelled) setIsAdmin(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoaded, isSignedIn]);
 
   // Lock body scroll when mobile menu is open
   useEffect(() => {
@@ -102,6 +139,14 @@ export default function Navbar() {
                 {link.label}
               </Link>
             ))}
+            {isSignedIn && isAdmin ? (
+              <Link
+                href="/admin/dashboard"
+                className="px-4 py-2 text-sm font-semibold text-accent hover:text-accent-hover transition-colors rounded-lg hover:bg-accent/10"
+              >
+                Admin
+              </Link>
+            ) : null}
           </nav>
 
           {/* Right Actions */}
@@ -135,7 +180,7 @@ export default function Navbar() {
             {/* Auth — go to /login so Terms checkbox is always required */}
             <div className="hidden sm:flex items-center" id="nav-login-btn">
               {isSignedIn ? (
-                <AccountUserButton />
+                <AccountUserButton isAdmin={isAdmin} />
               ) : (
                 <Link
                   href="/login"
@@ -216,6 +261,15 @@ export default function Navbar() {
                   {link.label}
                 </Link>
               ))}
+              {isSignedIn && isAdmin ? (
+                <Link
+                  href="/admin/dashboard"
+                  onClick={() => setMobileOpen(false)}
+                  className="px-4 py-3.5 text-base font-semibold text-accent hover:bg-accent/10 rounded-xl transition-colors"
+                >
+                  Admin panel
+                </Link>
+              ) : null}
             </div>
 
             <div className="mt-auto flex flex-col gap-3 pt-4">
@@ -225,7 +279,7 @@ export default function Navbar() {
               {isSignedIn ? (
                 <div className="flex items-center justify-between h-11 rounded-xl bg-bg-card border border-border px-4">
                   <span className="text-sm font-medium text-text-primary">Account</span>
-                  <AccountUserButton />
+                  <AccountUserButton isAdmin={isAdmin} />
                 </div>
               ) : (
                 <Link
