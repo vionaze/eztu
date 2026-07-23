@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Badge, Button, Card, Input } from "@kupon/ui";
+import { Badge, Button, Input } from "@kupon/ui";
 import {
   Plus,
   PencilSimple,
