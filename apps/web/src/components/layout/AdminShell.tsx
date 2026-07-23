@@ -20,9 +20,17 @@ export default function AdminShell({
 }) {
   const pathname = usePathname();
 
-  const title =
-    Object.entries(pageTitles).find(([key]) => pathname.startsWith(key))?.[1] ||
-    "Admin";
+  let title = "Admin";
+  if (pathname.startsWith("/admin/products/new")) title = "New Product";
+  else if (pathname.match(/^\/admin\/products\/[^/]+/)) title = "Edit Product";
+  else if (pathname.startsWith("/admin/blog/new")) title = "New Post";
+  else if (pathname.match(/^\/admin\/blog\/[^/]+/)) title = "Edit Post";
+  else {
+    title =
+      Object.entries(pageTitles).find(([key]) =>
+        pathname.startsWith(key)
+      )?.[1] || "Admin";
+  }
 
   return (
     <div className="min-h-[100dvh] bg-bg-primary">
