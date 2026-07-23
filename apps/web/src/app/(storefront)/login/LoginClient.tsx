@@ -10,8 +10,8 @@ const TOS_STORAGE_KEY = "eztopup_tos_accepted_v1";
 
 /**
  * Clerk does not support injecting a custom Terms checkbox into their hosted
- * SignIn form. We gate the entire SignIn widget: form only mounts after accept,
- * with a short slide-up animation from below.
+ * SignIn form. We gate the SignIn widget: form only mounts after accept.
+ * ToS sits ABOVE the form so the flow is obvious: check → form appears.
  */
 export default function LoginClient({ redirectUrl }: { redirectUrl: string }) {
   const router = useRouter();
@@ -58,53 +58,13 @@ export default function LoginClient({ redirectUrl }: { redirectUrl: string }) {
             Sign in to EZTopUp
           </h1>
           <p className="text-sm text-text-secondary leading-relaxed">
-            Accept the Terms below to unlock sign-in. You will return to your
-            previous page after login when possible.
+            Accept the Terms, then sign in with email or Google. You will return
+            to your previous page when possible.
           </p>
         </div>
 
-        {/* Clerk form — slides up from bottom only after ToS is accepted */}
-        <div className="relative min-h-[120px]">
-          <AnimatePresence mode="wait" initial={false}>
-            {acceptedTerms ? (
-              <motion.div
-                key="clerk-sign-in"
-                initial={{ opacity: 0, y: 48 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 24 }}
-                transition={{
-                  type: "tween",
-                  duration: 0.35,
-                  ease: [0.22, 1, 0.36, 1],
-                }}
-                className="flex justify-center [&_.cl-rootBox]:mx-auto"
-              >
-                <SignIn
-                  routing="hash"
-                  fallbackRedirectUrl={redirectUrl}
-                  forceRedirectUrl={redirectUrl}
-                />
-              </motion.div>
-            ) : (
-              <motion.div
-                key="clerk-locked"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="rounded-2xl border border-dashed border-border bg-bg-secondary/40 px-6 py-12 text-center"
-              >
-                <p className="text-sm text-text-muted leading-relaxed">
-                  Sign-in form appears here after you accept the Terms of
-                  Service.
-                </p>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* Terms checkbox — bottom of login stack (not inside Clerk UI) */}
-        <div className="rounded-2xl border border-border bg-bg-card p-4 space-y-2 order-last">
+        {/* ToS first — unlocks Clerk form below */}
+        <div className="rounded-2xl border border-border bg-bg-card p-4 space-y-2">
           <label className="flex items-start gap-3 cursor-pointer select-none">
             <input
               type="checkbox"
@@ -121,7 +81,9 @@ export default function LoginClient({ redirectUrl }: { redirectUrl: string }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-accent hover:text-accent-hover font-medium underline-offset-2 hover:underline"
-                onClick={(e: MouseEvent<HTMLAnchorElement>) => e.stopPropagation()}
+                onClick={(e: MouseEvent<HTMLAnchorElement>) =>
+                  e.stopPropagation()
+                }
               >
                 Terms of Service
               </Link>
@@ -130,10 +92,50 @@ export default function LoginClient({ redirectUrl }: { redirectUrl: string }) {
             </span>
           </label>
           {!acceptedTerms && (
-            <p className="text-xs text-text-muted pl-7">
-              Check this box to enable the sign-in form above.
+            <p className="text-xs text-amber-400/90 pl-7">
+              Centang dulu — form login Clerk muncul di bawah setelah accept.
             </p>
           )}
+        </div>
+
+        {/* Clerk form — only after ToS */}
+        <div className="relative min-h-[140px]">
+          <AnimatePresence mode="wait" initial={false}>
+            {acceptedTerms ? (
+              <motion.div
+                key="clerk-sign-in"
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 12 }}
+                transition={{
+                  type: "tween",
+                  duration: 0.3,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
+                className="flex justify-center [&_.cl-rootBox]:mx-auto w-full"
+              >
+                <SignIn
+                  routing="hash"
+                  fallbackRedirectUrl={redirectUrl}
+                  forceRedirectUrl={redirectUrl}
+                />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="clerk-locked"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="rounded-2xl border border-dashed border-border bg-bg-secondary/40 px-6 py-10 text-center"
+              >
+                <p className="text-sm text-text-muted leading-relaxed">
+                  Form email / Google sign-in akan muncul di sini setelah Terms
+                  di-centang.
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         <p className="text-center text-xs text-text-muted">
