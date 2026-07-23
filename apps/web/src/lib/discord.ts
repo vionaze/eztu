@@ -85,8 +85,9 @@ export async function sendDiscordOrderNotification(
       body: JSON.stringify({
         embeds: [
           {
-            title: `Order ${order.status}`,
-            color: order.status === "PAID" ? 0x22c55e : 0xf59e0b,
+            // Sales channel only — paid revenue events (DISCORD_WEBHOOK_URL)
+            title: `💰 Sale · ${order.status}`,
+            color: order.status === "PAID" || order.status === "COMPLETED" ? 0x22c55e : 0xf59e0b,
             fields: [
               { name: "Order", value: order.orderNumber, inline: true },
               { name: "Product", value: `${order.product} - ${order.variant}`, inline: true },
@@ -97,6 +98,7 @@ export async function sendDiscordOrderNotification(
               },
               { name: "Crypto", value: order.crypto, inline: true },
               { name: "Email", value: order.email, inline: true },
+              { name: "Game ID", value: order.gameId || "—", inline: true },
             ],
             timestamp: new Date().toISOString(),
           },

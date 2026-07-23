@@ -3,6 +3,9 @@ import { PrismaClient } from "@prisma/client";
 
 export { Prisma } from "@prisma/client";
 export type {
+  AppLog,
+  AppLogCategory,
+  AppLogLevel,
   BlogPost,
   Category,
   DiscountType,

@@ -231,18 +231,60 @@ model SecurityEvent {
 // ============================================================
 
 model BlogPost {
-  id          String    @id @default(cuid())
-  title       String
-  slug        String    @unique
-  excerpt     String?
-  content     String
-  coverImage  String?
-  category    String?
-  published   Boolean   @default(false)
-  views       Int       @default(0)
-  publishedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id              String    @id @default(cuid())
+  title           String
+  slug            String    @unique
+  excerpt         String?
+  content         String    @db.Text
+  /// Hero / OG image (wide)
+  coverImage      String?
+  /// Card / listing thumbnail (square or 4:3)
+  thumbnailImage  String?
+  category        String?
+  /// Target country/locale for the article (e.g. ID, MY, US, GLOBAL)
+  countryCode     String    @default("GLOBAL")
+  /// SEO
+  metaTitle       String?
+  metaDescription String?
+  focusKeyword    String?
+  canonicalUrl    String?
+  ogTitle         String?
+  ogDescription   String?
+  /// JSON-LD article extras / FAQ schema payload as JSON string
+  structuredData  Json?
+  /// AI generation metadata
+  aiGenerated     Boolean   @default(false)
+  aiModel         String?
+  published       Boolean   @default(false)
+  views           Int       @default(0)
+  publishedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([published, publishedAt])
+  @@index([countryCode, published])
+  @@index([category])
+}
+
+// ============================================================
+// App activity logs (admin Logs page)
+// ============================================================
+
+model AppLog {
+  id        String        @id @default(cuid())
+  category  AppLogCategory
+  level     AppLogLevel   @default(INFO)
+  title     String
+  message   String?
+  actor     String?
+  route     String?
+  orderId   String?
+  metadata  Json?
+  createdAt DateTime      @default(now())
+
+  @@index([category, createdAt])
+  @@index([level, createdAt])
+  @@index([createdAt])
 }
 
 // ============================================================
@@ -313,6 +355,24 @@ enum ReplenishmentStatus {
 enum DiscountType {
   PERCENTAGE
   FIXED_IDR
+}
+
+enum AppLogCategory {
+  SALES
+  PAYMENT
+  FULFILLMENT
+  AUTH
+  SECURITY
+  BLOG
+  ADMIN
+  SYSTEM
+}
+
+enum AppLogLevel {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
 }
 
 // ============================================================

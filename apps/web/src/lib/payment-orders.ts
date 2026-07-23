@@ -8,6 +8,7 @@ import {
   type FraudRequestContext,
 } from "@/lib/fraud";
 import { sendOrderNotification } from "@/lib/telegram";
+import { writeAppLog } from "@/lib/app-log";
 
 const statusMap: Record<NormalizedPaymentStatus, OrderStatus> = {
   pending: "PENDING",
@@ -267,7 +268,7 @@ export async function applyPaymentEventToOrder(
 
   if (newStatus !== order.status) {
     if (firstItem) {
-      await sendOrderNotification({
+      const payload = {
         orderId: order.id,
         orderNumber: order.orderNumber,
         product: firstItem.product.name,
@@ -278,19 +279,47 @@ export async function applyPaymentEventToOrder(
         crypto: event.payCurrency || "unknown",
         status: newStatus,
         email: order.email,
-      });
-      await sendDiscordOrderNotification({
-        orderId: order.id,
-        orderNumber: order.orderNumber,
-        product: firstItem.product.name,
-        variant: firstItem.variant.name,
-        gameId: order.gameId,
-        amountIDR: order.totalIDR,
-        amountUSD: order.totalUSD,
-        crypto: event.payCurrency || "unknown",
-        status: newStatus,
-        email: order.email,
-      });
+      };
+
+      await sendOrderNotification(payload);
+
+      // Sales channel = paid/completed revenue events only (DISCORD_WEBHOOK_URL)
+      const isSalesEvent =
+        newStatus === "PAID" ||
+        newStatus === "COMPLETED" ||
+        (isPaid && order.status !== "PAID");
+
+      if (isSalesEvent) {
+        await sendDiscordOrderNotification({
+          ...payload,
+          status: isPaid ? "PAID" : newStatus,
+        });
+        await writeAppLog({
+          category: "SALES",
+          level: "SUCCESS",
+          title: `Sale ${order.orderNumber}`,
+          message: `${firstItem.product.name} · ${firstItem.variant.name} · $${order.totalUSD.toFixed(2)}`,
+          orderId: order.id,
+          route: "/api/payment/webhook",
+          metadata: {
+            crypto: event.payCurrency,
+            status: newStatus,
+            email: order.email,
+          },
+        });
+      } else {
+        await writeAppLog({
+          category: "PAYMENT",
+          level:
+            newStatus === "FAILED" || newStatus === "EXPIRED"
+              ? "WARNING"
+              : "INFO",
+          title: `Payment ${newStatus}: ${order.orderNumber}`,
+          message: `${firstItem.product.name} · ${event.providerStatus}`,
+          orderId: order.id,
+          route: "/api/payment/webhook",
+        });
+      }
     }
   }
 

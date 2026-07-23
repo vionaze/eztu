@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import ImageExtension from "@tiptap/extension-image";
@@ -95,6 +96,15 @@ export default function RichEditor({
       },
     },
   });
+
+  // Sync when parent injects content (e.g. AI draft)
+  useEffect(() => {
+    if (!editor) return;
+    const current = editor.getHTML();
+    if (content && content !== current) {
+      editor.commands.setContent(content, { emitUpdate: false });
+    }
+  }, [content, editor]);
 
   if (!editor) return null;
 

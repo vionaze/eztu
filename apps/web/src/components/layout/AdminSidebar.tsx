@@ -24,6 +24,7 @@ const sidebarLinks = [
   { label: "Categories", href: "/admin/categories", icon: Tag },
   { label: "Orders", href: "/admin/orders", icon: ShoppingCart },
   { label: "Blog", href: "/admin/blog", icon: Article },
+  { label: "Logs", href: "/admin/logs", icon: List },
   { label: "Settings", href: "/admin/settings", icon: Gear },
 ];
 
@@ -40,30 +41,41 @@ function SidebarContent({
 }) {
   return (
     <div className="flex flex-col h-full">
-      {/* Logo */}
-      <div className="flex items-center gap-2.5 px-4 py-5 border-b border-border">
-        <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden">
-          <Image
-            src="/logo.png"
-            alt="EZTopUp"
-            fill
-            className="object-contain object-left"
-            sizes="40px"
-          />
-        </div>
-        {!collapsed && (
-          <div className="flex flex-col min-w-0">
-            <div className="relative h-9 w-36">
+      {/* Logo — single wordmark, matches storefront scale */}
+      <div className="flex items-center gap-2.5 px-4 py-4 border-b border-border">
+        <Link
+          href="/admin/dashboard"
+          onClick={onNavigate}
+          className="flex items-center gap-2 min-w-0"
+        >
+          {!collapsed ? (
+            <div className="relative h-8 w-[140px] shrink-0">
               <Image
                 src="/logo.png"
                 alt="EZTopUp"
                 fill
                 className="object-contain object-left"
-                sizes="144px"
+                sizes="140px"
+                priority
               />
             </div>
-            <span className="text-[10px] text-text-muted">Admin Panel</span>
-          </div>
+          ) : (
+            <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-lg">
+              <Image
+                src="/logo.png"
+                alt="EZTopUp"
+                fill
+                className="object-cover object-left"
+                sizes="32px"
+                priority
+              />
+            </div>
+          )}
+        </Link>
+        {!collapsed && (
+          <span className="text-[10px] text-text-muted whitespace-nowrap">
+            Admin
+          </span>
         )}
       </div>
 

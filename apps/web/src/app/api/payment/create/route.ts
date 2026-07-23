@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@kupon/db";
 import { createPaymentInvoice } from "@kupon/payments";
 import { sendOrderNotification } from "@/lib/telegram";
+import { writeAppLog } from "@/lib/app-log";
 import { MAX_SELF_SERVICE_QUANTITY } from "@/lib/checkout-limits";
 import { resolvePaymentExpiresAt } from "@/lib/payment-expiry";
 import {
@@ -287,6 +288,19 @@ export async function POST(request: NextRequest) {
       crypto: isFree ? "FREE/VOUCHER" : "pending",
       status: isFree ? "PAID" : "PENDING",
       email,
+    });
+
+    await writeAppLog({
+      category: isFree ? "SALES" : "PAYMENT",
+      level: isFree ? "SUCCESS" : "INFO",
+      title: isFree
+        ? `Free/voucher sale ${orderNumber}`
+        : `Checkout started ${orderNumber}`,
+      message: `${variant.product.name} · ${variant.name} · $${totalUSD.toFixed(2)}`,
+      actor: email,
+      orderId: order.id,
+      route: "/api/payment/create",
+      metadata: { isFree, gameId },
     });
 
     return NextResponse.json({
