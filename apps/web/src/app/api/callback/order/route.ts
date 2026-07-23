@@ -5,6 +5,7 @@ import {
   parseSupplierCallbackPayload,
   redactSupplierSnapshot,
 } from "@/lib/supplier";
+import { isProductionRuntime, safeEqualSecret } from "@/lib/security";
 
 const DEFAULT_CALLBACK_HEALTHCHECK_IPS = ["161.97.130.68"];
 
@@ -39,9 +40,20 @@ function isValidCallbackToken(request: NextRequest) {
   const expected =
     process.env.ORDER_STATUS_CALLBACK_TOKEN?.trim() ||
     process.env.SUPPLIER_CALLBACK_TOKEN?.trim();
-  if (!expected) return true;
 
-  return request.nextUrl.searchParams.get("token") === expected;
+  // Fail closed in production if callback token is not configured
+  if (!expected) {
+    if (isProductionRuntime()) {
+      console.error(
+        "[Callback] ORDER_STATUS_CALLBACK_TOKEN is not set — rejecting"
+      );
+      return false;
+    }
+    return true;
+  }
+
+  const provided = request.nextUrl.searchParams.get("token");
+  return safeEqualSecret(provided, expected);
 }
 
 export async function POST(request: NextRequest) {

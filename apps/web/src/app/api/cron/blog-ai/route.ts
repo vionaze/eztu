@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { runBlogAiAutoBatch } from "@/lib/blog-ai-publish";
+import { isProductionRuntime, safeEqualSecret } from "@/lib/security";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -7,11 +8,8 @@ export const maxDuration = 300;
 /**
  * GET/POST /api/cron/blog-ai
  *
- * Call every hour from system crontab / uptime monitor.
- * Self-throttles using Settings interval (1/2/4/8/12h).
- *
- * Auth: Authorization: Bearer <CRON_SECRET>
- *   or  ?secret=<CRON_SECRET>
+ * Auth: Authorization: Bearer <CRON_SECRET>  (preferred)
+ * Query ?secret= is rejected in production (secrets in URLs end up in logs/proxies).
  *
  * Scope: BlogPost create/publish only.
  */
@@ -19,14 +17,24 @@ function authorize(request: Request): boolean {
   const secret = process.env.CRON_SECRET || process.env.BLOG_AI_CRON_SECRET;
   if (!secret) {
     // Fail closed in production if no secret configured
-    if (process.env.NODE_ENV === "production") return false;
-    return true;
+    return !isProductionRuntime();
   }
+
   const header = request.headers.get("authorization") || "";
   const bearer = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
-  const url = new URL(request.url);
-  const q = url.searchParams.get("secret") || "";
-  return bearer === secret || q === secret;
+
+  if (safeEqualSecret(bearer, secret)) {
+    return true;
+  }
+
+  // Dev-only fallback for quick local testing — never accept query secrets in prod
+  if (!isProductionRuntime()) {
+    const url = new URL(request.url);
+    const q = url.searchParams.get("secret") || "";
+    return safeEqualSecret(q, secret);
+  }
+
+  return false;
 }
 
 async function handle(request: Request) {
