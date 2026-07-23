@@ -56,8 +56,8 @@ export default function AdminShell({
 
       <div className="mt-14 md:mt-0 md:ml-[232px] transition-[margin] duration-300">
         <header className="sticky top-14 md:top-0 z-30 border-b border-border/80 bg-bg-primary/90 backdrop-blur-md">
-          <div className="mx-auto flex h-12 md:h-14 max-w-[80rem] items-center justify-between gap-3 px-4 sm:px-5 lg:px-6">
-            <h1 className="text-[15px] font-semibold tracking-tight text-text-primary">
+          <div className="mx-auto flex h-11 md:h-12 max-w-[80rem] items-center justify-between gap-3 px-3 sm:px-4 lg:px-5">
+            <h1 className="text-sm font-semibold tracking-tight text-text-primary">
               {title}
             </h1>
 
@@ -87,7 +87,7 @@ export default function AdminShell({
           </div>
         </header>
 
-        <main className="px-4 py-4 sm:px-5 sm:py-5 lg:px-6 lg:py-6">
+        <main className="px-3 py-3 sm:px-4 sm:py-3.5 lg:px-5 lg:py-4">
           <div className={cn("admin-page", isWide && "admin-page-wide")}>
             {children}
           </div>

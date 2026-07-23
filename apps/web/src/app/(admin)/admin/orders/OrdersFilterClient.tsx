@@ -40,39 +40,44 @@ export default function OrdersFilterClient({
   };
 
   return (
-    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-      <div className="w-full sm:w-72">
-        <Input
-          placeholder="Search order #, email, product..."
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") apply();
-          }}
-          icon={<MagnifyingGlass size={16} />}
-        />
-      </div>
-      <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar">
-        <FunnelSimple size={14} className="text-text-muted flex-shrink-0" />
-        {statuses.map((s) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => {
-              setStatus(s);
-              apply(s);
+    <div className="space-y-1.5">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+        <div className="w-full sm:w-64">
+          <Input
+            placeholder="Search order #, email, product..."
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") apply();
             }}
-            className={cn(
-              "flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer",
-              status === s
-                ? "bg-accent text-bg-primary"
-                : "bg-bg-card text-text-secondary hover:text-text-primary border border-border"
-            )}
-          >
-            {s}
-          </button>
-        ))}
+            icon={<MagnifyingGlass size={15} />}
+          />
+        </div>
+        <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar">
+          <FunnelSimple size={13} className="text-text-muted flex-shrink-0" />
+          {statuses.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => {
+                setStatus(s);
+                apply(s);
+              }}
+              className={cn(
+                "flex-shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors cursor-pointer",
+                status === s
+                  ? "bg-accent text-bg-primary"
+                  : "bg-bg-card text-text-secondary hover:text-text-primary border border-border"
+              )}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
       </div>
+      <p className="admin-hint">
+        Klik baris → preview (package, qty, email, User ID/Zone, payment)
+      </p>
     </div>
   );
 }

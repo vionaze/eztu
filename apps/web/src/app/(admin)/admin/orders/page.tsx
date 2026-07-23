@@ -81,10 +81,6 @@ export default async function AdminOrdersPage({
   return (
     <>
       <OrdersFilterClient initialQ={q} initialStatus={status} />
-      <p className="text-[11px] text-text-muted -mt-1">
-        Klik baris → preview lengkap (package, qty, email, User ID/Zone,
-        payment).
-      </p>
       <OrdersTableClient orders={rows} />
     </>
   );

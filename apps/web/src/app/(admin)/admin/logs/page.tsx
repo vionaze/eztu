@@ -56,26 +56,23 @@ export default async function AdminLogsPage({
   const total = counts.reduce((sum, c) => sum + c._count._all, 0);
 
   return (
-    <div className="space-y-6">
-      {/* Legend — human-first */}
-      <Card padding="md" className="space-y-3">
+    <>
+      <Card padding="sm" className="space-y-2.5 !p-3 sm:!p-3.5">
         <div>
-          <h2 className="text-sm font-semibold text-text-primary">
+          <h2 className="text-[13px] font-semibold text-text-primary">
             What am I looking at?
           </h2>
-          <p className="text-xs text-text-muted mt-1 max-w-2xl leading-relaxed">
-            Every important action in the webapp is recorded here. Titles are
-            color-coded by category so you can scan quickly — green for money
-            (Sales), blue for payments, purple for delivery, amber for login,
-            red for security, pink for blog, orange for admin changes. Times
-            are shown in <strong className="text-text-secondary">WIB (GMT+7, Asia/Jakarta)</strong>.
+          <p className="admin-hint mt-0.5 max-w-3xl">
+            Color-coded activity — Sales, Payment, Fulfillment, Auth, Security,
+            Blog, Admin. Times in{" "}
+            <strong className="text-text-secondary">WIB (GMT+7)</strong>.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
           <Link
             href="/admin/logs"
             className={cn(
-              "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+              "rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors",
               !category
                 ? "border-white/20 bg-white/10 text-text-primary"
                 : "border-border text-text-muted hover:text-text-primary"
@@ -91,7 +88,7 @@ export default async function AdminLogsPage({
                 key={cat}
                 href={`/admin/logs?category=${cat}${level ? `&level=${level}` : ""}`}
                 className={cn(
-                  "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                  "rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors",
                   meta.badge,
                   active ? "ring-1 ring-white/30" : "opacity-80 hover:opacity-100"
                 )}
@@ -102,7 +99,7 @@ export default async function AdminLogsPage({
             );
           })}
         </div>
-        <div className="flex flex-wrap gap-2 pt-1">
+        <div className="flex flex-wrap gap-1.5">
           {["ALL", "INFO", "SUCCESS", "WARNING", "ERROR"].map((lv) => {
             const href =
               lv === "ALL"
@@ -129,11 +126,10 @@ export default async function AdminLogsPage({
         </div>
       </Card>
 
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         {logs.length === 0 ? (
-          <Card padding="lg" className="text-center text-sm text-text-muted">
-            No logs yet for this filter. Sales, payments, and admin actions will
-            appear here automatically.
+          <Card padding="md" className="text-center text-[13px] text-text-muted py-5">
+            No logs yet for this filter.
           </Card>
         ) : (
           logs.map((log) => {
@@ -142,7 +138,7 @@ export default async function AdminLogsPage({
               <Card
                 key={log.id}
                 padding="none"
-                className="px-4 py-3 flex gap-3 items-start"
+                className="px-3 py-2 flex gap-2.5 items-start"
               >
                 <div className="pt-0.5 shrink-0">
                   <span
@@ -203,10 +199,10 @@ export default async function AdminLogsPage({
       </div>
 
       {logs.length >= 200 ? (
-        <p className="text-xs text-text-muted text-center">
+        <p className="admin-hint text-center">
           Showing latest 200 entries. Use category filters to narrow down.
         </p>
       ) : null}
-    </div>
+    </>
   );
 }

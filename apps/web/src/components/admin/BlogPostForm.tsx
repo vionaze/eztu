@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Badge, Button, Card, Input } from "@kupon/ui";
 import RichEditor from "@/components/ui/RichEditor";
-import { FadeUp } from "@/components/motion/StaggerReveal";
 import { ArrowLeft, MagicWand, SpinnerGap } from "@phosphor-icons/react";
 
 export type BlogFormValues = {
@@ -216,45 +215,30 @@ export default function BlogPostForm({
   };
 
   return (
-    <div className="max-w-4xl space-y-6">
-      <FadeUp>
+    <div className="admin-form-stack-wide admin-form-stack">
+      <div className="admin-page-toolbar">
         <Link
           href="/admin/blog"
-          className="inline-flex items-center gap-1.5 text-sm text-text-secondary hover:text-accent transition-colors group"
+          className="inline-flex items-center gap-1 text-[12px] text-text-secondary hover:text-accent transition-colors"
         >
-          <ArrowLeft
-            size={14}
-            className="transition-transform group-hover:-translate-x-1"
-          />
+          <ArrowLeft size={13} />
           Back to posts
         </Link>
-      </FadeUp>
-
-      <FadeUp delay={0.05}>
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight text-text-primary">
-              {form.id ? "Edit Post" : "New Blog Post"}
-            </h2>
-            <p className="text-xs text-text-muted mt-1 max-w-xl">
-              <strong className="text-text-secondary">Manual writing is the default.</strong>{" "}
-              Isi title, konten, gambar, SEO, lalu Publish / Save draft. AI hanya
-              helper opsional untuk draft teks artikel blog — tidak menyentuh
-              admin, payment, order, atau sistem lain.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            {form.aiGenerated ? (
-              <Badge variant="muted">AI draft (editable)</Badge>
-            ) : (
-              <Badge variant="muted">Manual</Badge>
-            )}
-            <Badge variant={form.published ? "accent" : "muted"}>
-              {form.published ? "published" : "draft"}
-            </Badge>
-          </div>
+        <div className="flex items-center gap-1.5">
+          {form.aiGenerated ? (
+            <Badge variant="muted">AI draft</Badge>
+          ) : (
+            <Badge variant="muted">Manual</Badge>
+          )}
+          <Badge variant={form.published ? "accent" : "muted"}>
+            {form.published ? "published" : "draft"}
+          </Badge>
         </div>
-      </FadeUp>
+      </div>
+      <p className="admin-hint -mt-1">
+        Manual default · isi title, konten, gambar, SEO · AI helper di bawah
+        (opsional)
+      </p>
 
       {error ? (
         <p className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-xl px-4 py-3">
@@ -263,8 +247,7 @@ export default function BlogPostForm({
       ) : null}
 
       {/* Primary: manual article form */}
-      <FadeUp delay={0.1}>
-        <Card variant="default" padding="lg" className="space-y-5">
+      <Card variant="default" padding="md" className="space-y-3">
           <div>
             <h3 className="text-sm font-semibold text-text-primary">
               Post details (manual)
@@ -335,11 +318,9 @@ export default function BlogPostForm({
             </div>
           </div>
         </Card>
-      </FadeUp>
 
       {/* Images — manual */}
-      <FadeUp delay={0.12}>
-        <Card variant="default" padding="lg" className="space-y-5">
+      <Card variant="default" padding="md" className="space-y-3">
           <h3 className="text-sm font-semibold text-text-primary">
             Images (manual upload URL)
           </h3>
@@ -381,11 +362,9 @@ export default function BlogPostForm({
             </div>
           )}
         </Card>
-      </FadeUp>
 
       {/* SEO */}
-      <FadeUp delay={0.14}>
-        <Card variant="default" padding="lg" className="space-y-5">
+      <Card variant="default" padding="md" className="space-y-3">
           <h3 className="text-sm font-semibold text-text-primary">
             SEO (Google Search 2026)
           </h3>
@@ -432,11 +411,9 @@ export default function BlogPostForm({
             onChange={(e) => set("ogDescription", e.target.value)}
           />
         </Card>
-      </FadeUp>
 
       {/* FAQ for schema */}
-      <FadeUp delay={0.15}>
-        <Card variant="default" padding="lg" className="space-y-4">
+      <Card variant="default" padding="md" className="space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-text-primary">
               FAQ (JSON-LD FAQPage)
@@ -499,10 +476,8 @@ export default function BlogPostForm({
             ))
           )}
         </Card>
-      </FadeUp>
 
-      <FadeUp delay={0.16}>
-        <Card variant="default" padding="lg" className="space-y-4">
+      <Card variant="default" padding="md" className="space-y-3">
           <h3 className="text-sm font-semibold text-text-primary">Content</h3>
           <RichEditor
             content={form.content}
@@ -510,10 +485,8 @@ export default function BlogPostForm({
             placeholder="Write your article (H2/H3, lists, practical steps)…"
           />
         </Card>
-      </FadeUp>
 
-      <FadeUp delay={0.2}>
-        <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex items-center gap-3 flex-wrap">
           <Button size="lg" onClick={() => save(true)} disabled={saving}>
             {saving ? "Saving…" : "Publish"}
           </Button>
@@ -529,13 +502,11 @@ export default function BlogPostForm({
             Cancel
           </Button>
         </div>
-      </FadeUp>
 
       {/* Optional AI helper — never required for manual posts */}
-      <FadeUp delay={0.22}>
-        <Card
+      <Card
           variant="default"
-          padding="lg"
+          padding="md"
           className="space-y-4 border-fuchsia-400/15 border-dashed"
         >
           <button
@@ -622,7 +593,6 @@ export default function BlogPostForm({
             </div>
           ) : null}
         </Card>
-      </FadeUp>
     </div>
   );
 }

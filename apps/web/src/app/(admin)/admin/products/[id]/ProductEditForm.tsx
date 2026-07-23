@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Badge, Button, Card, Input } from "@kupon/ui";
-import { FadeUp } from "@/components/motion/StaggerReveal";
 import {
   ArrowLeft,
   Plus,
@@ -216,45 +215,40 @@ export default function ProductEditForm({
   };
 
   return (
-    <div className="space-y-4">
-      <FadeUp>
+    <div className="admin-form-stack-wide admin-form-stack">
+      <div className="admin-page-toolbar">
         <Link
           href="/admin/products"
-          className="inline-flex items-center gap-1.5 text-sm text-text-secondary hover:text-accent transition-colors group"
+          className="inline-flex items-center gap-1 text-[12px] text-text-secondary hover:text-accent"
         >
-          <ArrowLeft
-            size={14}
-            className="transition-transform group-hover:-translate-x-1"
-          />
-          Back to products
+          <ArrowLeft size={13} />
+          Back
         </Link>
-      </FadeUp>
+        <div className="flex flex-wrap gap-1.5 items-center">
+          <Badge variant={published ? "accent" : "muted"}>
+            {published ? "Published" : "Hidden"}
+          </Badge>
+          {featured ? <Badge variant="muted">Featured</Badge> : null}
+          <Badge variant="muted">
+            {fulfillmentType === "TOP_UP" ? "Top-up" : "Voucher"}
+          </Badge>
+        </div>
+      </div>
 
-      {/* Header */}
-      <FadeUp delay={0.05}>
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap mb-1">
-              <Badge variant={published ? "accent" : "muted"}>
-                {published ? "Published" : "Hidden"}
-              </Badge>
-              {featured ? <Badge variant="muted">Featured</Badge> : null}
-              <Badge variant="muted">
-                {fulfillmentType === "TOP_UP" ? "Top-up" : "Voucher"}
-              </Badge>
-            </div>
-            <h2 className="text-2xl font-bold tracking-tight text-text-primary truncate">
-              {name || "Product"}
-            </h2>
-            <p className="text-xs text-text-muted mt-1">
-              {initial.categoryName || "No category"} ·{" "}
-              {initial.orderCount} order item(s) · {visibleVariants.length}{" "}
-              variant(s)
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2 shrink-0">
+      <div className="admin-page-toolbar">
+        <div className="min-w-0">
+          <p className="text-base font-semibold text-text-primary truncate">
+            {name || "Product"}
+          </p>
+          <p className="admin-hint">
+            {initial.categoryName || "Uncategorized"} · {initial.orderCount}{" "}
+            order(s) · {visibleVariants.length} variant(s)
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-1.5 shrink-0">
             <Button
               type="button"
+              size="sm"
               variant={published ? "secondary" : "primary"}
               onClick={togglePublished}
               disabled={toggling || saving}
@@ -276,11 +270,9 @@ export default function ProductEditForm({
             </Link>
           </div>
         </div>
-      </FadeUp>
 
       {/* Quick help */}
-      <FadeUp delay={0.07}>
-        <Card
+      <Card
           variant="glass"
           padding="md"
           className="text-xs text-text-muted leading-relaxed space-y-1"
@@ -296,22 +288,20 @@ export default function ProductEditForm({
             Varian yang sudah punya order tidak bisa dihapus.
           </p>
         </Card>
-      </FadeUp>
 
       {message ? (
-        <p className="text-sm text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 rounded-xl px-4 py-3">
+        <p className="text-xs text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 rounded-lg px-3 py-2">
           {message}
         </p>
       ) : null}
       {error ? (
-        <p className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-xl px-4 py-3">
+        <p className="text-xs text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">
           {error}
         </p>
       ) : null}
 
       {/* Type */}
-      <FadeUp delay={0.08}>
-        <Card variant="default" padding="lg" className="space-y-4">
+      <Card variant="default" padding="md" className="space-y-3">
           <h3 className="text-sm font-semibold text-text-primary">
             Tipe produk
           </h3>
@@ -377,11 +367,9 @@ export default function ProductEditForm({
             </div>
           ) : null}
         </Card>
-      </FadeUp>
 
       {/* Basics */}
-      <FadeUp delay={0.1}>
-        <Card variant="default" padding="lg" className="space-y-5">
+      <Card variant="default" padding="md" className="space-y-3">
           <h3 className="text-sm font-semibold text-text-primary">
             Informasi produk
           </h3>
@@ -440,7 +428,7 @@ export default function ProductEditForm({
             <img
               src={imageUrl}
               alt=""
-              className="w-24 h-28 rounded-xl object-cover border border-border"
+              className="w-16 h-16 rounded-lg object-cover border border-border mt-1"
             />
           ) : null}
 
@@ -463,11 +451,9 @@ export default function ProductEditForm({
             </span>
           </label>
         </Card>
-      </FadeUp>
 
       {/* Variants */}
-      <FadeUp delay={0.15}>
-        <Card variant="default" padding="lg" className="space-y-5">
+      <Card variant="default" padding="md" className="space-y-3">
           <div className="flex items-center justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold text-text-primary">
@@ -483,7 +469,7 @@ export default function ProductEditForm({
             </Button>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             {visibleVariants.length === 0 ? (
               <p className="text-sm text-text-muted text-center py-4">
                 Belum ada variant. Klik Add.
@@ -557,10 +543,8 @@ export default function ProductEditForm({
             )}
           </div>
         </Card>
-      </FadeUp>
 
-      <FadeUp delay={0.2}>
-        <div className="flex flex-wrap gap-3 sticky bottom-4 z-10">
+      <div className="flex flex-wrap gap-3 sticky bottom-4 z-10">
           <Button size="lg" onClick={save} disabled={saving || toggling}>
             {saving ? (
               <SpinnerGap size={16} className="animate-spin" />
@@ -577,7 +561,6 @@ export default function ProductEditForm({
             Back to list
           </Button>
         </div>
-      </FadeUp>
     </div>
   );
 }

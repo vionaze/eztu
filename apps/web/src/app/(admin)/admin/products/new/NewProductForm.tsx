@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card, Input } from "@kupon/ui";
-import { FadeUp } from "@/components/motion/StaggerReveal";
 import {
   ArrowLeft,
   Plus,
@@ -133,9 +132,8 @@ export default function NewProductForm({
   };
 
   return (
-    <div className="space-y-4">
-      <FadeUp>
-        <Link
+    <div className="admin-form-stack-wide admin-form-stack">
+      <Link
           href="/admin/products"
           className="inline-flex items-center gap-1.5 text-[13px] text-text-secondary hover:text-accent transition-colors group"
         >
@@ -145,17 +143,14 @@ export default function NewProductForm({
           />
           Back to products
         </Link>
-      </FadeUp>
 
-      <FadeUp delay={0.05}>
-        <h2 className="text-2xl font-bold tracking-tight text-text-primary">
+      <h2 className="text-2xl font-bold tracking-tight text-text-primary">
           New Product
         </h2>
         <p className="text-xs text-text-muted mt-1">
           Pilih tipe fulfillment: <strong>Top-up</strong> (butuh User ID / Zone)
           atau <strong>Kode voucher</strong> (kirim kode saja).
         </p>
-      </FadeUp>
 
       {error ? (
         <p className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-xl px-4 py-3">
@@ -164,8 +159,7 @@ export default function NewProductForm({
       ) : null}
 
       {/* Fulfillment type */}
-      <FadeUp delay={0.08}>
-        <Card variant="default" padding="md" className="space-y-3">
+      <Card variant="default" padding="md" className="space-y-3">
           <h3 className="text-[13px] font-semibold text-text-primary">
             Tipe produk
           </h3>
@@ -236,10 +230,8 @@ export default function NewProductForm({
             </div>
           ) : null}
         </Card>
-      </FadeUp>
 
-      <FadeUp delay={0.1}>
-        <Card variant="default" padding="md" className="space-y-3.5">
+      <Card variant="default" padding="md" className="space-y-3.5">
           <h3 className="text-[13px] font-semibold text-text-primary">
             Basic Information
           </h3>
@@ -327,10 +319,8 @@ export default function NewProductForm({
             </label>
           </div>
         </Card>
-      </FadeUp>
 
-      <FadeUp delay={0.15}>
-        <Card variant="default" padding="md" className="space-y-3">
+      <Card variant="default" padding="md" className="space-y-3">
           <h3 className="text-[13px] font-semibold text-text-primary">
             Product Image
           </h3>
@@ -352,10 +342,8 @@ export default function NewProductForm({
             </div>
           ) : null}
         </Card>
-      </FadeUp>
 
-      <FadeUp delay={0.2}>
-        <Card variant="default" padding="md" className="space-y-3.5">
+      <Card variant="default" padding="md" className="space-y-3.5">
           <div className="flex items-center justify-between">
             <h3 className="text-[13px] font-semibold text-text-primary">
               Variants ({variants.length})
@@ -421,10 +409,8 @@ export default function NewProductForm({
             ))}
           </div>
         </Card>
-      </FadeUp>
 
-      <FadeUp delay={0.25}>
-        <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3">
           <Button size="lg" onClick={save} disabled={saving}>
             {saving ? (
               <SpinnerGap size={16} className="animate-spin" />
@@ -435,7 +421,6 @@ export default function NewProductForm({
             Cancel
           </Button>
         </div>
-      </FadeUp>
     </div>
   );
 }
