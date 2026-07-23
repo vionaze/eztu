@@ -44,6 +44,55 @@ Use `apps/web/.env.example` as the reference for required variables.
 
 The database package also loads `apps/web/.env` for local Prisma CLI commands. In production, provide the same variables through the process environment.
 
+## Production deploy (VPS)
+
+**User:** `deploy` · **Path:** `/var/www/eztu` · **PM2:** `eztu`  
+Jangan pull/build sebagai `root` (akan `EACCES` di `node_modules`).
+
+### One-liner (recommended)
+
+```bash
+sudo -iu deploy
+cd /var/www/eztu
+pnpm deploy:vps
+# or: bash scripts/deploy-vps.sh
+```
+
+### Manual (sama urutannya)
+
+```bash
+sudo -iu deploy
+cd /var/www/eztu
+
+git pull --ff-only origin main
+pnpm install
+pnpm db:migrate          # WAJIB — schema DB (categories, blog, logs, dll.)
+pnpm prisma:generate
+pnpm build
+pm2 restart eztu --update-env
+pm2 save
+pm2 logs eztu --lines 40
+```
+
+### After deploy checklist
+
+| Check | Command / URL |
+|--------|----------------|
+| App up | `pm2 status` |
+| Site | https://eztopup.io |
+| Admin | https://eztopup.io/admin/dashboard |
+| Categories | https://eztopup.io/admin/categories |
+| Cron blog (if used) | needs `CRON_SECRET` + crontab Bearer header |
+
+### If permission errors
+
+```bash
+# as root once
+chown -R deploy:deploy /var/www/eztu
+```
+
+Then run deploy again as `deploy`.
+
 ## Monorepo Direction
 
 The current monorepo keeps the web app, database package, shared UI primitives, and payment provider integration separate. Future low-risk extractions can add:

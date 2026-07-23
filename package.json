@@ -19,7 +19,8 @@
     "products:import:eztopup": "pnpm --filter @kupon/db products:import:eztopup",
     "products:sync:supplier": "pnpm --filter @kupon/db products:sync:supplier",
     "prisma:generate": "pnpm --filter @kupon/db prisma:generate",
-    "prisma:validate": "pnpm --filter @kupon/db prisma:validate"
+    "prisma:validate": "pnpm --filter @kupon/db prisma:validate",
+    "deploy:vps": "bash scripts/deploy-vps.sh"
   },
   "devDependencies": {
     "next": "16.2.4"

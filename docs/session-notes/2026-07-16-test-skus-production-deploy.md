@@ -29,8 +29,13 @@ Prefer `pnpm dev` over `pnpm dev:webpack` on low-RAM machines (webpack first com
 ```bash
 sudo -iu deploy
 cd /var/www/eztu
-git pull origin main
+# Recommended (includes migrate + generate + build + pm2):
+pnpm deploy:vps
+
+# Or manual:
+git pull --ff-only origin main
 pnpm install
+pnpm db:migrate          # required — never skip after schema changes
 pnpm prisma:generate
 pnpm build
 pm2 restart eztu --update-env
