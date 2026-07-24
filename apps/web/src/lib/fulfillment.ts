@@ -134,12 +134,13 @@ export async function applySupplierOrderSnapshot(
   const order = await loadOrderBySupplierSnapshot(snapshot);
 
   if (!order) {
+    // Ops noise (test/dummy TIDs, late callbacks) — log to DB only, not Discord "Bot/Fraud"
     await notifySecurityEvent({
       eventType: "supplier_callback_unknown_order",
-      severity: "high",
-      action: "blocked",
+      severity: "low",
+      action: "flagged",
       reasons: [
-        `Unknown Supplier order callback tid=${snapshot.tid || "-"} reference=${snapshot.referenceId || "-"}`,
+        `Unknown supplier callback (no matching order) tid=${snapshot.tid || "-"} reference=${snapshot.referenceId || "-"}`,
       ],
       requestContext: createSystemContext("supplier_callback"),
       metadata: { snapshot: redactSupplierSnapshot(snapshot) },

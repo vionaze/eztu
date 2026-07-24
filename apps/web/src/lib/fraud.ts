@@ -194,6 +194,23 @@ function parseClientNumber(value: unknown) {
   return null;
 }
 
+/** Events that are operational noise — store in DB, never spam Discord as "Bot/Fraud". */
+const DISCORD_SKIP_EVENTS = new Set([
+  "user_context_changed",
+  "supplier_callback_unknown_order",
+]);
+
+/**
+ * Discord only for real risk: checkout blocks, high severity auth abuse, etc.
+ * Medium-only flags stay in SecurityEvent / admin logs.
+ */
+function shouldNotifyDiscord(alert: SecurityAlertInput) {
+  if (DISCORD_SKIP_EVENTS.has(alert.eventType)) return false;
+  if (alert.action === "blocked") return true;
+  if (alert.severity === "high") return true;
+  return false;
+}
+
 export async function notifySecurityEvent(alert: SecurityAlertInput): Promise<void> {
   const action = alert.action === "blocked" ? "BLOCKED" : "FLAGGED";
   const severity = alert.severity.toUpperCase() as "LOW" | "MEDIUM" | "HIGH";
@@ -201,7 +218,7 @@ export async function notifySecurityEvent(alert: SecurityAlertInput): Promise<vo
     ? (JSON.parse(JSON.stringify(alert.metadata)) as Prisma.InputJsonObject)
     : Prisma.JsonNull;
 
-  await Promise.allSettled([
+  const tasks: Promise<unknown>[] = [
     prisma.securityEvent.create({
       data: {
         eventType: alert.eventType,
@@ -223,28 +240,35 @@ export async function notifySecurityEvent(alert: SecurityAlertInput): Promise<vo
         metadata,
       },
     }),
-    sendDiscordFraudAlert({
-      event: alert.eventType,
-      severity: alert.severity,
-      action: alert.action,
-      reasons: alert.reasons,
-      ip: alert.requestContext.ip,
-      userAgent: alert.requestContext.userAgent,
-      route: alert.requestContext.path,
-      method: alert.requestContext.method,
-      origin: alert.requestContext.origin,
-      referer: alert.requestContext.referer,
-      email: alert.email,
-      productId: alert.productId,
-      variantId: alert.variantId,
-      product: alert.product,
-      variant: alert.variant,
-      userId: alert.userId,
-      clerkUserId: alert.clerkUserId,
-      orderId: alert.orderId,
-      metadata: alert.metadata,
-    }),
-  ]);
+  ];
+
+  if (shouldNotifyDiscord(alert)) {
+    tasks.push(
+      sendDiscordFraudAlert({
+        event: alert.eventType,
+        severity: alert.severity,
+        action: alert.action,
+        reasons: alert.reasons,
+        ip: alert.requestContext.ip,
+        userAgent: alert.requestContext.userAgent,
+        route: alert.requestContext.path,
+        method: alert.requestContext.method,
+        origin: alert.requestContext.origin,
+        referer: alert.requestContext.referer,
+        email: alert.email,
+        productId: alert.productId,
+        variantId: alert.variantId,
+        product: alert.product,
+        variant: alert.variant,
+        userId: alert.userId,
+        clerkUserId: alert.clerkUserId,
+        orderId: alert.orderId,
+        metadata: alert.metadata,
+      })
+    );
+  }
+
+  await Promise.allSettled(tasks);
 }
 
 export async function recordUserSecurityContext(
@@ -307,10 +331,18 @@ export function evaluateCheckoutFraud(
   const context = getRequestContext(request);
   const signals: FraudSignal[] = [];
 
+  // Block only hard automation UAs (curl/Postman/scrapers). Missing UA alone is flag, not block —
+  // some privacy browsers strip headers.
   if (!context.userAgent) {
-    addSignal(signals, "MISSING_USER_AGENT", "Request has no user-agent header", "high", true);
+    addSignal(signals, "MISSING_USER_AGENT", "Request has no user-agent header", "medium", false);
   } else if (automationUserAgentPatterns.some((pattern) => pattern.test(context.userAgent))) {
-    addSignal(signals, "AUTOMATION_USER_AGENT", "Automation or bot user-agent detected", "high", true);
+    addSignal(
+      signals,
+      "AUTOMATION_USER_AGENT",
+      "Automation client (curl/Postman/bot toolkit) blocked from checkout",
+      "high",
+      true
+    );
   }
 
   if (context.origin) {
@@ -318,17 +350,15 @@ export function evaluateCheckoutFraud(
     if (expectedOrigins.size > 0 && !expectedOrigins.has(context.origin)) {
       addSignal(signals, "UNEXPECTED_ORIGIN", `Unexpected origin: ${context.origin}`, "high", true);
     }
-  } else {
-    addSignal(signals, "MISSING_ORIGIN", "Browser origin header is missing", "medium");
   }
+  // Missing Origin: normal for same-origin navigations in some browsers / older WebViews.
+  // Do not alert Discord for this alone (medium flag only if combined later).
 
   if (context.secFetchSite && !["same-origin", "same-site", "none"].includes(context.secFetchSite)) {
     addSignal(signals, "CROSS_SITE_CHECKOUT", `sec-fetch-site=${context.secFetchSite}`, "high", true);
   }
 
-  if (!context.acceptLanguage) {
-    addSignal(signals, "MISSING_ACCEPT_LANGUAGE", "Request has no accept-language header", "medium");
-  }
+  // Missing Accept-Language is common; ignore unless we already have a hard block signal.
 
   if (input.company?.trim()) {
     addSignal(signals, "HONEYPOT_FILLED", "Hidden checkout field was filled", "high", true);
@@ -407,23 +437,32 @@ export function evaluateCheckoutFraud(
   }
 
   if (typeof input.checkoutStartedAt !== "number" || !Number.isFinite(input.checkoutStartedAt)) {
-    addSignal(signals, "MISSING_CHECKOUT_TIMER", "Client checkout timer is missing", "medium");
+    // Timer is anti-bot soft signal only — never block legitimate sessions without it
+    addSignal(signals, "MISSING_CHECKOUT_TIMER", "Client checkout timer is missing", "low");
   } else {
     const elapsedMs = Date.now() - input.checkoutStartedAt;
 
-    if (elapsedMs < 750) {
+    // Instant submit (<400ms) is more suspicious; 750ms was noisy for fast clickers
+    if (elapsedMs >= 0 && elapsedMs < 400) {
       addSignal(signals, "TOO_FAST_CHECKOUT", `Checkout submitted in ${elapsedMs}ms`, "medium");
     }
 
+    // Stale timer (hours/days) is almost always test/probe noise — low only, never Discord alone
     if (elapsedMs < -30_000 || elapsedMs > 60 * 60 * 1000) {
       addSignal(signals, "STALE_CHECKOUT_TIMER", `Checkout timer delta is ${elapsedMs}ms`, "low");
     }
   }
 
+  const blocked = signals.some((signal) => signal.block);
+  // Alert (DB + maybe Discord) only when we block or have high severity — skip low/medium-only noise
+  const severity = getHighestSeverity(signals);
+  const shouldAlert =
+    blocked || severity === "high" || signals.some((s) => s.severity === "medium" && s.block);
+
   return {
-    shouldAlert: signals.length > 0,
-    blocked: signals.some((signal) => signal.block),
-    severity: getHighestSeverity(signals),
+    shouldAlert,
+    blocked,
+    severity,
     reasons: signals.map((signal) => `${signal.code}: ${signal.reason}`),
     context,
   };

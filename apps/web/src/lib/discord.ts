@@ -113,6 +113,30 @@ export async function sendDiscordOrderNotification(
   }
 }
 
+function fraudAlertTitle(alert: FraudAlert): string {
+  const event = alert.event;
+
+  if (event === "checkout_create" && alert.action === "blocked") {
+    return "Checkout blocked";
+  }
+  if (event.startsWith("supplier_callback")) {
+    return "Supplier callback (ops)";
+  }
+  if (event === "user_context_changed") {
+    return "User context change";
+  }
+  if (event.includes("invalid_token") || event.includes("unauthorized")) {
+    return "Auth / token abuse";
+  }
+  if (alert.action === "blocked") {
+    return "Request blocked";
+  }
+  if (alert.severity === "high") {
+    return "Security alert (high)";
+  }
+  return "Security flag";
+}
+
 export async function sendDiscordFraudAlert(
   alert: FraudAlert
 ): Promise<boolean> {
@@ -173,11 +197,11 @@ export async function sendDiscordFraudAlert(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        username: "Kupon Fraud Watch",
+        username: "Kupon Security Watch",
         allowed_mentions: { parse: [] },
         embeds: [
           {
-            title: "Bot / Fraud Detected",
+            title: fraudAlertTitle(alert),
             color: fraudColor(alert.severity),
             fields,
             timestamp: new Date().toISOString(),

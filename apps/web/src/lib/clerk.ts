@@ -17,6 +17,13 @@ export class AuthorizationRequiredError extends Error {
   }
 }
 
+export class AccountBannedError extends Error {
+  constructor(message = "This account has been banned from EZTopUp.") {
+    super(message);
+    this.name = "AccountBannedError";
+  }
+}
+
 export type AuthenticatedClerkUser = {
   clerkUserId: string;
   dbUserId: string;
@@ -246,6 +253,25 @@ export async function requireClerkUser(): Promise<AuthenticatedClerkUser> {
   dbUser = await ensureAllowlistedAdmin(dbUser, clerkEmail);
 
   const email = dbUser.email || clerkEmail;
+
+  // Local ban + AccessBlock (email / clerk / user id). Admins never blocked this way.
+  if (dbUser.role !== "ADMIN" && dbUser.role !== "SUPERADMIN") {
+    if (dbUser.bannedAt) {
+      throw new AccountBannedError(
+        dbUser.banReason || "This account has been banned from EZTopUp."
+      );
+    }
+
+    const { isAccessBlocked } = await import("@/lib/access-block");
+    const blocked = await isAccessBlocked({
+      email,
+      clerkUserId: clerkUser.id,
+      userId: dbUser.id,
+    });
+    if (blocked) {
+      throw new AccountBannedError("This account has been banned from EZTopUp.");
+    }
+  }
 
   return {
     clerkUserId: clerkUser.id,

@@ -19,7 +19,9 @@ import {
   recordUserSecurityContext,
   type FraudSeverity,
 } from "@/lib/fraud";
+import { findActiveAccessBlock } from "@/lib/access-block";
 import {
+  AccountBannedError,
   AuthenticationRequiredError,
   requireClerkUser,
 } from "@/lib/clerk";
@@ -110,7 +112,35 @@ export async function POST(request: NextRequest) {
       ...tamperingAssessment.reasons,
     ];
 
+    // Preventive admin ban (email / IP) — before heavier processing
+    const requestCtx = fraudAssessment.context;
+    const accessBlock = await findActiveAccessBlock({
+      email: email || null,
+      ip: requestCtx.ip,
+    });
+    if (accessBlock) {
+      await notifySecurityEvent({
+        eventType: "checkout_create",
+        severity: "high",
+        action: "blocked",
+        reasons: [
+          `ACCESS_BLOCKED: ${accessBlock.kind}=${accessBlock.value}`,
+          accessBlock.reason || "Admin access block",
+        ],
+        requestContext: requestCtx,
+        email,
+        productId,
+        variantId,
+      });
+
+      return NextResponse.json(
+        { error: "Checkout is not available for this account. Contact support." },
+        { status: 403 }
+      );
+    }
+
     if (blocked) {
+      // Only alert when we actually block (hard signals) or high severity
       await notifySecurityEvent({
         eventType: "checkout_create",
         severity,
@@ -160,6 +190,12 @@ export async function POST(request: NextRequest) {
           { status: 401 }
         );
       }
+      if (error instanceof AccountBannedError) {
+        return NextResponse.json(
+          { error: error.message },
+          { status: 403 }
+        );
+      }
 
       console.error("[Payment Auth]", error);
       return NextResponse.json(
@@ -201,7 +237,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (shouldAlert) {
+    // Soft flags after successful auth: only persist high-severity (Discord gated inside notify)
+    if (shouldAlert && severity === "high") {
       await notifySecurityEvent({
         eventType: "checkout_create",
         severity,

@@ -23,8 +23,31 @@ model User {
   lastSeenIp    String?
   lastSeenUserAgent String?
   lastSeenAt    DateTime?
+  /// When set, user cannot checkout / use account APIs (local ban)
+  bannedAt      DateTime?
+  banReason     String?
+  bannedBy      String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+}
+
+/// Preventive blocks: email, IP, Clerk id, or local user id.
+/// Enforced on checkout + requireClerkUser (not a global site wall).
+model AccessBlock {
+  id        String          @id @default(cuid())
+  kind      AccessBlockKind
+  /// Normalized value (email lowercased, IP trimmed, ids as-is)
+  value     String
+  reason    String?
+  active    Boolean         @default(true)
+  createdBy String?
+  createdAt DateTime        @default(now())
+  revokedAt DateTime?
+  revokedBy String?
+
+  @@unique([kind, value])
+  @@index([active, kind, value])
+  @@index([createdAt])
 }
 
 // ============================================================
@@ -329,6 +352,13 @@ enum SecuritySeverity {
 enum SecurityAction {
   FLAGGED
   BLOCKED
+}
+
+enum AccessBlockKind {
+  EMAIL
+  IP
+  CLERK_ID
+  USER_ID
 }
 
 enum OrderStatus {
