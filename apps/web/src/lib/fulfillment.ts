@@ -250,8 +250,11 @@ export async function applySupplierOrderSnapshot(
     };
   }
 
+  // TOP_UP credits the game account — supplier SUCCESS has no voucher_code.
+  // VOUCHER products must return at least one code before we complete.
+  const isTopUp = firstItem.product.fulfillmentType === "TOP_UP";
   const voucherCode = getVoucherCodeValue(snapshot);
-  if (!voucherCode) {
+  if (!voucherCode && !isTopUp) {
     await markSupplierManualReview({
       orderId: order.id,
       providerOrderId: snapshot.tid || order.supplierOrder?.providerOrderId,
@@ -270,17 +273,19 @@ export async function applySupplierOrderSnapshot(
   }
 
   const wasFulfilled = order.supplierOrder?.status === "FULFILLED";
+  const fulfilledAt = order.supplierOrder?.fulfilledAt || new Date();
   await prisma.supplierOrder.upsert({
     where: { orderId: order.id },
     update: {
       provider: SUPPLIER_PROVIDER,
       providerOrderId: snapshot.tid || order.supplierOrder?.providerOrderId,
       status: "FULFILLED",
-      voucherCode,
+      // Keep empty string as null for top-up (no code to deliver)
+      voucherCode: voucherCode || null,
       voucherPin: null,
       raw,
       error: null,
-      fulfilledAt: order.supplierOrder?.fulfilledAt || new Date(),
+      fulfilledAt,
     },
     create: {
       orderId: order.id,
@@ -290,7 +295,7 @@ export async function applySupplierOrderSnapshot(
       productName: firstItem.product.name,
       variantName: firstItem.variant.name,
       costIDR: supplierCostIDR,
-      voucherCode,
+      voucherCode: voucherCode || null,
       raw,
       fulfilledAt: new Date(),
     },
@@ -309,7 +314,15 @@ export async function applySupplierOrderSnapshot(
     supplierCostIDR,
     paymentCurrency: order.paymentCurrency,
   });
-  const emailResult = await sendVoucherDeliveryEmailForOrder(order.id);
+
+  // Voucher delivery email only when there is a code to share
+  const emailResult = voucherCode
+    ? await sendVoucherDeliveryEmailForOrder(order.id)
+    : {
+        sent: false as const,
+        skipped: true as const,
+        reason: "Top-up order — no voucher code to email",
+      };
 
   if (!wasFulfilled) {
     await sendDiscordFulfillmentNotification({
