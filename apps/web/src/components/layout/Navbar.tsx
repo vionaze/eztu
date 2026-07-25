@@ -166,8 +166,8 @@ export default function Navbar() {
           </nav>
 
           {/* Right Actions */}
-          <div className="flex items-center gap-2">
-            {/* Country/Currency Selector */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Desktop country selector */}
             <div className="hidden md:block">
               <CountrySelector />
             </div>
@@ -207,6 +207,11 @@ export default function Navbar() {
                   Login
                 </Link>
               )}
+            </div>
+
+            {/* Mobile: country next to burger (dropdown opens down into page, not clipped by drawer) */}
+            <div className="md:hidden relative z-[70]">
+              <CountrySelector compact />
             </div>
 
             {/* Mobile Menu Toggle */}
@@ -295,9 +300,6 @@ export default function Navbar() {
               </div>
 
               <div className="mt-auto flex flex-col gap-2 pt-4 border-t border-border/80">
-                <div className="md:hidden pb-1">
-                  <CountrySelector />
-                </div>
                 {isSignedIn ? (
                   <>
                     <Link
