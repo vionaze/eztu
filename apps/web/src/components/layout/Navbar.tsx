@@ -3,7 +3,8 @@
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SignOutButton, UserButton, useAuth } from "@clerk/nextjs";
 import {
@@ -47,15 +48,41 @@ function AccountUserButton({ isAdmin }: { isAdmin: boolean }) {
 
 export default function Navbar() {
   const { isLoaded, isSignedIn } = useAuth();
+  const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+
+  const closeMobile = useCallback(() => setMobileOpen(false), []);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // Always hide drawer after navigation (covers Link, browser back, etc.)
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  // Escape + body scroll lock while open
+  useEffect(() => {
+    if (!mobileOpen) {
+      document.body.style.overflow = "";
+      return;
+    }
+
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [mobileOpen]);
 
   // Resolve DB role (ADMIN / SUPERADMIN) for navbar Admin link
   useEffect(() => {
@@ -85,18 +112,6 @@ export default function Navbar() {
     };
   }, [isLoaded, isSignedIn]);
 
-  // Lock body scroll when mobile menu is open
-  useEffect(() => {
-    if (mobileOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [mobileOpen]);
-
   return (
     <>
       <header
@@ -115,7 +130,7 @@ export default function Navbar() {
             href="/"
             className="flex items-center gap-2.5 group min-w-0"
             id="nav-logo"
-            onClick={() => setMobileOpen(false)}
+            onClick={closeMobile}
           >
             <div className="relative h-[35px] w-[120px] sm:h-10 sm:w-40 md:h-[45px] md:w-[200px] transition-transform duration-300 group-hover:scale-[1.03]">
               <Image
@@ -207,110 +222,126 @@ export default function Navbar() {
         </div>
       </header>
 
-      {/* Mobile Menu Overlay — no backdrop-blur (major mobile jank) */}
+      {/* Mobile drawer: overlay + panel share one AnimatePresence for clean exit */}
       <AnimatePresence>
-        {mobileOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            className="fixed inset-0 z-[55] bg-black/70 md:hidden"
-            onClick={() => setMobileOpen(false)}
-            aria-hidden
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Mobile Menu Panel */}
-      <AnimatePresence>
-        {mobileOpen && (
-          <motion.nav
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
-            transition={{ type: "tween", duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed top-0 right-0 z-[60] flex h-[100dvh] w-[min(18rem,100vw)] max-w-full flex-col gap-4 overflow-y-auto overscroll-contain border-l border-border bg-bg-secondary px-5 md:hidden"
-            style={{
-              paddingTop: "max(1.25rem, env(safe-area-inset-top))",
-              paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))",
-              paddingRight: "max(1.25rem, env(safe-area-inset-right))",
-            }}
-            id="nav-mobile-menu"
+        {mobileOpen ? (
+          <div
+            key="mobile-nav-shell"
+            className="fixed inset-0 z-[55] md:hidden"
+            role="dialog"
+            aria-modal="true"
             aria-label="Mobile navigation"
           >
-            <div className="flex items-center justify-between shrink-0">
-              <span className="text-lg font-bold text-text-primary">Menu</span>
-              <button
-                type="button"
-                onClick={() => setMobileOpen(false)}
-                className="w-10 h-10 rounded-xl flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-white/5 transition-colors cursor-pointer"
-                aria-label="Close menu"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setMobileOpen(false)}
-                  className="px-4 py-3.5 text-base font-medium text-text-secondary hover:text-text-primary hover:bg-white/5 rounded-xl transition-colors"
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              className="absolute inset-0 bg-black/70"
+              onClick={closeMobile}
+              aria-hidden
+            />
+            <motion.nav
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "tween", duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              className="absolute top-0 right-0 flex h-[100dvh] w-[min(18rem,100vw)] max-w-full flex-col gap-4 overflow-y-auto overscroll-contain border-l border-border bg-bg-secondary px-5 shadow-2xl"
+              style={{
+                paddingTop: "max(1.25rem, env(safe-area-inset-top))",
+                paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))",
+                paddingRight: "max(1.25rem, env(safe-area-inset-right))",
+              }}
+              id="nav-mobile-menu"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between shrink-0">
+                <span className="text-lg font-bold text-text-primary">Menu</span>
+                <button
+                  type="button"
+                  onClick={closeMobile}
+                  className="w-10 h-10 rounded-xl flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-white/5 transition-colors cursor-pointer"
+                  aria-label="Close menu"
                 >
-                  {link.label}
-                </Link>
-              ))}
-              {isSignedIn && isAdmin ? (
-                <Link
-                  href="/admin/dashboard"
-                  onClick={() => setMobileOpen(false)}
-                  className="px-4 py-3.5 text-base font-semibold text-accent hover:bg-accent/10 rounded-xl transition-colors"
-                >
-                  Admin panel
-                </Link>
-              ) : null}
-            </div>
-
-            <div className="mt-auto flex flex-col gap-2 pt-4 border-t border-border/80">
-              <div className="md:hidden pb-1">
-                <CountrySelector />
+                  <X size={20} />
+                </button>
               </div>
-              {isSignedIn ? (
-                <>
+
+              <div className="flex flex-col gap-1">
+                {navLinks.map((link) => (
                   <Link
-                    href="/account/purchases"
-                    onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-3 px-4 py-3.5 text-base font-medium text-text-secondary hover:text-text-primary hover:bg-white/5 rounded-xl transition-colors"
+                    key={link.href}
+                    href={link.href}
+                    onClick={closeMobile}
+                    className={cn(
+                      "px-4 py-3.5 text-base font-medium rounded-xl transition-colors",
+                      pathname === link.href || pathname.startsWith(`${link.href}/`)
+                        ? "bg-white/8 text-text-primary"
+                        : "text-text-secondary hover:text-text-primary hover:bg-white/5"
+                    )}
                   >
-                    <Receipt size={20} weight="bold" className="shrink-0 text-text-muted" />
-                    Purchase history
+                    {link.label}
                   </Link>
-                  <SignOutButton>
-                    <button
-                      type="button"
-                      onClick={() => setMobileOpen(false)}
-                      className="flex w-full items-center gap-3 px-4 py-3.5 text-base font-medium text-red-300/90 hover:text-red-200 hover:bg-red-500/10 rounded-xl transition-colors cursor-pointer text-left"
+                ))}
+                {isSignedIn && isAdmin ? (
+                  <Link
+                    href="/admin/dashboard"
+                    onClick={closeMobile}
+                    className="px-4 py-3.5 text-base font-semibold text-accent hover:bg-accent/10 rounded-xl transition-colors"
+                  >
+                    Admin panel
+                  </Link>
+                ) : null}
+              </div>
+
+              <div className="mt-auto flex flex-col gap-2 pt-4 border-t border-border/80">
+                <div className="md:hidden pb-1">
+                  <CountrySelector />
+                </div>
+                {isSignedIn ? (
+                  <>
+                    <Link
+                      href="/account/purchases"
+                      onClick={closeMobile}
+                      className={cn(
+                        "flex items-center gap-3 px-4 py-3.5 text-base font-medium rounded-xl transition-colors",
+                        pathname.startsWith("/account")
+                          ? "bg-white/8 text-text-primary"
+                          : "text-text-secondary hover:text-text-primary hover:bg-white/5"
+                      )}
                     >
-                      <SignOut size={20} weight="bold" className="shrink-0" />
-                      Sign out
-                    </button>
-                  </SignOutButton>
-                </>
-              ) : (
-                <Link
-                  href="/login"
-                  onClick={() => setMobileOpen(false)}
-                  className="flex items-center justify-center gap-2 h-11 rounded-xl bg-accent text-bg-primary font-medium text-sm transition-opacity active:opacity-90"
-                >
-                  <User size={16} weight="bold" />
-                  Login / Register
-                </Link>
-              )}
-            </div>
-          </motion.nav>
-        )}
+                      <Receipt
+                        size={20}
+                        weight="bold"
+                        className="shrink-0 text-text-muted"
+                      />
+                      Purchase history
+                    </Link>
+                    <SignOutButton>
+                      <button
+                        type="button"
+                        onClick={closeMobile}
+                        className="flex w-full items-center gap-3 px-4 py-3.5 text-base font-medium text-red-300/90 hover:text-red-200 hover:bg-red-500/10 rounded-xl transition-colors cursor-pointer text-left"
+                      >
+                        <SignOut size={20} weight="bold" className="shrink-0" />
+                        Sign out
+                      </button>
+                    </SignOutButton>
+                  </>
+                ) : (
+                  <Link
+                    href="/login"
+                    onClick={closeMobile}
+                    className="flex items-center justify-center gap-2 h-11 rounded-xl bg-accent text-bg-primary font-medium text-sm transition-opacity active:opacity-90"
+                  >
+                    <User size={16} weight="bold" />
+                    Login / Register
+                  </Link>
+                )}
+              </div>
+            </motion.nav>
+          </div>
+        ) : null}
       </AnimatePresence>
     </>
   );

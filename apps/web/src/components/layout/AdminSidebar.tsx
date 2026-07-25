@@ -16,7 +16,7 @@ import {
   List,
   Users,
 } from "@phosphor-icons/react";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const sidebarLinks = [
@@ -141,8 +141,31 @@ export default function AdminSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  const closeMobile = useCallback(() => setMobileOpen(false), []);
+
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
+
+  // Auto-hide after any route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!mobileOpen) {
+      document.body.style.overflow = "";
+      return;
+    }
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [mobileOpen]);
 
   return (
     <>
@@ -156,7 +179,7 @@ export default function AdminSidebar() {
         <SidebarContent
           collapsed={collapsed}
           isActive={isActive}
-          onNavigate={() => setMobileOpen(false)}
+          onNavigate={closeMobile}
           onToggleCollapsed={() => setCollapsed((value) => !value)}
         />
       </aside>
@@ -181,33 +204,41 @@ export default function AdminSidebar() {
         </div>
       </div>
 
-      {/* Mobile Overlay */}
+      {/* Mobile Overlay + drawer */}
       <AnimatePresence>
-        {mobileOpen && (
-          <>
+        {mobileOpen ? (
+          <div
+            key="admin-mobile-nav"
+            className="md:hidden fixed inset-0 z-50"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Admin menu"
+          >
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="md:hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
-              onClick={() => setMobileOpen(false)}
+              transition={{ duration: 0.18 }}
+              className="absolute inset-0 bg-black/60"
+              onClick={closeMobile}
             />
             <motion.aside
               initial={{ x: "-100%" }}
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="md:hidden fixed top-0 left-0 bottom-0 z-50 w-[232px] bg-bg-secondary border-r border-border/80"
+              transition={{ type: "spring", damping: 28, stiffness: 280 }}
+              className="absolute top-0 left-0 bottom-0 w-[232px] bg-bg-secondary border-r border-border/80 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
             >
               <SidebarContent
                 collapsed={false}
                 isActive={isActive}
-                onNavigate={() => setMobileOpen(false)}
+                onNavigate={closeMobile}
                 onToggleCollapsed={() => setCollapsed((value) => !value)}
               />
             </motion.aside>
-          </>
-        )}
+          </div>
+        ) : null}
       </AnimatePresence>
     </>
   );
