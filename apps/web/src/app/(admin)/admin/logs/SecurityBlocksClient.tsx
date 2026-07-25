@@ -31,9 +31,13 @@ type AccessBlockRow = {
 export function SecurityBlocksClient({
   events,
   blocks,
+  protectedIps = [],
+  protectedEmails = [],
 }: {
   events: SecurityEventRow[];
   blocks: AccessBlockRow[];
+  protectedIps?: string[];
+  protectedEmails?: string[];
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -41,6 +45,7 @@ export function SecurityBlocksClient({
   const [manualKind, setManualKind] = useState("EMAIL");
   const [manualValue, setManualValue] = useState("");
   const [manualReason, setManualReason] = useState("");
+  const [unbanEmail, setUnbanEmail] = useState("");
 
   async function postAction(body: Record<string, unknown>, key: string) {
     setBusy(key);
@@ -72,6 +77,55 @@ export function SecurityBlocksClient({
         </p>
       ) : null}
 
+      <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-1.5">
+        <h3 className="text-[12px] font-semibold text-emerald-300/90">
+          Never blocked (protected)
+        </h3>
+        <p className="text-[11px] text-text-muted">
+          VPS / trusted IPs and admin emails cannot be access-blocked. Env:{" "}
+          <code className="text-[10px]">TRUSTED_IPS</code>.
+        </p>
+        <div className="text-[10px] font-mono text-text-secondary break-all">
+          IPs: {protectedIps.length ? protectedIps.join(", ") : "—"}
+        </div>
+        <div className="text-[10px] font-mono text-text-secondary break-all">
+          Emails: {protectedEmails.length ? protectedEmails.join(", ") : "—"}
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-border bg-surface/40 p-3 space-y-2">
+        <h3 className="text-[13px] font-semibold text-text-primary">
+          Unblock by email
+        </h3>
+        <p className="text-[11px] text-text-muted">
+          Clears EMAIL access blocks and lifts user ban for that address.
+        </p>
+        <div className="flex flex-wrap gap-2 items-end">
+          <label className="text-[11px] text-text-muted flex-1 min-w-[180px]">
+            Email
+            <input
+              className="mt-0.5 w-full rounded-md border border-border bg-background px-2 py-1 text-xs text-text-primary font-mono"
+              value={unbanEmail}
+              onChange={(e) => setUnbanEmail(e.target.value)}
+              placeholder="user@email.com"
+            />
+          </label>
+          <button
+            type="button"
+            disabled={busy === "unban-email" || !unbanEmail.trim()}
+            onClick={() =>
+              postAction(
+                { action: "unban_email", email: unbanEmail.trim() },
+                "unban-email"
+              )
+            }
+            className="rounded-md bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs px-3 py-1.5 font-medium hover:bg-emerald-500/25 disabled:opacity-40"
+          >
+            {busy === "unban-email" ? "…" : "Unblock email"}
+          </button>
+        </div>
+      </div>
+
       <div className="rounded-lg border border-border bg-surface/40 p-3 space-y-2">
         <h3 className="text-[13px] font-semibold text-text-primary">
           Manual block (preventive)
@@ -79,6 +133,7 @@ export function SecurityBlocksClient({
         <p className="text-[11px] text-text-muted">
           Blocks checkout and account APIs for matching email / IP / user. Does not
           delete Clerk sessions; user cannot complete login-protected actions.
+          Protected VPS/admin IPs and admin emails are rejected.
         </p>
         <div className="flex flex-wrap gap-2 items-end">
           <label className="text-[11px] text-text-muted">

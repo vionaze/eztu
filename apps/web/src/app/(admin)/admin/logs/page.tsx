@@ -37,7 +37,10 @@ export default async function AdminLogsPage({
       : null;
 
   if (tab === "security") {
-    const [events, blocks] = await Promise.all([
+    const { getNeverBlockEmails, getNeverBlockIps } = await import(
+      "@/lib/access-block"
+    );
+    const [events, blocks, neverIps, neverEmails] = await Promise.all([
       prisma.securityEvent.findMany({
         orderBy: { createdAt: "desc" },
         take: 80,
@@ -47,6 +50,8 @@ export default async function AdminLogsPage({
         orderBy: { createdAt: "desc" },
         take: 100,
       }),
+      getNeverBlockIps(),
+      getNeverBlockEmails(),
     ]);
 
     return (
@@ -60,8 +65,12 @@ export default async function AdminLogsPage({
               <p className="admin-hint mt-0.5 max-w-3xl">
                 Fraud/automation signals and preventive bans.{" "}
                 <strong className="text-text-secondary">Block</strong> stops
-                checkout + account APIs for that email/IP/user. Not a DNS/site-wide
-                wall — Clerk may still show login UI until session ends.
+                checkout + account APIs for that email/IP/user. VPS & admin IPs
+                never block. Unblock by email below or manage members under{" "}
+                <Link href="/admin/members" className="text-accent hover:underline">
+                  Members
+                </Link>
+                .
               </p>
             </div>
             <div className="flex gap-1.5">
@@ -87,6 +96,8 @@ export default async function AdminLogsPage({
             ...b,
             createdAt: b.createdAt.toISOString(),
           }))}
+          protectedIps={[...neverIps]}
+          protectedEmails={[...neverEmails]}
         />
       </>
     );

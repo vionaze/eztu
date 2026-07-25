@@ -14,6 +14,7 @@ import {
   SignOut,
   CaretLeft,
   List,
+  Users,
 } from "@phosphor-icons/react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -23,6 +24,7 @@ const sidebarLinks = [
   { label: "Products", href: "/admin/products", icon: Package },
   { label: "Categories", href: "/admin/categories", icon: Tag },
   { label: "Orders", href: "/admin/orders", icon: ShoppingCart },
+  { label: "Members", href: "/admin/members", icon: Users },
   { label: "Blog", href: "/admin/blog", icon: Article },
   { label: "Logs", href: "/admin/logs", icon: List },
   { label: "Settings", href: "/admin/settings", icon: Gear },

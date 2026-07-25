@@ -11,7 +11,11 @@ import {
 } from "@/lib/clerk";
 import {
   banUser,
+  getEnvTrustedIps,
+  getNeverBlockEmails,
+  getNeverBlockIps,
   revokeAccessBlock,
+  unbanByEmail,
   unbanUser,
   upsertAccessBlock,
 } from "@/lib/access-block";
@@ -23,19 +27,30 @@ export async function GET() {
   try {
     await requireAdminUser();
 
-    const [blocks, recentEvents] = await Promise.all([
-      prisma.accessBlock.findMany({
-        where: { active: true },
-        orderBy: { createdAt: "desc" },
-        take: 100,
-      }),
-      prisma.securityEvent.findMany({
-        orderBy: { createdAt: "desc" },
-        take: 50,
-      }),
-    ]);
+    const [blocks, recentEvents, neverBlockIps, neverBlockEmails] =
+      await Promise.all([
+        prisma.accessBlock.findMany({
+          where: { active: true },
+          orderBy: { createdAt: "desc" },
+          take: 200,
+        }),
+        prisma.securityEvent.findMany({
+          orderBy: { createdAt: "desc" },
+          take: 50,
+        }),
+        getNeverBlockIps(),
+        getNeverBlockEmails(),
+      ]);
 
-    return NextResponse.json({ blocks, recentEvents });
+    return NextResponse.json({
+      blocks,
+      recentEvents,
+      protected: {
+        ips: [...neverBlockIps],
+        emails: [...neverBlockEmails],
+        envTrustedIps: getEnvTrustedIps(),
+      },
+    });
   } catch (error) {
     if (
       error instanceof AuthenticationRequiredError ||
@@ -105,6 +120,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
+    if (action === "unban_email") {
+      const email = typeof body.email === "string" ? body.email.trim() : "";
+      if (!email) {
+        return NextResponse.json({ error: "email required" }, { status: 400 });
+      }
+      const result = await unbanByEmail({ email, revokedBy: actor });
+      await writeAppLog({
+        category: "SECURITY",
+        level: "INFO",
+        title: `Unblocked email · ${email}`,
+        message: "Email block + user ban cleared",
+        actor,
+        route: "/api/admin/security/blocks",
+        metadata: result,
+      });
+      return NextResponse.json({ ok: true, ...result });
+    }
+
     if (action === "revoke") {
       const id = typeof body.id === "string" ? body.id.trim() : "";
       if (!id) {
@@ -140,7 +173,6 @@ export async function POST(request: NextRequest) {
       createdBy: actor,
     });
 
-    // If USER_ID, also mark User.bannedAt
     if (kind === "USER_ID") {
       try {
         await banUser({
@@ -172,7 +204,8 @@ export async function POST(request: NextRequest) {
     ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-    const message = error instanceof Error ? error.message : "Failed to update block";
+    const message =
+      error instanceof Error ? error.message : "Failed to update block";
     console.error("[Admin Security Blocks POST]", error);
     return NextResponse.json({ error: message }, { status: 500 });
   }

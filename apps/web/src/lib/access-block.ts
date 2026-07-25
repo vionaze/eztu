@@ -1,5 +1,5 @@
 import "server-only";
-import { prisma, type AccessBlockKind, type Prisma } from "@kupon/db";
+import { prisma, type AccessBlockKind, type Prisma, type Role } from "@kupon/db";
 
 export type BlockTarget = {
   email?: string | null;
@@ -16,6 +16,19 @@ function normalizeIp(ip: string) {
   return ip.trim();
 }
 
+/** Local copy of admin email allowlist (avoid circular import with clerk.ts). */
+function getAdminEmailAllowlist(): string[] {
+  const raw =
+    process.env.ADMIN_EMAILS?.trim() ||
+    process.env.SUPERADMIN_EMAILS?.trim() ||
+    "aigaktidur@gmail.com";
+
+  return raw
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+}
+
 export function normalizeBlockValue(kind: AccessBlockKind, value: string) {
   const trimmed = value.trim();
   if (kind === "EMAIL") return normalizeEmail(trimmed);
@@ -24,9 +37,121 @@ export function normalizeBlockValue(kind: AccessBlockKind, value: string) {
 }
 
 /**
+ * IPs that must never be access-blocked (VPS + env allowlist + admin lastSeen).
+ * Env: TRUSTED_IPS or FRAUD_NEVER_BLOCK_IPS (comma-separated).
+ * Default includes production VPS egress.
+ */
+export function getEnvTrustedIps(): string[] {
+  const raw =
+    process.env.TRUSTED_IPS?.trim() ||
+    process.env.FRAUD_NEVER_BLOCK_IPS?.trim() ||
+    "161.97.130.68,127.0.0.1,::1";
+
+  return raw
+    .split(",")
+    .map((ip) => normalizeIp(ip))
+    .filter(Boolean);
+}
+
+export async function getNeverBlockIps(): Promise<Set<string>> {
+  const ips = new Set(getEnvTrustedIps());
+
+  const adminRows = await prisma.user.findMany({
+    where: {
+      role: { in: ["ADMIN", "SUPERADMIN"] },
+      lastSeenIp: { not: null },
+    },
+    select: { lastSeenIp: true },
+  });
+
+  for (const row of adminRows) {
+    const ip = row.lastSeenIp?.trim();
+    if (ip && ip !== "unknown" && ip !== "system") {
+      ips.add(ip);
+    }
+  }
+
+  return ips;
+}
+
+export async function getNeverBlockEmails(): Promise<Set<string>> {
+  const emails = new Set(getAdminEmailAllowlist());
+
+  const adminRows = await prisma.user.findMany({
+    where: {
+      role: { in: ["ADMIN", "SUPERADMIN"] },
+      email: { not: null },
+    },
+    select: { email: true },
+  });
+
+  for (const row of adminRows) {
+    if (row.email) emails.add(normalizeEmail(row.email));
+  }
+
+  return emails;
+}
+
+export async function isProtectedBlockTarget(
+  target: BlockTarget
+): Promise<{ protected: boolean; reason?: string }> {
+  if (target.ip?.trim() && target.ip !== "unknown" && target.ip !== "system") {
+    const neverIps = await getNeverBlockIps();
+    if (neverIps.has(normalizeIp(target.ip))) {
+      return {
+        protected: true,
+        reason: `IP ${target.ip} is trusted (VPS/admin) and cannot be blocked.`,
+      };
+    }
+  }
+
+  if (target.email?.trim()) {
+    const neverEmails = await getNeverBlockEmails();
+    if (neverEmails.has(normalizeEmail(target.email))) {
+      return {
+        protected: true,
+        reason: `Email ${target.email} belongs to admin/superadmin and cannot be blocked.`,
+      };
+    }
+  }
+
+  if (target.userId?.trim()) {
+    const user = await prisma.user.findUnique({
+      where: { id: target.userId.trim() },
+      select: { role: true, email: true },
+    });
+    if (user && (user.role === "ADMIN" || user.role === "SUPERADMIN")) {
+      return {
+        protected: true,
+        reason: "Admin/superadmin accounts cannot be blocked.",
+      };
+    }
+  }
+
+  if (target.clerkUserId?.trim()) {
+    const user = await prisma.user.findUnique({
+      where: { clerkId: target.clerkUserId.trim() },
+      select: { role: true },
+    });
+    if (user && (user.role === "ADMIN" || user.role === "SUPERADMIN")) {
+      return {
+        protected: true,
+        reason: "Admin/superadmin accounts cannot be blocked.",
+      };
+    }
+  }
+
+  return { protected: false };
+}
+
+/**
  * Returns first matching active block, if any.
+ * Trusted VPS/admin IPs and admin emails never match.
  */
 export async function findActiveAccessBlock(target: BlockTarget) {
+  const guard = await isProtectedBlockTarget(target);
+  if (guard.protected) return null;
+
   const or: Prisma.AccessBlockWhereInput[] = [];
 
   if (target.email?.trim()) {
@@ -68,6 +193,20 @@ export async function upsertAccessBlock(input: CreateAccessBlockInput) {
     throw new Error("Block value is required.");
   }
 
+  const target: BlockTarget =
+    input.kind === "EMAIL"
+      ? { email: value }
+      : input.kind === "IP"
+        ? { ip: value }
+        : input.kind === "USER_ID"
+          ? { userId: value }
+          : { clerkUserId: value };
+
+  const guard = await isProtectedBlockTarget(target);
+  if (guard.protected) {
+    throw new Error(guard.reason || "This target cannot be blocked.");
+  }
+
   return prisma.accessBlock.upsert({
     where: {
       kind_value: { kind: input.kind, value },
@@ -105,6 +244,10 @@ export async function banUser(params: {
 
   if (user.role === "ADMIN" || user.role === "SUPERADMIN") {
     throw new Error("Cannot ban admin users.");
+  }
+
+  if (user.email && getAdminEmailAllowlist().includes(normalizeEmail(user.email))) {
+    throw new Error("Cannot ban allowlisted admin email.");
   }
 
   const reason = params.reason?.trim() || "Banned by admin";
@@ -145,12 +288,16 @@ export async function banUser(params: {
   }
 
   if (params.alsoBlockIp?.trim() && params.alsoBlockIp !== "unknown") {
-    await upsertAccessBlock({
-      kind: "IP",
-      value: params.alsoBlockIp,
-      reason,
-      createdBy: bannedBy,
-    });
+    try {
+      await upsertAccessBlock({
+        kind: "IP",
+        value: params.alsoBlockIp,
+        reason,
+        createdBy: bannedBy,
+      });
+    } catch {
+      // Trusted IP — skip silently
+    }
   }
 
   return user;
@@ -195,6 +342,33 @@ export async function unbanUser(params: {
   return user;
 }
 
+/** Unblock by email: revoke EMAIL blocks + clear ban on matching user. */
+export async function unbanByEmail(params: {
+  email: string;
+  revokedBy?: string | null;
+}) {
+  const email = normalizeEmail(params.email);
+  if (!email) throw new Error("Email is required.");
+
+  const revokedBy = params.revokedBy?.trim() || null;
+
+  await prisma.accessBlock.updateMany({
+    where: { active: true, kind: "EMAIL", value: email },
+    data: {
+      active: false,
+      revokedAt: new Date(),
+      revokedBy,
+    },
+  });
+
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (user) {
+    await unbanUser({ userId: user.id, revokedBy });
+  }
+
+  return { email, userId: user?.id || null };
+}
+
 export async function revokeAccessBlock(params: {
   id: string;
   revokedBy?: string | null;
@@ -207,4 +381,8 @@ export async function revokeAccessBlock(params: {
       revokedBy: params.revokedBy?.trim() || null,
     },
   });
+}
+
+export function isStaffRole(role: Role) {
+  return role === "ADMIN" || role === "SUPERADMIN";
 }
