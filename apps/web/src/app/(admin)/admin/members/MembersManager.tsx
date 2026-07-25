@@ -70,6 +70,7 @@ export default function MembersManager({
   const [editRole, setEditRole] = useState<"USER" | "ADMIN" | "SUPERADMIN">("USER");
 
   const [deleting, setDeleting] = useState<MemberRow | null>(null);
+  const [mergePick, setMergePick] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -210,6 +211,61 @@ export default function MembersManager({
     }
   }
 
+  async function mergeInto(survivor: MemberRow, donor: MemberRow) {
+    if (
+      !confirm(
+        `Gabung member?\n\nSurvivor (tetap): ${survivor.email || survivor.name || survivor.id}\nDonor (dihapus, order dipindah): ${donor.email || donor.name || donor.id}`
+      )
+    ) {
+      return;
+    }
+    setBusy(`merge-${donor.id}`);
+    setError("");
+    setMessage("");
+    try {
+      const res = await fetch("/api/admin/members/merge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          survivorId: survivor.id,
+          donorId: donor.id,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Merge failed");
+        return;
+      }
+      setMembers((prev) => {
+        const withoutDonor = prev.filter((m) => m.id !== donor.id);
+        return withoutDonor.map((m) =>
+          m.id === survivor.id
+            ? {
+                ...m,
+                ...data.member,
+                createdAt: data.member.createdAt || m.createdAt,
+                updatedAt: data.member.updatedAt || m.updatedAt,
+                bannedAt: data.member.bannedAt ?? m.bannedAt,
+                lastSeenAt: data.member.lastSeenAt ?? m.lastSeenAt,
+                _count: {
+                  orders: m._count.orders + donor._count.orders,
+                },
+              }
+            : m
+        );
+      });
+      setMergePick(null);
+      setMessage(
+        `Merged. Orders moved into ${data.member.email || data.member.id}.`
+      );
+      router.refresh();
+    } catch {
+      setError("Network error");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function confirmDelete() {
     if (!deleting) return;
     setBusy("delete");
@@ -289,7 +345,23 @@ export default function MembersManager({
           {canManageRoles
             ? " · You can change roles (USER / ADMIN / SUPERADMIN)"
             : " · Role changes require SUPERADMIN"}
+          {canManageRoles
+            ? " · Merge: click Merge on survivor, then pick donor"
+            : ""}
         </p>
+        {mergePick ? (
+          <p className="text-[11px] text-amber-300/90">
+            Merge mode: pilih baris kedua (donor) yang mau digabung ke survivor.
+            Order akan dipindah, donor dihapus.{" "}
+            <button
+              type="button"
+              className="underline"
+              onClick={() => setMergePick(null)}
+            >
+              Cancel
+            </button>
+          </p>
+        ) : null}
       </Card>
 
       {showCreate ? (
@@ -471,6 +543,36 @@ export default function MembersManager({
                     <CheckCircle size={12} />
                     Unban
                   </button>
+                ) : null}
+                {canManageRoles ? (
+                  mergePick && mergePick !== m.id ? (
+                    <button
+                      type="button"
+                      disabled={Boolean(busy?.startsWith("merge-"))}
+                      onClick={() => {
+                        const survivor = members.find((x) => x.id === mergePick);
+                        if (survivor) void mergeInto(survivor, m);
+                      }}
+                      className="inline-flex items-center gap-1 text-[11px] rounded-md border border-violet-500/40 bg-violet-500/10 text-violet-300 px-2 py-1 hover:bg-violet-500/20 disabled:opacity-40"
+                    >
+                      Merge into selected
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setMergePick(mergePick === m.id ? null : m.id)
+                      }
+                      className={cn(
+                        "inline-flex items-center gap-1 text-[11px] rounded-md border px-2 py-1",
+                        mergePick === m.id
+                          ? "border-violet-500/50 bg-violet-500/15 text-violet-200"
+                          : "border-border text-text-secondary hover:text-text-primary"
+                      )}
+                    >
+                      {mergePick === m.id ? "Survivor ✓" : "Merge"}
+                    </button>
+                  )
                 ) : null}
                 <button
                   type="button"

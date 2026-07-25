@@ -70,12 +70,23 @@ async function syncClerkUser(clerkUser: ClerkUser) {
   });
 
   if (byClerkId) {
-    // Avoid unique email collision when another row already owns this email
-    let emailToSet = email;
+    // Another row already owns this email → merge into this Clerk session (fixes dual SUPERADMIN)
     if (email && email !== byClerkId.email) {
       const emailOwner = await prisma.user.findUnique({ where: { email } });
       if (emailOwner && emailOwner.id !== byClerkId.id) {
-        emailToSet = byClerkId.email; // keep existing / skip conflict
+        try {
+          const { mergeClerkEmailConflict } = await import("@/lib/merge-users");
+          const merged = await mergeClerkEmailConflict({
+            sessionUser: byClerkId,
+            emailOwner,
+          });
+          return prisma.user.update({
+            where: { id: merged.id },
+            data: { name, image, walletAddress, email },
+          });
+        } catch (error) {
+          console.error("[Clerk] Auto-merge email conflict failed", error);
+        }
       }
     }
 
@@ -84,7 +95,7 @@ async function syncClerkUser(clerkUser: ClerkUser) {
         where: { id: byClerkId.id },
         data: {
           name,
-          ...(emailToSet ? { email: emailToSet } : {}),
+          ...(email ? { email } : {}),
           image,
           walletAddress,
         },
@@ -121,22 +132,29 @@ async function syncClerkUser(clerkUser: ClerkUser) {
         });
       } catch (error) {
         console.error("[Clerk] Relink by email failed", error);
-        // clerkId may already be taken by a stub USER row — merge carefully
+        // clerkId may already be taken by a stub row — merge stub + email owner
         const stub = await prisma.user.findUnique({
           where: { clerkId: clerkUser.id },
         });
         if (stub && stub.id !== byEmail.id) {
-          // Stub owns this clerkId (USER). Copy admin role from the email row
-          // without moving email (unique). Prefer this session's row for auth.
-          return prisma.user.update({
-            where: { id: stub.id },
-            data: {
-              name,
-              image,
-              walletAddress,
-              role: byEmail.role,
-            },
-          });
+          try {
+            const { mergeClerkEmailConflict } = await import("@/lib/merge-users");
+            return mergeClerkEmailConflict({
+              sessionUser: stub,
+              emailOwner: byEmail,
+            });
+          } catch (mergeError) {
+            console.error("[Clerk] Stub/email merge failed", mergeError);
+            return prisma.user.update({
+              where: { id: stub.id },
+              data: {
+                name,
+                image,
+                walletAddress,
+                role: byEmail.role,
+              },
+            });
+          }
         }
         throw error;
       }
