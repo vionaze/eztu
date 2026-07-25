@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { UserButton, useAuth } from "@clerk/nextjs";
+import { SignOutButton, UserButton, useAuth } from "@clerk/nextjs";
 import {
   List,
   X,
@@ -14,6 +14,7 @@ import {
   User,
   Receipt,
   SquaresFour,
+  SignOut,
 } from "@phosphor-icons/react";
 import CountrySelector from "@/components/ui/CountrySelector";
 
@@ -272,15 +273,31 @@ export default function Navbar() {
               ) : null}
             </div>
 
-            <div className="mt-auto flex flex-col gap-3 pt-4">
-              <div className="md:hidden">
+            <div className="mt-auto flex flex-col gap-2 pt-4 border-t border-border/80">
+              <div className="md:hidden pb-1">
                 <CountrySelector />
               </div>
               {isSignedIn ? (
-                <div className="flex items-center justify-between h-11 rounded-xl bg-bg-card border border-border px-4">
-                  <span className="text-sm font-medium text-text-primary">Account</span>
-                  <AccountUserButton isAdmin={isAdmin} />
-                </div>
+                <>
+                  <Link
+                    href="/account/purchases"
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-3 px-4 py-3.5 text-base font-medium text-text-secondary hover:text-text-primary hover:bg-white/5 rounded-xl transition-colors"
+                  >
+                    <Receipt size={20} weight="bold" className="shrink-0 text-text-muted" />
+                    Purchase history
+                  </Link>
+                  <SignOutButton>
+                    <button
+                      type="button"
+                      onClick={() => setMobileOpen(false)}
+                      className="flex w-full items-center gap-3 px-4 py-3.5 text-base font-medium text-red-300/90 hover:text-red-200 hover:bg-red-500/10 rounded-xl transition-colors cursor-pointer text-left"
+                    >
+                      <SignOut size={20} weight="bold" className="shrink-0" />
+                      Sign out
+                    </button>
+                  </SignOutButton>
+                </>
               ) : (
                 <Link
                   href="/login"
