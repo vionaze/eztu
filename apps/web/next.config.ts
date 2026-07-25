@@ -20,7 +20,9 @@ const securityHeaders = [
     value: "camera=(), microphone=(), geolocation=(), payment=()",
   },
   // Clerk Frontend API is on custom domain clerk.eztopup.io (not only *.clerk.com).
-  // Blocking that host breaks <SignIn /> — form never mounts in the browser.
+  // CAPTCHA uses Cloudflare Turnstile + Clerk protect hosts — must be allowed or SignIn
+  // shows "The CAPTCHA failed to load" (desktop + mobile).
+  // Docs: https://clerk.com/docs/guides/secure/best-practices/csp-headers
   {
     key: "Content-Security-Policy",
     value: [
@@ -31,6 +33,12 @@ const securityHeaders = [
         "https://*.clerk.com",
         "https://clerk.eztopup.io",
         "https://*.eztopup.io",
+        "https://challenges.cloudflare.com",
+        "https://*.protect.clerk.com",
+        "https://*.hcaptcha.com",
+        "https://hcaptcha.com",
+        "https://www.google.com",
+        "https://www.gstatic.com",
         "https://client.crisp.chat",
         "https://*.crisp.chat",
       ].join(" "),
@@ -40,6 +48,9 @@ const securityHeaders = [
         "https://*.clerk.com",
         "https://clerk.eztopup.io",
         "https://*.eztopup.io",
+        "https://challenges.cloudflare.com",
+        "https://*.hcaptcha.com",
+        "https://hcaptcha.com",
         "https://client.crisp.chat",
         "https://*.crisp.chat",
       ].join(" "),
@@ -57,6 +68,10 @@ const securityHeaders = [
         "https://*.clerk.com",
         "https://clerk.eztopup.io",
         "https://*.eztopup.io",
+        "https://challenges.cloudflare.com",
+        "https://*.protect.clerk.com",
+        "https://*.hcaptcha.com",
+        "https://hcaptcha.com",
         "https://api.cryptomus.com",
         "https://client.crisp.chat",
         "https://*.crisp.chat",
@@ -70,10 +85,18 @@ const securityHeaders = [
         "https://*.clerk.com",
         "https://clerk.eztopup.io",
         "https://*.eztopup.io",
+        "https://challenges.cloudflare.com",
+        "https://*.protect.clerk.com",
+        "https://*.hcaptcha.com",
+        "https://hcaptcha.com",
+        "https://newassets.hcaptcha.com",
+        "https://www.google.com",
+        "https://recaptcha.google.com",
         "https://game.crisp.chat",
         "https://*.cryptomus.com",
       ].join(" "),
       "worker-src 'self' blob:",
+      "child-src 'self' blob: https://challenges.cloudflare.com",
       "frame-ancestors 'self'",
       "base-uri 'self'",
       [
@@ -82,6 +105,7 @@ const securityHeaders = [
         "https://*.clerk.com",
         "https://clerk.eztopup.io",
         "https://*.eztopup.io",
+        "https://challenges.cloudflare.com",
         "https://*.cryptomus.com",
       ].join(" "),
       "object-src 'none'",
