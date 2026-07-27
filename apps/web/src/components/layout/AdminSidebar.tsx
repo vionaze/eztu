@@ -16,7 +16,7 @@ import {
   List,
   Users,
 } from "@phosphor-icons/react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type MouseEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const sidebarLinks = [
@@ -228,7 +228,7 @@ export default function AdminSidebar() {
               exit={{ x: "-100%" }}
               transition={{ type: "spring", damping: 28, stiffness: 280 }}
               className="absolute top-0 left-0 bottom-0 w-[232px] bg-bg-secondary border-r border-border/80 shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e: MouseEvent<HTMLElement>) => e.stopPropagation()}
             >
               <SidebarContent
                 collapsed={false}

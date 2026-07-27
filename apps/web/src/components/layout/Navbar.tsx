@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type MouseEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SignOutButton, UserButton, useAuth } from "@clerk/nextjs";
 import {
@@ -258,7 +258,7 @@ export default function Navbar() {
                 paddingRight: "max(1.25rem, env(safe-area-inset-right))",
               }}
               id="nav-mobile-menu"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e: MouseEvent<HTMLElement>) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between shrink-0">
                 <span className="text-lg font-bold text-text-primary">Menu</span>

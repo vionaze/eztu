@@ -173,7 +173,6 @@ export default function ProductEditForm({
             id: v.id,
             name: v.name,
             priceIDR: v.priceIDR,
-            priceUSD: v.priceUSD || String(Number(v.priceIDR) / 15500),
             supplierSku: v.supplierSku || null,
             supplierCostIDR: v.supplierCostIDR || null,
             _delete: v._delete || false,
@@ -515,14 +514,6 @@ export default function ProductEditForm({
                         updateVariant(i, "priceIDR", e.target.value)
                       }
                       placeholder="4800"
-                    />
-                    <Input
-                      label="Price USD"
-                      value={v.priceUSD}
-                      onChange={(e) =>
-                        updateVariant(i, "priceUSD", e.target.value)
-                      }
-                      placeholder="0.31"
                     />
                     <Input
                       label="Supplier cost IDR"

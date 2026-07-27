@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma, type ProductFulfillmentType } from "@kupon/db";
 import { requireAdminUser } from "@/lib/clerk";
 import { writeAppLog } from "@/lib/app-log";
+import { getUsdIdrRate } from "@/lib/fx";
+import { idrToUsdCentsCeil, usdCentsToAmount } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +46,6 @@ type VariantBody = {
   id?: string;
   name?: string;
   priceIDR?: number | string;
-  priceUSD?: number | string;
   supplierSku?: string | null;
   supplierCostIDR?: number | string | null;
   _delete?: boolean;
@@ -176,6 +177,7 @@ export async function PATCH(request: Request, ctx: RouteCtx) {
     // Variants: update / create / delete
     if (Array.isArray(body.variants)) {
       const variants = body.variants as VariantBody[];
+      const liveRate = await getUsdIdrRate();
       const existingIds = new Set(existing.variants.map((v) => v.id));
       const keepIds = new Set<string>();
 
@@ -198,9 +200,10 @@ export async function PATCH(request: Request, ctx: RouteCtx) {
 
         const name = String(v.name || "").trim();
         const priceIDR = Math.round(Number(v.priceIDR));
-        const priceUSD = Number(v.priceUSD);
         if (!name || !Number.isFinite(priceIDR) || priceIDR < 0) continue;
-        if (!Number.isFinite(priceUSD) || priceUSD < 0) continue;
+        const priceUSD = usdCentsToAmount(
+          idrToUsdCentsCeil(priceIDR, liveRate.usdIdrRate)
+        );
 
         const costRaw = v.supplierCostIDR;
         const cost =

@@ -1,0 +1,24 @@
+ALTER TYPE "OrderStatus" ADD VALUE IF NOT EXISTS 'UNDERPAID' AFTER 'PENDING';
+
+ALTER TABLE "Order"
+  ADD COLUMN "subtotalUSDCents" INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN "discountUSDCents" INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN "totalUSDCents" INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN "usdIdrRate" DECIMAL(18, 6),
+  ADD COLUMN "fxSource" TEXT,
+  ADD COLUMN "fxQuotedAt" TIMESTAMP(3),
+  ADD COLUMN "fxQuoteExpiresAt" TIMESTAMP(3),
+  ADD COLUMN "actualPaidUSDCents" INTEGER,
+  ADD COLUMN "underpaidUSDCents" INTEGER;
+
+ALTER TABLE "OrderItem"
+  ADD COLUMN "priceUSDCents" INTEGER NOT NULL DEFAULT 0;
+
+UPDATE "Order"
+SET
+  "subtotalUSDCents" = ROUND("subtotalUSD" * 100)::INTEGER,
+  "discountUSDCents" = ROUND("discountUSD" * 100)::INTEGER,
+  "totalUSDCents" = ROUND("totalUSD" * 100)::INTEGER;
+
+UPDATE "OrderItem"
+SET "priceUSDCents" = ROUND("priceUSD" * 100)::INTEGER;

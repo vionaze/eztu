@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -36,10 +36,21 @@ interface Props {
   relatedProducts: Product[];
 }
 
+type LiveQuote = {
+  quoteToken: string;
+  totalIDR: number;
+  totalUSDCents: number;
+  totalUSD: string;
+  usdIdrRate: number;
+  fxSource: string;
+  quotedAt: string;
+  expiresAt: string;
+};
+
 export default function ProductDetailClient({ product, relatedProducts }: Props) {
   const router = useRouter();
   const pathname = usePathname();
-  const { formatLocalPrice, country } = useCurrency();
+  const { formatLocalPrice } = useCurrency();
   const { isLoaded, isSignedIn } = useAuth();
   const { user } = useUser();
   
@@ -56,6 +67,9 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
   const [showBulkModal, setShowBulkModal] = useState(false);
 
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [liveQuote, setLiveQuote] = useState<LiveQuote | null>(null);
+  const [quoteError, setQuoteError] = useState("");
+  const [isQuoteLoading, setIsQuoteLoading] = useState(false);
 
   // From DB: TOP_UP products need account fields; VOUCHER skips them
   const requiresGameAccount = product.fulfillmentType === "TOP_UP";
@@ -95,8 +109,39 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
     isLoaded && Boolean(selectedVariant) && quantity > 0 && gameAccountReady;
   const canCheckout = canStartLogin && Boolean(recipientEmail.trim());
 
+  useEffect(() => {
+    if (!variant || quantity < 1) {
+      // Reset the quote when no purchasable selection exists.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLiveQuote(null);
+      return;
+    }
+    const controller = new AbortController();
+    // Loading state intentionally follows the selected variant/quantity.
+    setIsQuoteLoading(true);
+    setQuoteError("");
+    setLiveQuote(null);
+    fetch(
+      `/api/pricing/quote?variantId=${encodeURIComponent(variant.id)}&quantity=${quantity}`,
+      { cache: "no-store", signal: controller.signal }
+    )
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Unable to load live price");
+        setLiveQuote(data as LiveQuote);
+      })
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setQuoteError(error instanceof Error ? error.message : "Unable to load live price");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setIsQuoteLoading(false);
+      });
+    return () => controller.abort();
+  }, [variant, quantity]);
+
   const handleCheckout = async () => {
-    if (!variant || quantity <= 0) return;
+    if (!variant || quantity <= 0 || !liveQuote) return;
     if (requiresGameAccount && !gameId.trim()) {
       alert(`Please enter your ${gameIdLabel}.`);
       return;
@@ -135,6 +180,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
           quantity,
           company,
           checkoutStartedAt,
+          quoteToken: liveQuote.quoteToken,
           gameId: requiresGameAccount ? gameId.trim() : "voucher",
           serverId: requiresGameAccount ? serverId.trim() : "",
         }),
@@ -158,11 +204,16 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
   };
 
   const totalIDR = variant ? Math.max(0, variant.priceIDR * quantity) : 0;
-  const totalUSD = variant ? Math.max(0, Number((variant.priceUSD * quantity).toFixed(2))) : 0;
-  const isFree = quantity > 0 && totalUSD <= 0;
-  const usesCryptoCheckout = Boolean(variant && variant.priceUSD > 0);
+  const totalUSD = liveQuote ? liveQuote.totalUSDCents / 100 : 0;
+  const isFree =
+    quantity > 0 && liveQuote !== null && liveQuote.totalUSDCents <= 0;
+  const usesCryptoCheckout = Boolean(variant && liveQuote && liveQuote.totalUSDCents > 0);
   const checkoutDisabled =
-    isCheckingOut || (isSignedIn ? !canCheckout : !canStartLogin);
+    isCheckingOut ||
+    isQuoteLoading ||
+    !liveQuote ||
+    Boolean(quoteError) ||
+    (isSignedIn ? !canCheckout : !canStartLogin);
 
   return (
     <div className="min-h-[100dvh] pt-24 pb-20">
@@ -405,10 +456,36 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                     {formatLocalPrice(totalIDR, totalUSD)}
                   </span>
                 </div>
-                {variant && country.code !== "US" && (
+                {variant && (
                   <p className="text-right text-xs text-text-muted font-[family-name:var(--font-geist-mono)]">
-                    ≈ {formatPrice(totalUSD, "USD")}
+                    {isQuoteLoading
+                      ? "Loading live USD quote…"
+                      : liveQuote
+                        ? `Total stablecoin: ${formatPrice(totalUSD, "USD")}`
+                        : "Live USD quote unavailable"}
                   </p>
+                )}
+                {liveQuote && (
+                  <div className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-xs leading-relaxed text-amber-100/90">
+                    <p>
+                      Pay exactly <strong>${liveQuote.totalUSD} USDT/USDC</strong>.
+                      Blockchain gas/network fee is paid separately by you and depends
+                      on the selected crypto chain.
+                    </p>
+                    <p className="mt-1 text-text-muted">
+                      Rate Rp{Math.round(liveQuote.usdIdrRate).toLocaleString("id-ID")}/USD
+                      {" · "}
+                      quote valid until{" "}
+                      {new Date(liveQuote.expiresAt).toLocaleTimeString("id-ID", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        timeZone: "Asia/Jakarta",
+                      })} WIB
+                    </p>
+                  </div>
+                )}
+                {quoteError && (
+                  <p className="mt-2 text-right text-xs text-red-300">{quoteError}</p>
                 )}
               </Card>
             </FadeUp>

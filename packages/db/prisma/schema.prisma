@@ -124,10 +124,21 @@ model Order {
   // Pricing
   subtotalIDR Int   @default(0)
   subtotalUSD Float @default(0)
+  subtotalUSDCents Int @default(0)
   discountIDR Int   @default(0)
   discountUSD Float @default(0)
+  discountUSDCents Int @default(0)
   totalIDR    Int
   totalUSD    Float
+  totalUSDCents Int @default(0)
+
+  // Immutable FX quote snapshot used for stablecoin checkout.
+  usdIdrRate      Decimal? @db.Decimal(18, 6)
+  fxSource        String?
+  fxQuotedAt      DateTime?
+  fxQuoteExpiresAt DateTime?
+  actualPaidUSDCents Int?
+  underpaidUSDCents  Int?
 
   promoCodeId String?
   promoCode   PromoCode? @relation(fields: [promoCodeId], references: [id])
@@ -158,6 +169,7 @@ model OrderItem {
   quantity  Int            @default(1)
   priceIDR  Int
   priceUSD  Float
+  priceUSDCents Int @default(0)
 }
 
 // ============================================================
@@ -363,6 +375,7 @@ enum AccessBlockKind {
 
 enum OrderStatus {
   PENDING
+  UNDERPAID
   PAID
   PROCESSING
   COMPLETED

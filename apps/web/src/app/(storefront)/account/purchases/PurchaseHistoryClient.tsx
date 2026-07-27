@@ -22,6 +22,7 @@ import {
 
 type PurchaseOrderStatus =
   | "PENDING"
+  | "UNDERPAID"
   | "PAID"
   | "PROCESSING"
   | "COMPLETED"
@@ -48,6 +49,8 @@ export type PurchaseHistoryOrder = {
   discountUSD: number;
   totalIDR: number;
   totalUSD: number;
+  actualPaidUSDCents: number | null;
+  underpaidUSDCents: number | null;
   status: PurchaseOrderStatus;
   paymentProvider: string | null;
   paymentProviderPaymentId: string | null;
@@ -205,6 +208,7 @@ const labelsByLocale: Record<"id" | "en", Labels> = {
 
 const orderStatusStyles: Record<PurchaseOrderStatus, string> = {
   PENDING: "border-yellow-400/25 bg-yellow-400/10 text-yellow-300",
+  UNDERPAID: "border-amber-400/30 bg-amber-400/10 text-amber-200",
   PAID: "border-sky-400/25 bg-sky-400/10 text-sky-300",
   PROCESSING: "border-orange-400/25 bg-orange-400/10 text-orange-300",
   COMPLETED: "border-emerald-400/25 bg-emerald-400/10 text-emerald-300",
@@ -255,6 +259,7 @@ function formatStatus(label: string, locale: "id" | "en") {
 
   const statusMap: Record<string, string> = {
     PENDING: "MENUNGGU",
+    UNDERPAID: "PEMBAYARAN KURANG",
     PAID: "DIBAYAR",
     PROCESSING: "DIPROSES",
     COMPLETED: "SELESAI",
@@ -370,7 +375,7 @@ export default function PurchaseHistoryClient({
   const labels = labelsByLocale[locale];
   const completedOrders = orders.filter((order) => order.status === "COMPLETED").length;
   const pendingOrders = orders.filter((order) =>
-    ["PENDING", "PAID", "PROCESSING"].includes(order.status)
+    ["PENDING", "UNDERPAID", "PAID", "PROCESSING"].includes(order.status)
   ).length;
 
   return (
@@ -499,6 +504,34 @@ export default function PurchaseHistoryClient({
                         )}
                       </div>
                     </div>
+
+                    {order.status === "UNDERPAID" && (
+                      <div className="border-b border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-100">
+                        <div className="flex items-start gap-3">
+                          <WarningCircle
+                            size={20}
+                            weight="fill"
+                            className="mt-0.5 shrink-0 text-amber-300"
+                          />
+                          <div>
+                            <p className="font-semibold">
+                              {locale === "id"
+                                ? "Pembayaran kurang — pesanan ditahan"
+                                : "Underpayment — order is on hold"}
+                            </p>
+                            <p className="mt-1 text-xs leading-relaxed text-amber-100/80">
+                              {locale === "id"
+                                ? `Pembayaran yang diterima kurang $${(
+                                    (order.underpaidUSDCents || 0) / 100
+                                  ).toFixed(2)}. Fulfillment belum diproses. Email cs@eztopup.io untuk menyelesaikan sisa pembayaran.`
+                                : `The received payment is short by $${(
+                                    (order.underpaidUSDCents || 0) / 100
+                                  ).toFixed(2)}. Fulfillment has not started. Email cs@eztopup.io to resolve the remaining payment.`}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
                       <div className="border-b border-white/[0.08] p-5 lg:border-b-0 lg:border-r">

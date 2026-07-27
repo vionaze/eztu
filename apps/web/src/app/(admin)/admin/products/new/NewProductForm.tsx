@@ -114,7 +114,6 @@ export default function NewProductForm({
           variants: variants.map((v) => ({
             name: v.name,
             priceIDR: v.priceIDR,
-            priceUSD: v.priceUSD || String(Number(v.priceIDR) / 15500),
             supplierSku: v.supplierSku || null,
             supplierCostIDR: v.supplierCostIDR || null,
           })),
@@ -379,12 +378,6 @@ export default function NewProductForm({
                   value={variant.priceIDR}
                   onChange={(e) => updateVariant(i, "priceIDR", e.target.value)}
                   label={i === 0 ? "Price (IDR)" : undefined}
-                />
-                <Input
-                  placeholder="1.20"
-                  value={variant.priceUSD}
-                  onChange={(e) => updateVariant(i, "priceUSD", e.target.value)}
-                  label={i === 0 ? "Price (USD)" : undefined}
                 />
                 <Input
                   placeholder="optional cost"

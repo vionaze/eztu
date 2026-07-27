@@ -45,6 +45,8 @@ function mapOrdersToPurchaseHistory(
       discountUSD: order.discountUSD,
       totalIDR: order.totalIDR,
       totalUSD: order.totalUSD,
+      actualPaidUSDCents: order.actualPaidUSDCents,
+      underpaidUSDCents: order.underpaidUSDCents,
       status: order.status,
       paymentProvider: order.paymentProvider,
       paymentProviderPaymentId: order.paymentProviderPaymentId,

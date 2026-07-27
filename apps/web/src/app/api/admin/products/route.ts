@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma, type ProductFulfillmentType } from "@kupon/db";
 import { requireAdminUser } from "@/lib/clerk";
 import { writeAppLog } from "@/lib/app-log";
+import { getUsdIdrRate } from "@/lib/fx";
+import { idrToUsdCentsCeil, usdCentsToAmount } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +22,6 @@ function slugify(value: string) {
 type VariantInput = {
   name?: string;
   priceIDR?: number | string;
-  priceUSD?: number | string;
   supplierSku?: string | null;
   supplierCostIDR?: number | string | null;
 };
@@ -65,7 +66,7 @@ export async function POST(request: Request) {
     }
 
     const categoryIdRaw = String(body.categoryId || "").trim();
-    let categoryId: string | null = categoryIdRaw || null;
+    const categoryId: string | null = categoryIdRaw || null;
     if (categoryId) {
       const category = await prisma.category.findUnique({
         where: { id: categoryId },
@@ -90,13 +91,15 @@ export async function POST(request: Request) {
       fulfillmentType === "TOP_UP" && Boolean(body.requiresServerId);
 
     const variants = Array.isArray(body.variants) ? body.variants : [];
+    const liveRate = await getUsdIdrRate();
     const cleanVariants = variants
       .map((v) => {
         const vName = String(v.name || "").trim();
         const priceIDR = Math.round(Number(v.priceIDR));
-        const priceUSD = Number(v.priceUSD);
         if (!vName || !Number.isFinite(priceIDR) || priceIDR < 0) return null;
-        if (!Number.isFinite(priceUSD) || priceUSD < 0) return null;
+        const priceUSD = usdCentsToAmount(
+          idrToUsdCentsCeil(priceIDR, liveRate.usdIdrRate)
+        );
         const cost =
           v.supplierCostIDR != null && v.supplierCostIDR !== ""
             ? Math.round(Number(v.supplierCostIDR))

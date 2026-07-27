@@ -178,6 +178,7 @@ export function normalizeCryptomusStatus(
     case "process":
     case "confirming":
     case "wrong_amount_waiting":
+    case "wrong_amount":
     case "check":
       return "processing";
     case "refund_process":
@@ -186,7 +187,6 @@ export function normalizeCryptomusStatus(
       return "refunded";
     case "fail":
     case "system_fail":
-    case "wrong_amount":
     case "refund_fail":
       return "failed";
     case "cancel":
@@ -422,7 +422,7 @@ function mapCryptomusPaymentEvent(
     payCurrency: body.payer_currency || body.currency || null,
     payAmount: toNumber(body.payer_amount ?? body.amount),
     actuallyPaid: toNumber(
-      body.payment_amount_usd ?? body.payment_amount ?? body.merchant_amount
+      body.payment_amount_usd ?? body.payment_amount
     ),
     txHash: body.txid || null,
     raw: body,

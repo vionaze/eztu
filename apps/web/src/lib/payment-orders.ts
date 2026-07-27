@@ -9,6 +9,11 @@ import {
 } from "@/lib/fraud";
 import { sendOrderNotification } from "@/lib/telegram";
 import { writeAppLog } from "@/lib/app-log";
+import {
+  underpaidUSDCents,
+  usdAmountToCents,
+  usdCentsToAmount,
+} from "@/lib/money";
 
 const statusMap: Record<NormalizedPaymentStatus, OrderStatus> = {
   pending: "PENDING",
@@ -18,6 +23,21 @@ const statusMap: Record<NormalizedPaymentStatus, OrderStatus> = {
   expired: "EXPIRED",
   refunded: "REFUNDED",
 };
+
+function getActualPaidUSDCents(event: PaymentWebhookEvent) {
+  const paymentAmountUSD = getRawNumber(event.raw, "payment_amount_usd");
+  if (paymentAmountUSD !== null) return usdAmountToCents(paymentAmountUSD);
+
+  const currency = (event.payCurrency || "").toUpperCase();
+  if (currency === "USDT" || currency === "USDC") {
+    const stablecoinAmount =
+      getRawNumber(event.raw, "payment_amount") ?? event.actuallyPaid;
+    if (stablecoinAmount !== null && stablecoinAmount !== undefined) {
+      return usdAmountToCents(stablecoinAmount);
+    }
+  }
+  return null;
+}
 
 type ApplyPaymentEventOptions = {
   requestContext?: FraudRequestContext;
@@ -244,7 +264,80 @@ export async function applyPaymentEventToOrder(
     return { ok: false as const, status: 409, error: "Payment ID mismatch" };
   }
 
+  const expectedUSDCents =
+    order.totalUSDCents > 0 ? order.totalUSDCents : usdAmountToCents(order.totalUSD);
+  const actualPaidUSDCents = getActualPaidUSDCents(event);
+  const missingUSDCents =
+    actualPaidUSDCents === null
+      ? 0
+      : underpaidUSDCents(expectedUSDCents, actualPaidUSDCents);
+  if (
+    expectedUSDCents > 0 &&
+    actualPaidUSDCents !== null &&
+    missingUSDCents > 0
+  ) {
+    await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        status: "UNDERPAID",
+        actualPaidUSDCents,
+        underpaidUSDCents: missingUSDCents,
+        paymentProvider: event.provider,
+        paymentProviderPaymentId: event.providerPaymentId,
+        paymentProviderInvoiceId:
+          event.providerInvoiceId ||
+          order.paymentProviderInvoiceId ||
+          expectedProviderId,
+        paymentCurrency: event.payCurrency || order.paymentCurrency,
+        paymentProviderTxHash: event.txHash || order.paymentProviderTxHash,
+      },
+    });
+
+    await writeAppLog({
+      category: "PAYMENT",
+      level: "WARNING",
+      title: `Underpaid order held: ${order.orderNumber}`,
+      message: `Expected $${usdCentsToAmount(expectedUSDCents).toFixed(2)}, received $${usdCentsToAmount(actualPaidUSDCents).toFixed(2)}. Contact cs@eztopup.io.`,
+      orderId: order.id,
+      route: "/api/payment/webhook",
+      metadata: {
+        expectedUSDCents,
+        actualPaidUSDCents,
+        missingUSDCents,
+        providerStatus: event.providerStatus,
+        email: order.email,
+      },
+    });
+
+    if (firstItem && order.status !== "UNDERPAID") {
+      await sendOrderNotification({
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        product: firstItem.product.name,
+        variant: firstItem.variant.name,
+        gameId: order.gameId,
+        amountIDR: order.totalIDR,
+        amountUSD: usdCentsToAmount(expectedUSDCents),
+        crypto: event.payCurrency || "unknown",
+        status: "UNDERPAID",
+        email: order.email,
+      });
+    }
+
+    return {
+      ok: true as const,
+      orderId: order.id,
+      previousStatus: order.status,
+      status: "UNDERPAID" as const,
+      held: true as const,
+    };
+  }
+
   let newStatus = statusMap[event.status] || order.status;
+  if (order.status === "UNDERPAID") {
+    // A held underpayment must only be released through manual CS review.
+    newStatus = "UNDERPAID";
+  }
   if (order.status === "COMPLETED" && newStatus === "PAID") {
     newStatus = "COMPLETED";
   }
@@ -262,7 +355,10 @@ export async function applyPaymentEventToOrder(
         expectedProviderId,
       paymentCurrency: event.payCurrency || order.paymentCurrency,
       paymentProviderTxHash: event.txHash || order.paymentProviderTxHash,
-      ...(isPaid && !order.paidAt ? { paidAt: new Date() } : {}),
+      ...(actualPaidUSDCents !== null ? { actualPaidUSDCents } : {}),
+      ...(isPaid && newStatus !== "UNDERPAID" && !order.paidAt
+        ? { paidAt: new Date() }
+        : {}),
     },
   });
 
@@ -286,8 +382,7 @@ export async function applyPaymentEventToOrder(
       // Sales channel = paid/completed revenue events only (DISCORD_WEBHOOK_URL)
       const isSalesEvent =
         newStatus === "PAID" ||
-        newStatus === "COMPLETED" ||
-        (isPaid && order.status !== "PAID");
+        newStatus === "COMPLETED";
 
       if (isSalesEvent) {
         await sendDiscordOrderNotification({
@@ -323,7 +418,13 @@ export async function applyPaymentEventToOrder(
     }
   }
 
-  if (isPaid && order.status !== "PAID" && order.status !== "COMPLETED") {
+  if (
+    isPaid &&
+    newStatus === "PAID" &&
+    order.status !== "PAID" &&
+    order.status !== "COMPLETED" &&
+    order.status !== "UNDERPAID"
+  ) {
     await fulfillPaidOrder(order.id);
   }
 

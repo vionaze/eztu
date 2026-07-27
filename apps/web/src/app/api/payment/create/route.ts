@@ -25,6 +25,8 @@ import {
   AuthenticationRequiredError,
   requireClerkUser,
 } from "@/lib/clerk";
+import { verifyPricingQuote } from "@/lib/fx";
+import { usdCentsToAmount } from "@/lib/money";
 
 function generateOrderNumber(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -85,6 +87,8 @@ export async function POST(request: NextRequest) {
     const company = typeof body.company === "string" ? body.company.trim() : "";
     const checkoutStartedAt =
       typeof body.checkoutStartedAt === "number" ? body.checkoutStartedAt : null;
+    const quoteToken =
+      typeof body.quoteToken === "string" ? body.quoteToken.trim() : "";
     const fraudAssessment = evaluateCheckoutFraud(request, {
       productId,
       variantId,
@@ -159,9 +163,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Validation
-    if (!productId || !variantId || !email) {
+    if (!productId || !variantId || !email || !quoteToken) {
       return NextResponse.json(
-        { error: "Missing required fields: productId, variantId, email" },
+        { error: "A fresh pricing quote is required. Please refresh the price." },
         { status: 400 }
       );
     }
@@ -217,6 +221,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    let quote;
+    try {
+      quote = verifyPricingQuote(quoteToken, {
+        variantId: variant.id,
+        quantity,
+        unitPriceIDR: variant.priceIDR,
+      });
+    } catch (error) {
+      return NextResponse.json(
+        {
+          error:
+            error instanceof Error && error.message.includes("expired")
+              ? "The exchange-rate quote expired. Please refresh the price and try again."
+              : "The pricing quote is invalid. Please refresh the page.",
+        },
+        { status: 409 }
+      );
+    }
+
     // Enforce top-up account fields from product config (server-side)
     if (variant.product.fulfillmentType === "TOP_UP") {
       if (!gameId || gameId === "voucher") {
@@ -268,9 +291,10 @@ export async function POST(request: NextRequest) {
       clerkUserId: authenticatedUser.clerkUserId,
     });
 
-    const totalIDR = variant.priceIDR * quantity;
-    const totalUSD = Number((variant.priceUSD * quantity).toFixed(2));
-    const isFree = totalUSD <= 0;
+    const totalIDR = quote.totalIDR;
+    const totalUSDCents = quote.totalUSDCents;
+    const totalUSD = usdCentsToAmount(totalUSDCents);
+    const isFree = totalUSDCents <= 0;
     const now = new Date();
 
     // Create order
@@ -283,11 +307,18 @@ export async function POST(request: NextRequest) {
         gameId,
         serverId: serverId || null,
         subtotalIDR: variant.priceIDR * quantity,
-        subtotalUSD: Number((variant.priceUSD * quantity).toFixed(2)),
+        subtotalUSD: totalUSD,
+        subtotalUSDCents: totalUSDCents,
         discountIDR: 0,
         discountUSD: 0,
+        discountUSDCents: 0,
         totalIDR,
         totalUSD,
+        totalUSDCents,
+        usdIdrRate: quote.usdIdrRate,
+        fxSource: quote.fxSource,
+        fxQuotedAt: new Date(quote.quotedAt),
+        fxQuoteExpiresAt: new Date(quote.expiresAt),
         promoCodeId: null,
         status: isFree ? "PAID" : "PENDING",
         paidAt: isFree ? now : null,
@@ -298,7 +329,8 @@ export async function POST(request: NextRequest) {
             variantId,
             quantity,
             priceIDR: variant.priceIDR,
-            priceUSD: variant.priceUSD,
+            priceUSD: totalUSD / quantity,
+            priceUSDCents: Math.ceil(totalUSDCents / quantity),
           },
         },
       },
