@@ -8,6 +8,10 @@ import {
 import { getBlogAiSettings, setSetting, SETTING_KEYS } from "@/lib/settings";
 import { writeAppLog } from "@/lib/app-log";
 import { sendDiscordBlogPublishedNotification } from "@/lib/discord-blog";
+import {
+  getBlogLanguageForCountry,
+  planBlogMarketRotation,
+} from "@/lib/blog-market";
 
 /**
  * Blog AI auto-publish — still BLOG SCOPE ONLY.
@@ -106,16 +110,6 @@ export async function persistBlogDraft(params: {
     title: post.title,
     published: post.published,
   };
-}
-
-function languageForCountry(country: string) {
-  if (country === "ID") return "Indonesian";
-  if (country === "MY") return "English (Malaysia)";
-  if (country === "TH") return "Thai";
-  if (country === "VN") return "Vietnamese";
-  if (country === "PH") return "English (Philippines)";
-  if (country === "SG") return "English (Singapore)";
-  return "English";
 }
 
 /** Build a unique topic seed for a market, avoiding recent titles. */
@@ -234,15 +228,47 @@ export async function runBlogAiAutoBatch(opts?: {
 
   const created: AutoRunResult["created"] = [];
   const errors: string[] = [];
+  let recentCountry = "";
 
-  for (let i = 0; i < count; i++) {
-    const country = countries[i % countries.length];
+  if (
+    !settings.lastAutoCountry ||
+    !countries.includes(settings.lastAutoCountry)
+  ) {
+    const recentAiPost = await prisma.blogPost.findFirst({
+      where: {
+        aiGenerated: true,
+        countryCode: { in: countries },
+      },
+      orderBy: { createdAt: "desc" },
+      select: { countryCode: true },
+    });
+    recentCountry = recentAiPost?.countryCode || "";
+  }
+
+  const rotation = planBlogMarketRotation(
+    countries,
+    count,
+    settings.lastAutoCountry || "",
+    recentCountry
+  );
+
+  // Reserve this slice before calling the model so a failing market cannot
+  // keep every future hourly run stuck on the same country.
+  if (rotation.lastCountry) {
+    await setSetting(
+      SETTING_KEYS.AI_LAST_AUTO_COUNTRY,
+      rotation.lastCountry
+    );
+  }
+
+  for (let i = 0; i < rotation.markets.length; i++) {
+    const country = rotation.markets[i];
     try {
       const topic = await buildTopicForCountry(country);
       const draft = await generateBlogArticleDraft({
         topic,
         countryCode: country,
-        language: languageForCountry(country),
+        language: getBlogLanguageForCountry(country),
       });
       const post = await persistBlogDraft({
         draft,
@@ -279,13 +305,15 @@ export async function runBlogAiAutoBatch(opts?: {
     message:
       errors.length > 0
         ? errors.slice(0, 5).join("; ")
-        : `Published=${publish} countries=${countries.join(",")}`,
+        : `Published=${publish} markets=${rotation.markets.join(",")}`,
     metadata: {
       scope: "blog_only",
       created: created.length,
       errors: errors.length,
       publish,
       countries,
+      scheduledMarkets: rotation.markets,
+      lastAutoCountry: rotation.lastCountry,
     },
   });
 

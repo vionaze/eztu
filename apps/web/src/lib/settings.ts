@@ -24,6 +24,8 @@ export const SETTING_KEYS = {
   AI_AUTO_PUBLISH: "blog.ai.autoPublish",
   /** ISO timestamp of last successful scheduled run */
   AI_LAST_RUN_AT: "blog.ai.lastRunAt",
+  /** Last market attempted by the rotating auto-publish queue */
+  AI_LAST_AUTO_COUNTRY: "blog.ai.lastAutoCountry",
 } as const;
 
 export const BLOG_AI_INTERVAL_OPTIONS = [1, 2, 4, 8, 12] as const;
@@ -90,6 +92,7 @@ export async function getBlogAiSettings() {
     countRaw,
     autoPublish,
     lastRunAt,
+    lastAutoCountry,
   ] = await Promise.all([
     // DB Setting wins when present; env is fallback for first deploy / emergency enable
     getSetting(
@@ -125,6 +128,7 @@ export async function getBlogAiSettings() {
       process.env.BLOG_AI_AUTO_PUBLISH || "true"
     ),
     getSetting(SETTING_KEYS.AI_LAST_RUN_AT, ""),
+    getSetting(SETTING_KEYS.AI_LAST_AUTO_COUNTRY, ""),
   ]);
 
   const systemPrompt = systemPromptRaw.trim()
@@ -163,5 +167,6 @@ export async function getBlogAiSettings() {
     ),
     autoPublish: autoPublish !== "false" && autoPublish !== "0",
     lastRunAt: lastRunAt || null,
+    lastAutoCountry: lastAutoCountry.trim().toUpperCase() || null,
   };
 }

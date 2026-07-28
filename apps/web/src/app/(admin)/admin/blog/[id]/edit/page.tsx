@@ -3,6 +3,7 @@ import { prisma } from "@kupon/db";
 import BlogPostForm from "@/components/admin/BlogPostForm";
 import { getBlogAiSettings } from "@/lib/settings";
 import { extractFaq } from "@/lib/blog";
+import { formatExistingBlogImagePrompt } from "@/lib/blog-image-prompt";
 
 export const dynamic = "force-dynamic";
 
@@ -35,8 +36,16 @@ export default async function EditBlogPostPage({
         content: post.content,
         coverImage: post.coverImage || "",
         thumbnailImage: post.thumbnailImage || "",
-        heroImagePrompt: post.heroImagePrompt || "",
-        thumbnailImagePrompt: post.thumbnailImagePrompt || "",
+        heroImagePrompt: formatExistingBlogImagePrompt(
+          post.heroImagePrompt,
+          post.title,
+          "hero"
+        ),
+        thumbnailImagePrompt: formatExistingBlogImagePrompt(
+          post.thumbnailImagePrompt,
+          post.title,
+          "thumbnail"
+        ),
         category: post.category || "Guide",
         countryCode: post.countryCode,
         metaTitle: post.metaTitle || "",

@@ -1,6 +1,12 @@
 import "server-only";
 import { getBlogAiSettings } from "@/lib/settings";
 import { DEFAULT_BLOG_AI_BASE_URL } from "@/lib/blog-ai-defaults";
+import { getBlogLanguageForCountry } from "@/lib/blog-market";
+import {
+  formatBlogImagePrompt,
+  HERO_IMAGE_PROMPT_SUFFIX,
+  THUMBNAIL_IMAGE_PROMPT_SUFFIX,
+} from "@/lib/blog-image-prompt";
 
 /**
  * BLOG AI — HARD SCOPE BOUNDARY
@@ -34,11 +40,6 @@ export type BlogImagePrompts = Pick<
   AiArticleDraft,
   "heroImagePrompt" | "thumbnailImagePrompt"
 >;
-
-export const HERO_IMAGE_PROMPT_SUFFIX =
-  "Aspect ratio: 16:9. Recommended GPT Image size: 2048x1152. --ar 16:9";
-export const THUMBNAIL_IMAGE_PROMPT_SUFFIX =
-  "Aspect ratio: 4:3. Recommended GPT Image size: 1536x1152. --ar 4:3";
 
 /** Immutable scope lock — always appended after the editable system prompt. */
 export const BLOG_AI_SCOPE_LOCK = `
@@ -110,12 +111,10 @@ function sanitizePlain(value: unknown, max: number): string {
 function normalizeImagePrompt(
   value: unknown,
   suffix: string,
-  fallback: string
+  fallback: string,
+  title: string
 ) {
-  const cleaned = sanitizePlain(value, 4500)
-    .replace(/\s*Aspect ratio:[\s\S]*$/i, "")
-    .trim();
-  return `${cleaned || fallback}\n\n${suffix}`.slice(0, 5000);
+  return formatBlogImagePrompt({ value, title, fallback, suffix });
 }
 
 function sanitizeFaq(
@@ -165,12 +164,14 @@ export function parseBlogAiDraft(
     heroImagePrompt: normalizeImagePrompt(
       parsed.heroImagePrompt,
       HERO_IMAGE_PROMPT_SUFFIX,
-      `Editorial gaming lifestyle hero image inspired by "${title}", tailored to the target market, modern premium digital commerce atmosphere, no visible text, no logos, no watermark.`
+      `Editorial gaming lifestyle hero image inspired by "${title}", tailored to the target market, modern premium digital commerce atmosphere, no visible text, no logos, no watermark.`,
+      title
     ),
     thumbnailImagePrompt: normalizeImagePrompt(
       parsed.thumbnailImagePrompt,
       THUMBNAIL_IMAGE_PROMPT_SUFFIX,
-      `Clean editorial gaming thumbnail inspired by "${title}", one strong focal subject, premium digital commerce atmosphere, readable at small size, no visible text, no logos, no watermark.`
+      `Clean editorial gaming thumbnail inspired by "${title}", one strong focal subject, premium digital commerce atmosphere, readable at small size, no visible text, no logos, no watermark.`,
+      title
     ),
   };
 }
@@ -236,11 +237,7 @@ export async function generateBlogArticleDraft(params: {
   const country = sanitizePlain(params.countryCode, 12).toUpperCase() || "GLOBAL";
   const language =
     sanitizePlain(params.language, 40) ||
-    (country === "ID"
-      ? "Indonesian"
-      : country === "MY"
-        ? "English (Malaysia)"
-        : "English");
+    getBlogLanguageForCountry(country);
 
   const baseUrl = assertSafeAiBaseUrl(settings.baseUrl);
   const system = `${settings.systemPrompt}\n\n${BLOG_AI_SCOPE_LOCK}`;
@@ -251,6 +248,12 @@ export async function generateBlogArticleDraft(params: {
   const user = `Create a blog article draft for country/market: ${country}.
 Language: ${language}.
 Topic: ${topic}
+
+STRICT LANGUAGE REQUIREMENT:
+- Write title, excerpt, contentHtml, metaTitle, metaDescription, focusKeyword, and every FAQ entirely in ${language}.
+- Do not fall back to English for those article fields.
+- Keep the brand name EZTopUp and the tokens USDT/USDC unchanged.
+- Write heroImagePrompt and thumbnailImagePrompt in English, but include the exact generated article title unchanged in its original ${language} as context. Do not ask the image model to render that title as visible text.
 
 Return ONLY valid JSON (no markdown fences) matching this schema exactly.
 Do not include any other keys (no actions, no tools, no admin fields):
@@ -398,12 +401,14 @@ Do not generate an image. Do not include visible words, typography, logos, water
     heroImagePrompt: normalizeImagePrompt(
       parsed.heroImagePrompt,
       HERO_IMAGE_PROMPT_SUFFIX,
-      `Editorial gaming lifestyle hero image inspired by "${title}", tailored to the ${country} market, no visible text, no logos, no watermark.`
+      `Editorial gaming lifestyle hero image inspired by "${title}", tailored to the ${country} market, no visible text, no logos, no watermark.`,
+      title
     ),
     thumbnailImagePrompt: normalizeImagePrompt(
       parsed.thumbnailImagePrompt,
       THUMBNAIL_IMAGE_PROMPT_SUFFIX,
-      `Clean editorial gaming thumbnail inspired by "${title}", tailored to the ${country} market, one strong focal subject, no visible text, no logos, no watermark.`
+      `Clean editorial gaming thumbnail inspired by "${title}", tailored to the ${country} market, one strong focal subject, no visible text, no logos, no watermark.`,
+      title
     ),
   };
 }

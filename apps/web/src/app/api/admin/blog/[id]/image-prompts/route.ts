@@ -3,6 +3,7 @@ import { prisma } from "@kupon/db";
 import { requireAdminUser } from "@/lib/clerk";
 import { generateBlogImagePrompts } from "@/lib/blog-ai";
 import { writeAppLog } from "@/lib/app-log";
+import { formatExistingBlogImagePrompt } from "@/lib/blog-image-prompt";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -18,12 +19,35 @@ export async function POST(
     if (!post) {
       return NextResponse.json({ error: "Post not found." }, { status: 404 });
     }
-    if (post.heroImagePrompt && post.thumbnailImagePrompt) {
+    const existingHero = formatExistingBlogImagePrompt(
+      post.heroImagePrompt,
+      post.title,
+      "hero"
+    );
+    const existingThumbnail = formatExistingBlogImagePrompt(
+      post.thumbnailImagePrompt,
+      post.title,
+      "thumbnail"
+    );
+
+    if (existingHero && existingThumbnail) {
+      if (
+        existingHero !== post.heroImagePrompt ||
+        existingThumbnail !== post.thumbnailImagePrompt
+      ) {
+        await prisma.blogPost.update({
+          where: { id },
+          data: {
+            heroImagePrompt: existingHero,
+            thumbnailImagePrompt: existingThumbnail,
+          },
+        });
+      }
       return NextResponse.json({
         skipped: true,
         prompts: {
-          heroImagePrompt: post.heroImagePrompt,
-          thumbnailImagePrompt: post.thumbnailImagePrompt,
+          heroImagePrompt: existingHero,
+          thumbnailImagePrompt: existingThumbnail,
         },
       });
     }
@@ -37,12 +61,9 @@ export async function POST(
     const updated = await prisma.blogPost.update({
       where: { id },
       data: {
-        ...(post.heroImagePrompt
-          ? {}
-          : { heroImagePrompt: generated.heroImagePrompt }),
-        ...(post.thumbnailImagePrompt
-          ? {}
-          : { thumbnailImagePrompt: generated.thumbnailImagePrompt }),
+        heroImagePrompt: existingHero || generated.heroImagePrompt,
+        thumbnailImagePrompt:
+          existingThumbnail || generated.thumbnailImagePrompt,
       },
       select: {
         heroImagePrompt: true,
