@@ -11,6 +11,12 @@ import {
   Plus,
   X,
 } from "@phosphor-icons/react";
+import {
+  BLOG_AI_MODEL_SUGGESTIONS,
+  DEFAULT_BLOG_AI_BASE_URL,
+  DEFAULT_BLOG_AI_COUNTRIES,
+  DEFAULT_BLOG_AI_MODEL,
+} from "@/lib/blog-ai-defaults";
 
 type Initial = {
   enabled: boolean;
@@ -33,22 +39,7 @@ type Initial = {
 };
 
 /** Quick-add presets (not locked — you can add any ISO-like code). */
-const SUGGESTED = [
-  "GLOBAL",
-  "ID",
-  "MY",
-  "US",
-  "PH",
-  "SG",
-  "TH",
-  "VN",
-  "BR",
-  "IN",
-  "JP",
-  "KR",
-  "AE",
-  "TR",
-];
+const SUGGESTED = [...DEFAULT_BLOG_AI_COUNTRIES];
 
 function normalizeCountryCode(raw: string) {
   return raw
@@ -290,17 +281,33 @@ export default function BlogAiSettingsForm({ initial }: { initial: Initial }) {
           <div className="lg:col-span-2">
             <Input
               label="Base URL"
-              placeholder="https://api.openai.com/v1"
+              placeholder={DEFAULT_BLOG_AI_BASE_URL}
               value={baseUrl}
               onChange={(e) => setBaseUrl(e.target.value)}
             />
           </div>
-          <Input
-            label="Model"
-            placeholder="gpt-4o-mini"
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-          />
+          <div>
+            <Input
+              label="Model"
+              list="blog-ai-model-options"
+              placeholder={DEFAULT_BLOG_AI_MODEL}
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+            />
+            <datalist id="blog-ai-model-options">
+              {BLOG_AI_MODEL_SUGGESTIONS.map((option) => (
+                <option
+                  key={option.value}
+                  value={option.value}
+                  label={option.label}
+                />
+              ))}
+            </datalist>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-text-muted">
+              Recommended: <code>{DEFAULT_BLOG_AI_MODEL}</code> untuk
+              multilingual article dengan balance intelligence dan cost.
+            </p>
+          </div>
           <div className="lg:col-span-3">
             <Input
               label={
@@ -399,9 +406,32 @@ export default function BlogAiSettingsForm({ initial }: { initial: Initial }) {
           ) : null}
 
           <div className="pt-2 border-t border-border/80 space-y-2">
-            <p className="text-[11px] font-medium text-text-secondary">
-              Auto-generate aktif
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[11px] font-medium text-text-secondary">
+                Auto-generate aktif
+              </p>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setAutoCountries([...countryList])}
+                  disabled={
+                    countryList.length === 0 ||
+                    autoCountries.length === countryList.length
+                  }
+                  className="rounded-md border border-fuchsia-400/30 px-2 py-1 text-[10px] font-medium text-fuchsia-200 transition-colors hover:border-fuchsia-400/60 hover:bg-fuchsia-400/10 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Select all
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAutoCountries([])}
+                  disabled={autoCountries.length === 0}
+                  className="rounded-md border border-border px-2 py-1 text-[10px] font-medium text-text-muted transition-colors hover:border-white/20 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Unselect all
+                </button>
+              </div>
+            </div>
             <div className="admin-chip-row">
               {countryList.map((code) => {
                 const on = autoCountries.includes(code);

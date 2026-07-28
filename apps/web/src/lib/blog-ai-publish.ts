@@ -26,7 +26,7 @@ function slugify(value: string) {
 }
 
 async function uniqueSlug(base: string) {
-  let slug = slugify(base) || `post-${Date.now().toString(36)}`;
+  const slug = slugify(base) || `post-${Date.now().toString(36)}`;
   const existing = await prisma.blogPost.findUnique({ where: { slug } });
   if (!existing) return slug;
   return `${slug}-${Date.now().toString(36)}`;
@@ -64,6 +64,8 @@ export async function persistBlogDraft(params: {
       // Images remain manual — left empty for auto jobs
       coverImage: null,
       thumbnailImage: null,
+      heroImagePrompt: params.draft.heroImagePrompt,
+      thumbnailImagePrompt: params.draft.thumbnailImagePrompt,
     },
   });
 

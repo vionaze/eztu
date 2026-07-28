@@ -5,6 +5,7 @@ import { Badge, Button, Card } from "@kupon/ui";
 import { Plus, Article } from "@phosphor-icons/react/dist/ssr";
 import BlogDeleteButton from "./BlogDeleteButton";
 import { formatAdminDateTimeShort } from "@/lib/utils";
+import BlogPromptBackfillButton from "./BlogPromptBackfillButton";
 
 export const dynamic = "force-dynamic";
 
@@ -24,12 +25,15 @@ export default async function AdminBlogPage() {
             Manual form default · AI helper opsional di New Post
           </p>
         </div>
-        <Link href="/admin/blog/new">
-          <Button size="sm">
-            <Plus size={15} weight="bold" />
-            New Post
-          </Button>
-        </Link>
+        <div className="flex flex-wrap items-start justify-end gap-2">
+          <BlogPromptBackfillButton />
+          <Link href="/admin/blog/new">
+            <Button size="sm">
+              <Plus size={15} weight="bold" />
+              New Post
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {posts.length === 0 ? (
@@ -79,6 +83,9 @@ export default async function AdminBlogPage() {
                       </Badge>
                       {post.aiGenerated ? (
                         <Badge variant="muted">AI</Badge>
+                      ) : null}
+                      {post.heroImagePrompt && post.thumbnailImagePrompt ? (
+                        <Badge variant="muted">prompts ready</Badge>
                       ) : null}
                       <span className="text-[11px] text-text-muted">
                         {post.category || "—"} · {post.countryCode} ·{" "}

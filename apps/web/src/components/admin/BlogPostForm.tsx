@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Badge, Button, Card, Input } from "@kupon/ui";
 import RichEditor from "@/components/ui/RichEditor";
-import { ArrowLeft, MagicWand, SpinnerGap } from "@phosphor-icons/react";
+import {
+  ArrowLeft,
+  Copy,
+  MagicWand,
+  SpinnerGap,
+} from "@phosphor-icons/react";
 
 export type BlogFormValues = {
   id?: string;
@@ -15,6 +20,8 @@ export type BlogFormValues = {
   content: string;
   coverImage: string;
   thumbnailImage: string;
+  heroImagePrompt: string;
+  thumbnailImagePrompt: string;
   category: string;
   countryCode: string;
   metaTitle: string;
@@ -59,6 +66,8 @@ const emptyValues: BlogFormValues = {
   content: "",
   coverImage: "",
   thumbnailImage: "",
+  heroImagePrompt: "",
+  thumbnailImagePrompt: "",
   category: "Guide",
   countryCode: "GLOBAL",
   metaTitle: "",
@@ -88,6 +97,10 @@ export default function BlogPostForm({
   });
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [generatingPrompts, setGeneratingPrompts] = useState(false);
+  const [copiedPrompt, setCopiedPrompt] = useState<"hero" | "thumbnail" | null>(
+    null
+  );
   const [aiTopic, setAiTopic] = useState("");
   const [showAiHelper, setShowAiHelper] = useState(false);
   const [error, setError] = useState("");
@@ -110,6 +123,8 @@ export default function BlogPostForm({
     content: form.content,
     coverImage: form.coverImage || null,
     thumbnailImage: form.thumbnailImage || null,
+    heroImagePrompt: form.heroImagePrompt || null,
+    thumbnailImagePrompt: form.thumbnailImagePrompt || null,
     category: form.category || null,
     countryCode: form.countryCode,
     metaTitle: form.metaTitle || null,
@@ -187,6 +202,8 @@ export default function BlogPostForm({
         focusKeyword: string;
         category: string;
         faq: { question: string; answer: string }[];
+        heroImagePrompt: string;
+        thumbnailImagePrompt: string;
         aiModel?: string;
       };
       setForm((prev) => ({
@@ -200,6 +217,8 @@ export default function BlogPostForm({
         focusKeyword: d.focusKeyword,
         category: d.category || prev.category,
         faq: d.faq || [],
+        heroImagePrompt: d.heroImagePrompt || "",
+        thumbnailImagePrompt: d.thumbnailImagePrompt || "",
         aiGenerated: true,
         aiModel: d.aiModel || "",
         ogTitle: d.metaTitle,
@@ -211,6 +230,50 @@ export default function BlogPostForm({
       setError(e instanceof Error ? e.message : "AI generation failed");
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const copyPrompt = async (
+    kind: "hero" | "thumbnail",
+    value: string
+  ) => {
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedPrompt(kind);
+      window.setTimeout(() => setCopiedPrompt(null), 1500);
+    } catch {
+      setError("Unable to copy prompt. Select and copy it manually.");
+    }
+  };
+
+  const generateMissingPrompts = async () => {
+    if (!form.id) return;
+    setGeneratingPrompts(true);
+    setError("");
+    try {
+      const response = await fetch(
+        `/api/admin/blog/${encodeURIComponent(form.id)}/image-prompts`,
+        { method: "POST" }
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || "Prompt generation failed.");
+      }
+      setForm((current) => ({
+        ...current,
+        heroImagePrompt:
+          data.prompts?.heroImagePrompt || current.heroImagePrompt,
+        thumbnailImagePrompt:
+          data.prompts?.thumbnailImagePrompt ||
+          current.thumbnailImagePrompt,
+      }));
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Prompt generation failed."
+      );
+    } finally {
+      setGeneratingPrompts(false);
     }
   };
 
@@ -327,7 +390,8 @@ export default function BlogPostForm({
           <p className="text-xs text-text-muted">
             Upload images to your CDN or{" "}
             <code className="text-text-secondary">/public</code>, then paste
-            the URL. Hero = wide cover; thumbnail = listing card.
+            the URL. The English prompts below are prepared for external GPT
+            Image use; EZTopUp does not call an image API.
           </p>
           <Input
             label="Hero / cover image URL"
@@ -361,6 +425,64 @@ export default function BlogPostForm({
               ) : null}
             </div>
           )}
+          <div className="grid grid-cols-1 gap-3 border-t border-border pt-3 lg:grid-cols-2">
+            {[
+              {
+                kind: "hero" as const,
+                label: "Hero image prompt (16:9)",
+                key: "heroImagePrompt" as const,
+                value: form.heroImagePrompt,
+              },
+              {
+                kind: "thumbnail" as const,
+                label: "Thumbnail image prompt (4:3)",
+                key: "thumbnailImagePrompt" as const,
+                value: form.thumbnailImagePrompt,
+              },
+            ].map((prompt) => (
+              <div key={prompt.kind} className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <label className="text-sm font-medium text-text-secondary">
+                    {prompt.label}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => copyPrompt(prompt.kind, prompt.value)}
+                    disabled={!prompt.value}
+                    className="inline-flex items-center gap-1 text-xs text-accent disabled:opacity-40"
+                  >
+                    <Copy size={13} />
+                    {copiedPrompt === prompt.kind ? "Copied" : "Copy"}
+                  </button>
+                </div>
+                <textarea
+                  value={prompt.value}
+                  onChange={(event) => set(prompt.key, event.target.value)}
+                  rows={9}
+                  maxLength={5000}
+                  placeholder="Generated English prompt will appear here."
+                  className="w-full resize-y rounded-xl border border-border bg-bg-card px-3 py-2.5 font-mono text-xs leading-relaxed text-text-primary focus:border-accent/50 focus:outline-none"
+                />
+              </div>
+            ))}
+          </div>
+          {form.id &&
+          (!form.heroImagePrompt || !form.thumbnailImagePrompt) ? (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={generateMissingPrompts}
+              disabled={generatingPrompts}
+            >
+              {generatingPrompts ? (
+                <SpinnerGap size={15} className="animate-spin" />
+              ) : (
+                <MagicWand size={15} />
+              )}
+              Generate missing prompts
+            </Button>
+          ) : null}
         </Card>
 
       {/* SEO */}
@@ -534,8 +656,9 @@ export default function BlogPostForm({
           {showAiHelper ? (
             <div className="space-y-4 pt-2 border-t border-border">
               <p className="text-xs text-text-muted">
-                Butuh AI on + base URL + API key di Settings. Gambar hero &amp;
-                thumbnail tetap manual (paste URL).
+                Butuh AI on + base URL + API key di Settings. Model membuat
+                artikel dan dua prompt gambar; file gambar tetap dibuat dan
+                diunggah manual.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-[1fr_140px_auto] gap-3">
                 <Input

@@ -61,6 +61,12 @@ export async function POST(request: Request) {
         thumbnailImage: body.thumbnailImage
           ? String(body.thumbnailImage)
           : null,
+        heroImagePrompt: body.heroImagePrompt
+          ? String(body.heroImagePrompt).slice(0, 5000)
+          : null,
+        thumbnailImagePrompt: body.thumbnailImagePrompt
+          ? String(body.thumbnailImagePrompt).slice(0, 5000)
+          : null,
         category: body.category ? String(body.category) : null,
         countryCode: String(body.countryCode || "GLOBAL")
           .toUpperCase()

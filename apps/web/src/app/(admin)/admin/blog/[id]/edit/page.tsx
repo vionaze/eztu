@@ -35,6 +35,8 @@ export default async function EditBlogPostPage({
         content: post.content,
         coverImage: post.coverImage || "",
         thumbnailImage: post.thumbnailImage || "",
+        heroImagePrompt: post.heroImagePrompt || "",
+        thumbnailImagePrompt: post.thumbnailImagePrompt || "",
         category: post.category || "Guide",
         countryCode: post.countryCode,
         metaTitle: post.metaTitle || "",

@@ -1,5 +1,10 @@
 import "server-only";
 import { prisma } from "@kupon/db";
+import {
+  DEFAULT_BLOG_AI_BASE_URL,
+  DEFAULT_BLOG_AI_COUNTRIES,
+  DEFAULT_BLOG_AI_MODEL,
+} from "@/lib/blog-ai-defaults";
 
 export const SETTING_KEYS = {
   AI_ENABLED: "blog.ai.enabled",
@@ -66,6 +71,12 @@ function parseAllowedNumber<T extends number>(
 }
 
 export async function getBlogAiSettings() {
+  const envModel = process.env.BLOG_AI_MODEL?.trim();
+  const modelFallback =
+    !envModel || envModel === "gpt-4o-mini"
+      ? DEFAULT_BLOG_AI_MODEL
+      : envModel;
+
   const [
     enabled,
     baseUrl,
@@ -85,10 +96,16 @@ export async function getBlogAiSettings() {
       SETTING_KEYS.AI_ENABLED,
       process.env.BLOG_AI_ENABLED || "false"
     ),
-    getSetting(SETTING_KEYS.AI_BASE_URL, process.env.BLOG_AI_BASE_URL || ""),
+    getSetting(
+      SETTING_KEYS.AI_BASE_URL,
+      process.env.BLOG_AI_BASE_URL || DEFAULT_BLOG_AI_BASE_URL
+    ),
     getSetting(SETTING_KEYS.AI_API_KEY, process.env.BLOG_AI_API_KEY || ""),
-    getSetting(SETTING_KEYS.AI_MODEL, process.env.BLOG_AI_MODEL || "gpt-4o-mini"),
-    getSetting(SETTING_KEYS.AI_COUNTRIES, "ID,MY,US,GLOBAL"),
+    getSetting(SETTING_KEYS.AI_MODEL, modelFallback),
+    getSetting(
+      SETTING_KEYS.AI_COUNTRIES,
+      DEFAULT_BLOG_AI_COUNTRIES.join(",")
+    ),
     getSetting(SETTING_KEYS.AI_AUTO_COUNTRIES, "ID,GLOBAL"),
     getSetting(SETTING_KEYS.AI_SYSTEM_PROMPT, ""),
     getSetting(
@@ -115,12 +132,14 @@ export async function getBlogAiSettings() {
     : DEFAULT_BLOG_AI_SYSTEM_PROMPT;
 
   const truthy = (v: string) => v === "true" || v === "1" || v === "yes";
+  const resolvedBaseUrl = baseUrl.trim() || DEFAULT_BLOG_AI_BASE_URL;
+  const resolvedModel = model.trim() || DEFAULT_BLOG_AI_MODEL;
 
   return {
     enabled: truthy(enabled),
-    baseUrl: baseUrl.replace(/\/$/, ""),
+    baseUrl: resolvedBaseUrl.replace(/\/$/, ""),
     apiKey,
-    model,
+    model: resolvedModel,
     countries: countriesRaw
       .split(",")
       .map((c) => c.trim().toUpperCase())

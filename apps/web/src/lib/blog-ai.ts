@@ -1,5 +1,6 @@
 import "server-only";
 import { getBlogAiSettings } from "@/lib/settings";
+import { DEFAULT_BLOG_AI_BASE_URL } from "@/lib/blog-ai-defaults";
 
 /**
  * BLOG AI — HARD SCOPE BOUNDARY
@@ -25,7 +26,19 @@ export type AiArticleDraft = {
   focusKeyword: string;
   category: string;
   faq: { question: string; answer: string }[];
+  heroImagePrompt: string;
+  thumbnailImagePrompt: string;
 };
+
+export type BlogImagePrompts = Pick<
+  AiArticleDraft,
+  "heroImagePrompt" | "thumbnailImagePrompt"
+>;
+
+export const HERO_IMAGE_PROMPT_SUFFIX =
+  "Aspect ratio: 16:9. Recommended GPT Image size: 2048x1152. --ar 16:9";
+export const THUMBNAIL_IMAGE_PROMPT_SUFFIX =
+  "Aspect ratio: 4:3. Recommended GPT Image size: 1536x1152. --ar 4:3";
 
 /** Immutable scope lock — always appended after the editable system prompt. */
 export const BLOG_AI_SCOPE_LOCK = `
@@ -34,9 +47,10 @@ You are a blog article draft writer ONLY for the public EZTopUp marketing blog.
 You do NOT have access to: admin panels, databases, payments, orders, users, wallets,
 environment variables, server files, webhooks, or any application APIs.
 You cannot take actions in any system. You cannot read or modify admin/settings/code.
-Your sole job: return one blog article as JSON matching the schema in the user message.
+Your sole job: return public blog article content or blog image-prompt text as JSON
+matching the schema in the user message.
 You do not publish posts yourself — the application may save your JSON as a blog article.
-If asked to do anything outside blog article content, refuse and still only return article JSON.
+If asked to do anything outside blog content, refuse and return only the requested blog JSON.
 Never invent admin credentials, API keys, or claim you performed system changes.
 `.trim();
 
@@ -93,6 +107,17 @@ function sanitizePlain(value: unknown, max: number): string {
     .slice(0, max);
 }
 
+function normalizeImagePrompt(
+  value: unknown,
+  suffix: string,
+  fallback: string
+) {
+  const cleaned = sanitizePlain(value, 4500)
+    .replace(/\s*Aspect ratio:[\s\S]*$/i, "")
+    .trim();
+  return `${cleaned || fallback}\n\n${suffix}`.slice(0, 5000);
+}
+
 function sanitizeFaq(
   faq: unknown
 ): { question: string; answer: string }[] {
@@ -137,6 +162,16 @@ export function parseBlogAiDraft(
     focusKeyword: sanitizePlain(parsed.focusKeyword, 80),
     category,
     faq: sanitizeFaq(parsed.faq),
+    heroImagePrompt: normalizeImagePrompt(
+      parsed.heroImagePrompt,
+      HERO_IMAGE_PROMPT_SUFFIX,
+      `Editorial gaming lifestyle hero image inspired by "${title}", tailored to the target market, modern premium digital commerce atmosphere, no visible text, no logos, no watermark.`
+    ),
+    thumbnailImagePrompt: normalizeImagePrompt(
+      parsed.thumbnailImagePrompt,
+      THUMBNAIL_IMAGE_PROMPT_SUFFIX,
+      `Clean editorial gaming thumbnail inspired by "${title}", one strong focal subject, premium digital commerce atmosphere, readable at small size, no visible text, no logos, no watermark.`
+    ),
   };
 }
 
@@ -209,6 +244,9 @@ export async function generateBlogArticleDraft(params: {
 
   const baseUrl = assertSafeAiBaseUrl(settings.baseUrl);
   const system = `${settings.systemPrompt}\n\n${BLOG_AI_SCOPE_LOCK}`;
+  const isOpenAiGpt56 =
+    baseUrl === DEFAULT_BLOG_AI_BASE_URL &&
+    /^gpt-5\.6(?:-|$)/i.test(settings.model);
 
   const user = `Create a blog article draft for country/market: ${country}.
 Language: ${language}.
@@ -225,7 +263,9 @@ Do not include any other keys (no actions, no tools, no admin fields):
   "metaDescription": "string (under 155 chars, actionable)",
   "focusKeyword": "string",
   "category": "Guide|News|Tips|Payments",
-  "faq": [{"question":"string","answer":"string"}]
+  "faq": [{"question":"string","answer":"string"}],
+  "heroImagePrompt": "English image-generation prompt for a wide editorial hero. Reflect the article and ${country} market context. No visible text, logos, watermarks, UI screenshots, or copyrighted characters.",
+  "thumbnailImagePrompt": "English image-generation prompt for a distinct, simple thumbnail composition readable on mobile. Reflect the same article and market. No visible text, logos, watermarks, UI screenshots, or copyrighted characters."
 }`;
 
   const endpoint = `${baseUrl}/chat/completions`;
@@ -237,11 +277,15 @@ Do not include any other keys (no actions, no tools, no admin fields):
     },
     body: JSON.stringify({
       model: settings.model,
-      temperature: 0.7,
+      ...(isOpenAiGpt56
+        ? {
+            reasoning_effort: "low",
+          }
+        : { temperature: 0.7 }),
       response_format: { type: "json_object" },
       // No tools / functions — text draft only
       messages: [
-        { role: "system", content: system },
+        { role: isOpenAiGpt56 ? "developer" : "system", content: system },
         { role: "user", content: user },
       ],
     }),
@@ -274,4 +318,92 @@ Do not include any other keys (no actions, no tools, no admin fields):
   }
 
   return parseBlogAiDraft(json, topic);
+}
+
+/**
+ * Generate prompts only. This calls the configured text model and never calls
+ * an image-generation endpoint.
+ */
+export async function generateBlogImagePrompts(params: {
+  title: string;
+  excerpt?: string | null;
+  content?: string | null;
+  countryCode: string;
+}): Promise<BlogImagePrompts> {
+  const settings = await getBlogAiSettings();
+  if (!settings.enabled || !settings.baseUrl || !settings.apiKey) {
+    throw new Error("Blog AI must be enabled and configured.");
+  }
+  const title = sanitizePlain(params.title, 200);
+  if (!title) throw new Error("Article title is required.");
+  const country =
+    sanitizePlain(params.countryCode, 12).toUpperCase() || "GLOBAL";
+  const context = sanitizePlain(
+    `${params.excerpt || ""} ${params.content || ""}`,
+    2500
+  );
+  const baseUrl = assertSafeAiBaseUrl(settings.baseUrl);
+  const isOpenAiGpt56 =
+    baseUrl === DEFAULT_BLOG_AI_BASE_URL &&
+    /^gpt-5\.6(?:-|$)/i.test(settings.model);
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${settings.apiKey}`,
+    },
+    body: JSON.stringify({
+      model: settings.model,
+      ...(isOpenAiGpt56
+        ? { reasoning_effort: "low" }
+        : { temperature: 0.7 }),
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: isOpenAiGpt56 ? "developer" : "system",
+          content: `${settings.systemPrompt}\n\n${BLOG_AI_SCOPE_LOCK}`,
+        },
+        {
+          role: "user",
+          content: `Create two production-ready image prompts in English for this public blog article.
+Market: ${country}
+Title: ${title}
+Article context: ${context}
+
+Return only JSON:
+{
+  "heroImagePrompt": "Detailed wide editorial hero composition",
+  "thumbnailImagePrompt": "Distinct simple 4:3 mobile-readable composition"
+}
+
+Do not generate an image. Do not include visible words, typography, logos, watermarks, UI screenshots, or copyrighted characters in either scene.`,
+        },
+      ],
+    }),
+  });
+  const data = (await response.json().catch(() => null)) as {
+    choices?: { message?: { content?: string } }[];
+    error?: { message?: string };
+  } | null;
+  if (!response.ok) {
+    throw new Error(
+      data?.error?.message || `AI API error HTTP ${response.status}`
+    );
+  }
+  const content = data?.choices?.[0]?.message?.content || "";
+  const match = content.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error("AI returned non-JSON prompt content.");
+  const parsed = JSON.parse(match[0]) as Record<string, unknown>;
+  return {
+    heroImagePrompt: normalizeImagePrompt(
+      parsed.heroImagePrompt,
+      HERO_IMAGE_PROMPT_SUFFIX,
+      `Editorial gaming lifestyle hero image inspired by "${title}", tailored to the ${country} market, no visible text, no logos, no watermark.`
+    ),
+    thumbnailImagePrompt: normalizeImagePrompt(
+      parsed.thumbnailImagePrompt,
+      THUMBNAIL_IMAGE_PROMPT_SUFFIX,
+      `Clean editorial gaming thumbnail inspired by "${title}", tailored to the ${country} market, one strong focal subject, no visible text, no logos, no watermark.`
+    ),
+  };
 }

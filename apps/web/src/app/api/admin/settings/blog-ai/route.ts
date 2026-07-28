@@ -11,6 +11,10 @@ import {
   type BlogAiIntervalHours,
 } from "@/lib/settings";
 import { writeAppLog } from "@/lib/app-log";
+import {
+  DEFAULT_BLOG_AI_BASE_URL,
+  DEFAULT_BLOG_AI_MODEL,
+} from "@/lib/blog-ai-defaults";
 
 export const dynamic = "force-dynamic";
 
@@ -81,9 +85,12 @@ export async function PUT(request: Request) {
       );
     }
     if (body.baseUrl !== undefined) {
+      const baseUrl =
+        String(body.baseUrl).replace(/\/$/, "").trim() ||
+        DEFAULT_BLOG_AI_BASE_URL;
       await setSetting(
         SETTING_KEYS.AI_BASE_URL,
-        String(body.baseUrl).replace(/\/$/, "").trim()
+        baseUrl
       );
     }
     if (body.apiKey !== undefined) {
@@ -93,7 +100,10 @@ export async function PUT(request: Request) {
       }
     }
     if (body.model !== undefined) {
-      await setSetting(SETTING_KEYS.AI_MODEL, String(body.model).trim());
+      await setSetting(
+        SETTING_KEYS.AI_MODEL,
+        String(body.model).trim() || DEFAULT_BLOG_AI_MODEL
+      );
     }
     if (body.countries !== undefined) {
       const list = Array.isArray(body.countries)

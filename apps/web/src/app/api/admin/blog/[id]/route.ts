@@ -69,6 +69,16 @@ export async function PATCH(request: Request, ctx: RouteCtx) {
         ? String(body.thumbnailImage)
         : null;
     }
+    if (body.heroImagePrompt !== undefined) {
+      data.heroImagePrompt = body.heroImagePrompt
+        ? String(body.heroImagePrompt).slice(0, 5000)
+        : null;
+    }
+    if (body.thumbnailImagePrompt !== undefined) {
+      data.thumbnailImagePrompt = body.thumbnailImagePrompt
+        ? String(body.thumbnailImagePrompt).slice(0, 5000)
+        : null;
+    }
     if (body.category !== undefined) {
       data.category = body.category ? String(body.category) : null;
     }
