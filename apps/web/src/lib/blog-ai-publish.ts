@@ -7,6 +7,7 @@ import {
 } from "@/lib/blog-ai";
 import { getBlogAiSettings, setSetting, SETTING_KEYS } from "@/lib/settings";
 import { writeAppLog } from "@/lib/app-log";
+import { sendDiscordBlogPublishedNotification } from "@/lib/discord-blog";
 
 /**
  * Blog AI auto-publish — still BLOG SCOPE ONLY.
@@ -85,6 +86,19 @@ export async function persistBlogDraft(params: {
       published,
     },
   });
+
+  if (published) {
+    await sendDiscordBlogPublishedNotification({
+      postId: post.id,
+      title: post.title,
+      slug: post.slug,
+      excerpt: post.excerpt,
+      countryCode: post.countryCode,
+      category: post.category,
+      aiModel: post.aiModel,
+      publishedAt: post.publishedAt,
+    });
+  }
 
   return {
     id: post.id,

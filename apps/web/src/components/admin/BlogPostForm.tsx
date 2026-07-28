@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Badge, Button, Card, Input } from "@kupon/ui";
 import RichEditor from "@/components/ui/RichEditor";
+import BlogImageUploader from "@/components/admin/BlogImageUploader";
 import {
   ArrowLeft,
   Copy,
@@ -382,50 +383,45 @@ export default function BlogPostForm({
           </div>
         </Card>
 
-      {/* Images — manual */}
-      <Card variant="default" padding="md" className="space-y-3">
-          <h3 className="text-sm font-semibold text-text-primary">
-            Images (manual upload URL)
-          </h3>
-          <p className="text-xs text-text-muted">
-            Upload images to your CDN or{" "}
-            <code className="text-text-secondary">/public</code>, then paste
-            the URL. The English prompts below are prepared for external GPT
-            Image use; EZTopUp does not call an image API.
-          </p>
+      {/* Images — local WebP uploader or external URL */}
+      <Card variant="default" padding="md" className="space-y-4">
+          <div>
+            <h3 className="text-sm font-semibold text-text-primary">
+              Article images
+            </h3>
+            <p className="mt-1 text-xs leading-relaxed text-text-muted">
+              Upload JPG, JPEG, or PNG. EZTopUp converts it to WebP and stores
+              only the optimized result. You can still paste an external CDN
+              URL below.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <BlogImageUploader
+              kind="hero"
+              value={form.coverImage}
+              onUploaded={(path) => set("coverImage", path)}
+            />
+            <BlogImageUploader
+              kind="thumbnail"
+              value={form.thumbnailImage}
+              onUploaded={(path) => set("thumbnailImage", path)}
+            />
+          </div>
+          <div className="grid grid-cols-1 gap-3 border-t border-border pt-4 lg:grid-cols-2">
           <Input
             label="Hero / cover image URL"
-            placeholder="https://…/hero-1200x630.jpg"
+            placeholder="/media/blog/hero/…webp or https://…"
             value={form.coverImage}
             onChange={(e) => set("coverImage", e.target.value)}
           />
           <Input
             label="Thumbnail image URL"
-            placeholder="https://…/thumb-400x300.jpg"
+            placeholder="/media/blog/thumbnail/…webp or https://…"
             value={form.thumbnailImage}
             onChange={(e) => set("thumbnailImage", e.target.value)}
           />
-          {(form.coverImage || form.thumbnailImage) && (
-            <div className="grid grid-cols-2 gap-3">
-              {form.coverImage ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={form.coverImage}
-                  alt="Hero preview"
-                  className="rounded-xl border border-border aspect-[2/1] object-cover w-full"
-                />
-              ) : null}
-              {form.thumbnailImage ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={form.thumbnailImage}
-                  alt="Thumb preview"
-                  className="rounded-xl border border-border aspect-square object-cover w-full max-w-[160px]"
-                />
-              ) : null}
-            </div>
-          )}
-          <div className="grid grid-cols-1 gap-3 border-t border-border pt-3 lg:grid-cols-2">
+          </div>
+          <div className="grid grid-cols-1 gap-3 border-t border-border pt-4 lg:grid-cols-2">
             {[
               {
                 kind: "hero" as const,

@@ -51,11 +51,14 @@ export default async function AdminBlogPage() {
         <div className="space-y-2">
           {posts.map((post) => {
             const thumb = post.thumbnailImage || post.coverImage;
+            const missingHero = !post.coverImage?.trim();
+            const missingThumbnail = !post.thumbnailImage?.trim();
+            const missingImages = missingHero || missingThumbnail;
             return (
               <Card
                 key={post.id}
                 padding="none"
-                className="flex items-center justify-between px-3 py-2.5 gap-3"
+                className="flex flex-col items-stretch justify-between gap-3 px-3 py-3 sm:flex-row sm:items-center sm:py-2.5"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="relative w-11 h-11 rounded-lg overflow-hidden bg-bg-elevated shrink-0">
@@ -87,6 +90,12 @@ export default async function AdminBlogPage() {
                       {post.heroImagePrompt && post.thumbnailImagePrompt ? (
                         <Badge variant="muted">prompts ready</Badge>
                       ) : null}
+                      {missingHero ? (
+                        <Badge variant="muted">hero missing</Badge>
+                      ) : null}
+                      {missingThumbnail ? (
+                        <Badge variant="muted">thumbnail missing</Badge>
+                      ) : null}
                       <span className="text-[11px] text-text-muted">
                         {post.category || "—"} · {post.countryCode} ·{" "}
                         {formatAdminDateTimeShort(
@@ -96,7 +105,7 @@ export default async function AdminBlogPage() {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex shrink-0 items-center justify-end gap-3 border-t border-border pt-2 sm:border-0 sm:pt-0">
                   <span className="text-[11px] font-mono text-text-muted hidden sm:block">
                     {post.views} views
                   </span>
@@ -111,9 +120,13 @@ export default async function AdminBlogPage() {
                   ) : null}
                   <Link
                     href={`/admin/blog/${post.id}/edit`}
-                    className="text-[11px] text-text-secondary hover:text-accent"
+                    className={
+                      missingImages
+                        ? "rounded-lg bg-accent px-2.5 py-1.5 text-[11px] font-semibold text-white transition-opacity hover:opacity-90"
+                        : "text-[11px] text-text-secondary hover:text-accent"
+                    }
                   >
-                    Edit
+                    {missingImages ? "Upload images" : "Edit"}
                   </Link>
                   <BlogDeleteButton id={post.id} title={post.title} />
                 </div>

@@ -24,6 +24,9 @@
 # production
 /build
 
+# runtime uploads / persistent app data
+**/.data/
+
 # misc
 .DS_Store
 *.pem
