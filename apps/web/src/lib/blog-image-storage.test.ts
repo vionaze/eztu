@@ -89,6 +89,43 @@ test("converts JPEG thumbnail without enlarging it", async () => {
   });
 });
 
+test("accepts provider WebP only through the internal generated-image path", async () => {
+  await withStorage(async (storageRoot) => {
+    const input = await sharp({
+      create: {
+        width: 1_600,
+        height: 900,
+        channels: 3,
+        background: { r: 30, g: 70, b: 120 },
+      },
+    })
+      .webp()
+      .toBuffer();
+
+    await assert.rejects(
+      storeBlogImage({
+        bytes: input,
+        contentType: "image/webp",
+        kind: "hero",
+        storageRoot,
+      }),
+      BlogImageUploadError
+    );
+
+    const result = await storeBlogImage({
+      bytes: input,
+      contentType: "image/webp",
+      kind: "hero",
+      storageRoot,
+      allowGeneratedWebp: true,
+    });
+
+    assert.equal(result.format, "webp");
+    assert.equal(result.width, 1_600);
+    assert.equal(result.height, 900);
+  });
+});
+
 test("rejects unsupported decoded formats and oversized uploads", async () => {
   await withStorage(async (storageRoot) => {
     const gif = await sharp({

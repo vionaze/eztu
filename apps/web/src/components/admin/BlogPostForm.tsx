@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Badge, Button, Card, Input } from "@kupon/ui";
@@ -35,6 +35,15 @@ export type BlogFormValues = {
   aiGenerated: boolean;
   aiModel: string;
   faq: { question: string; answer: string }[];
+};
+
+type ImageGeneration = {
+  id: string;
+  kind: "hero" | "thumbnail";
+  status: "SUBMITTING" | "PROCESSING" | "DOWNLOADING" | "SUCCEEDED" | "FAILED";
+  error: string | null;
+  storedImagePath: string | null;
+  updatedAt: string;
 };
 
 const blogCategories = [
@@ -99,6 +108,9 @@ export default function BlogPostForm({
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [generatingPrompts, setGeneratingPrompts] = useState(false);
+  const [generatingImages, setGeneratingImages] = useState(false);
+  const [imageGenerations, setImageGenerations] = useState<ImageGeneration[]>([]);
+  const [imageRefreshNonce, setImageRefreshNonce] = useState(0);
   const [copiedPrompt, setCopiedPrompt] = useState<"hero" | "thumbnail" | null>(
     null
   );
@@ -106,6 +118,50 @@ export default function BlogPostForm({
   const [showAiHelper, setShowAiHelper] = useState(false);
   const [error, setError] = useState("");
   const [slugTouched, setSlugTouched] = useState(Boolean(initial?.slug));
+
+  useEffect(() => {
+    if (!form.id) return;
+    let cancelled = false;
+    let timer: number | undefined;
+
+    const refresh = async () => {
+      try {
+        const response = await fetch(
+          `/api/admin/blog/${encodeURIComponent(form.id!)}/images`,
+          { cache: "no-store" }
+        );
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || cancelled) return;
+
+        const generations = Array.isArray(data.generations)
+          ? (data.generations as ImageGeneration[])
+          : [];
+        setImageGenerations(generations);
+        setForm((current) => ({
+          ...current,
+          coverImage: data.images?.hero || current.coverImage,
+          thumbnailImage:
+            data.images?.thumbnail || current.thumbnailImage,
+        }));
+
+        if (
+          generations.some((item) =>
+            ["SUBMITTING", "PROCESSING", "DOWNLOADING"].includes(item.status)
+          )
+        ) {
+          timer = window.setTimeout(refresh, 4_000);
+        }
+      } catch {
+        // Status refresh is best-effort; explicit generate errors remain visible.
+      }
+    };
+
+    void refresh();
+    return () => {
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [form.id, imageRefreshNonce]);
 
   const set = <K extends keyof BlogFormValues>(key: K, value: BlogFormValues[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -277,6 +333,65 @@ export default function BlogPostForm({
       setGeneratingPrompts(false);
     }
   };
+
+  const generateArticleImages = async () => {
+    if (!form.id) return;
+    if (!form.heroImagePrompt.trim() || !form.thumbnailImagePrompt.trim()) {
+      setError("Hero and thumbnail image prompts are required.");
+      return;
+    }
+
+    setGeneratingImages(true);
+    setError("");
+    try {
+      const response = await fetch(
+        `/api/admin/blog/${encodeURIComponent(form.id)}/images`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            heroPrompt: form.heroImagePrompt,
+            thumbnailPrompt: form.thumbnailImagePrompt,
+            force: Boolean(
+              form.coverImage.trim() && form.thumbnailImage.trim()
+            ),
+          }),
+        }
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || "KIE image generation failed to start.");
+      }
+      setImageGenerations(
+        Array.isArray(data.generations) ? data.generations : []
+      );
+      setImageRefreshNonce((current) => current + 1);
+      setForm((current) => ({
+        ...current,
+        coverImage: data.images?.hero || current.coverImage,
+        thumbnailImage:
+          data.images?.thumbnail || current.thumbnailImage,
+      }));
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "KIE image generation failed to start."
+      );
+    } finally {
+      setGeneratingImages(false);
+    }
+  };
+
+  const imageGenerationByKind = Object.fromEntries(
+    imageGenerations.map((item) => [item.kind, item])
+  ) as Partial<Record<"hero" | "thumbnail", ImageGeneration>>;
+  const imageGenerationActive = imageGenerations.some((item) =>
+    ["SUBMITTING", "PROCESSING", "DOWNLOADING"].includes(item.status)
+  );
+  const hasBothImages = Boolean(
+    form.coverImage.trim() && form.thumbnailImage.trim()
+  );
 
   return (
     <div className="admin-form-stack-wide admin-form-stack">
@@ -461,6 +576,83 @@ export default function BlogPostForm({
                 />
               </div>
             ))}
+          </div>
+          <div className="rounded-xl border border-border bg-bg-elevated/40 p-3 sm:p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold text-text-primary">
+                    KIE Z-Image
+                  </p>
+                  {(["hero", "thumbnail"] as const).map((kind) => {
+                    const generation = imageGenerationByKind[kind];
+                    const label = generation
+                      ? generation.status === "DOWNLOADING"
+                        ? "saving"
+                        : generation.status.toLowerCase()
+                      : "not started";
+                    return (
+                      <span
+                        key={kind}
+                        title={generation?.error || undefined}
+                        className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                          generation?.status === "SUCCEEDED"
+                            ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
+                            : generation?.status === "FAILED"
+                              ? "border-red-400/30 bg-red-400/10 text-red-300"
+                              : generation
+                                ? "border-amber-400/30 bg-amber-400/10 text-amber-300"
+                                : "border-border text-text-muted"
+                        }`}
+                      >
+                        {kind} · {label}
+                      </span>
+                    );
+                  })}
+                </div>
+                <p className="mt-1 text-xs leading-relaxed text-text-muted">
+                  Two paid calls: hero 16:9 and thumbnail 4:3. Results are
+                  downloaded, converted to WebP, and stored on this VPS.
+                </p>
+                {imageGenerations
+                  .filter((item) => item.status === "FAILED" && item.error)
+                  .map((item) => (
+                    <p
+                      key={item.id}
+                      className="mt-1 text-[11px] leading-relaxed text-red-300"
+                    >
+                      {item.kind}: {item.error}
+                    </p>
+                  ))}
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={generateArticleImages}
+                disabled={
+                  !form.id ||
+                  !form.heroImagePrompt.trim() ||
+                  !form.thumbnailImagePrompt.trim() ||
+                  generatingImages ||
+                  imageGenerationActive
+                }
+                className="w-full shrink-0 sm:w-auto"
+              >
+                {generatingImages || imageGenerationActive ? (
+                  <SpinnerGap size={15} className="animate-spin" />
+                ) : (
+                  <MagicWand size={15} />
+                )}
+                {!form.id
+                  ? "Save post first"
+                  : imageGenerationActive
+                    ? "Generating images"
+                    : hasBothImages
+                      ? "Regenerate both"
+                      : "Generate both images"}
+              </Button>
+            </div>
           </div>
           {form.id &&
           (!form.heroImagePrompt || !form.thumbnailImagePrompt) ? (

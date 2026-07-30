@@ -101,6 +101,8 @@ type StoreBlogImageInput = {
   contentType: string;
   kind: BlogImageKind;
   originalName?: string;
+  /** Provider results may already be WebP; admin uploads intentionally may not. */
+  allowGeneratedWebp?: boolean;
   storageRoot?: string;
   now?: Date;
 };
@@ -135,7 +137,10 @@ export async function storeBlogImage(
       413
     );
   }
+  const isGeneratedWebp =
+    input.allowGeneratedWebp && input.contentType === "image/webp";
   if (
+    !isGeneratedWebp &&
     !BLOG_IMAGE_ALLOWED_CONTENT_TYPES.includes(
       input.contentType as (typeof BLOG_IMAGE_ALLOWED_CONTENT_TYPES)[number]
     )
@@ -160,7 +165,9 @@ export async function storeBlogImage(
   }
 
   if (
-    (metadata.format !== "jpeg" && metadata.format !== "png") ||
+    (metadata.format !== "jpeg" &&
+      metadata.format !== "png" &&
+      !(isGeneratedWebp && metadata.format === "webp")) ||
     !metadata.width ||
     !metadata.height
   ) {

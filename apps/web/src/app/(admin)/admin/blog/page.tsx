@@ -12,6 +12,12 @@ export const dynamic = "force-dynamic";
 export default async function AdminBlogPage() {
   const posts = await prisma.blogPost.findMany({
     orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
+    include: {
+      imageGenerations: {
+        orderBy: { createdAt: "desc" },
+        take: 6,
+      },
+    },
   });
 
   return (
@@ -54,6 +60,19 @@ export default async function AdminBlogPage() {
             const missingHero = !post.coverImage?.trim();
             const missingThumbnail = !post.thumbnailImage?.trim();
             const missingImages = missingHero || missingThumbnail;
+            const latestImageGenerations = post.imageGenerations.filter(
+              (generation, index, all) =>
+                all.findIndex((item) => item.kind === generation.kind) === index
+            );
+            const imageGenerationActive = latestImageGenerations.some(
+              (generation) =>
+                ["SUBMITTING", "PROCESSING", "DOWNLOADING"].includes(
+                  generation.status
+                )
+            );
+            const imageGenerationFailed = latestImageGenerations.some(
+              (generation) => generation.status === "FAILED"
+            );
             return (
               <Card
                 key={post.id}
@@ -89,6 +108,12 @@ export default async function AdminBlogPage() {
                       ) : null}
                       {post.heroImagePrompt && post.thumbnailImagePrompt ? (
                         <Badge variant="muted">prompts ready</Badge>
+                      ) : null}
+                      {imageGenerationActive ? (
+                        <Badge variant="muted">KIE generating</Badge>
+                      ) : null}
+                      {imageGenerationFailed ? (
+                        <Badge variant="muted">KIE failed</Badge>
                       ) : null}
                       {missingHero ? (
                         <Badge variant="muted">hero missing</Badge>
@@ -126,7 +151,13 @@ export default async function AdminBlogPage() {
                         : "text-[11px] text-text-secondary hover:text-accent"
                     }
                   >
-                    {missingImages ? "Upload images" : "Edit"}
+                    {imageGenerationActive
+                      ? "Image status"
+                      : imageGenerationFailed
+                        ? "Retry images"
+                        : missingImages
+                          ? "Add images"
+                          : "Edit"}
                   </Link>
                   <BlogDeleteButton id={post.id} title={post.title} />
                 </div>

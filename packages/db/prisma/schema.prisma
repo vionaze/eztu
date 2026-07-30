@@ -283,9 +283,9 @@ model BlogPost {
   coverImage      String?
   /// Card / listing thumbnail (square or 4:3)
   thumbnailImage  String?
-  /// English prompt prepared for an external GPT Image hero generation workflow.
+  /// English prompt used for KIE Z-Image hero generation or a manual workflow.
   heroImagePrompt String?    @db.Text
-  /// English prompt prepared for an external GPT Image thumbnail generation workflow.
+  /// English prompt used for KIE Z-Image thumbnail generation or a manual workflow.
   thumbnailImagePrompt String? @db.Text
   category        String?
   /// Target country/locale for the article (e.g. ID, MY, US, GLOBAL)
@@ -307,10 +307,32 @@ model BlogPost {
   publishedAt     DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+  imageGenerations BlogImageGeneration[]
 
   @@index([published, publishedAt])
   @@index([countryCode, published])
   @@index([category])
+}
+
+model BlogImageGeneration {
+  id              String                    @id @default(cuid())
+  postId          String
+  post            BlogPost                  @relation(fields: [postId], references: [id], onDelete: Cascade)
+  kind            String
+  provider        String                    @default("kie")
+  model           String                    @default("z-image")
+  prompt          String                    @db.Text
+  aspectRatio     String
+  taskId          String?                   @unique
+  status          BlogImageGenerationStatus @default(SUBMITTING)
+  error           String?                   @db.Text
+  storedImagePath String?
+  completedAt     DateTime?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  @@index([postId, kind, createdAt])
+  @@index([status, createdAt])
 }
 
 // ============================================================
@@ -352,6 +374,14 @@ enum Role {
   USER
   ADMIN
   SUPERADMIN
+}
+
+enum BlogImageGenerationStatus {
+  SUBMITTING
+  PROCESSING
+  DOWNLOADING
+  SUCCEEDED
+  FAILED
 }
 
 enum ProductFulfillmentType {

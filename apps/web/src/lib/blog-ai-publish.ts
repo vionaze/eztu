@@ -12,6 +12,11 @@ import {
   getBlogLanguageForCountry,
   planBlogMarketRotation,
 } from "@/lib/blog-market";
+import {
+  isKieBlogImageGenerationEnabled,
+  reconcilePendingBlogImageGenerations,
+  startBlogImageGenerations,
+} from "@/lib/blog-image-generation";
 
 /**
  * Blog AI auto-publish — still BLOG SCOPE ONLY.
@@ -66,7 +71,7 @@ export async function persistBlogDraft(params: {
       aiModel: params.aiModel || null,
       published,
       publishedAt: published ? new Date() : null,
-      // Images remain manual — left empty for auto jobs
+      // KIE tasks populate these asynchronously after the post exists.
       coverImage: null,
       thumbnailImage: null,
       heroImagePrompt: params.draft.heroImagePrompt,
@@ -90,6 +95,26 @@ export async function persistBlogDraft(params: {
       published,
     },
   });
+
+  if (published && isKieBlogImageGenerationEnabled()) {
+    await startBlogImageGenerations({
+      postId: post.id,
+      actor: params.actor || "blog-ai",
+    }).catch(async (error) => {
+      await writeAppLog({
+        category: "BLOG",
+        level: "ERROR",
+        title: `KIE image jobs not started: ${post.title}`,
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unknown KIE image generation error.",
+        actor: params.actor || "blog-ai",
+        route: "/lib/blog-ai-publish",
+        metadata: { postId: post.id },
+      });
+    });
+  }
 
   if (published) {
     await sendDiscordBlogPublishedNotification({
@@ -154,6 +179,10 @@ export async function runBlogAiAutoBatch(opts?: {
   count?: number;
   publish?: boolean;
 }): Promise<AutoRunResult> {
+  await reconcilePendingBlogImageGenerations().catch((error) => {
+    console.error("[blog-ai] Pending KIE image reconciliation failed:", error);
+  });
+
   const settings = await getBlogAiSettings();
   const publish = opts?.publish ?? settings.autoPublish;
   const countries =
