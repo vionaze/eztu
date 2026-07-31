@@ -308,10 +308,26 @@ model BlogPost {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   imageGenerations BlogImageGeneration[]
+  dailyVisits      BlogPostDailyVisit[]
 
   @@index([published, publishedAt])
   @@index([countryCode, published])
   @@index([category])
+}
+
+model BlogPostDailyVisit {
+  id          String   @id @default(cuid())
+  postId      String
+  post        BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  visitorHash String
+  /// Jakarta calendar date encoded as a PostgreSQL DATE.
+  day         DateTime @db.Date
+  createdAt   DateTime @default(now())
+
+  @@unique([postId, visitorHash, day])
+  @@index([day])
+  @@index([postId, day])
+  @@index([visitorHash, day])
 }
 
 model BlogImageGeneration {

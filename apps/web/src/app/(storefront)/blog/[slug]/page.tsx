@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import BlogPostContent from "./BlogPostContent";
+import BlogViewTracker from "./BlogViewTracker";
 import {
   buildBlogJsonLd,
   estimateReadTime,
   extractFaq,
   formatBlogDate,
   getPublishedPostBySlug,
-  incrementPostViews,
 } from "@/lib/blog";
 
 export const dynamic = "force-dynamic";
@@ -74,14 +74,12 @@ export default async function BlogPostPage({ params }: Props) {
   const post = await getPublishedPostBySlug(slug);
   if (!post) notFound();
 
-  // fire-and-forget view count
-  void incrementPostViews(post.id);
-
   const jsonLd = buildBlogJsonLd(post);
   const faq = extractFaq(post);
 
   return (
     <>
+      <BlogViewTracker slug={post.slug} />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

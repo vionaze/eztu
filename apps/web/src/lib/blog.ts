@@ -103,14 +103,3 @@ export async function getPublishedPostBySlug(slug: string) {
     where: { slug, published: true },
   });
 }
-
-export async function incrementPostViews(id: string) {
-  try {
-    await prisma.blogPost.update({
-      where: { id },
-      data: { views: { increment: 1 } },
-    });
-  } catch {
-    // ignore view counter failures
-  }
-}
