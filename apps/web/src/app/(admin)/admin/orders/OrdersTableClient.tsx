@@ -16,9 +16,15 @@ export type AdminOrderRow = {
   totalUSD: number;
   paymentCurrency: string | null;
   paymentProvider: string | null;
+  paymentProviderPaymentId: string | null;
   paymentUrl: string | null;
   paidAt: string | null;
   expiresAt: string | null;
+  paymentReviewReason: string | null;
+  paymentReviewRequiredAt: string | null;
+  paymentReviewApprovedAt: string | null;
+  paymentReviewApprovedBy: string | null;
+  paymentReviewNote: string | null;
   createdAt: string;
   subtotalIDR: number;
   discountIDR: number;
@@ -38,13 +44,22 @@ export type AdminOrderRow = {
 
 const statusStyles: Record<string, string> = {
   PENDING: "bg-yellow-500/10 text-yellow-400",
+  UNDERPAID: "bg-red-500/10 text-red-300",
+  PAYMENT_REVIEW: "bg-amber-500/10 text-amber-300",
   PAID: "bg-blue-500/10 text-blue-400",
   PROCESSING: "bg-orange-500/10 text-orange-400",
   COMPLETED: "bg-emerald-500/10 text-emerald-400",
   FAILED: "bg-red-500/10 text-red-400",
   EXPIRED: "bg-zinc-500/10 text-zinc-400",
   REFUNDED: "bg-violet-500/10 text-violet-400",
+  DISPUTED: "bg-red-700/20 text-red-300",
 };
+
+function gatewayLabel(provider: string | null) {
+  if (provider === "cryptomus") return "Cryptomus";
+  if (provider === "pakasir") return "Pakasir";
+  return "—";
+}
 
 function isRealGameId(gameId: string, fulfillmentType: string | null) {
   if (fulfillmentType === "VOUCHER") return false;
@@ -77,7 +92,8 @@ export default function OrdersTableClient({ orders }: { orders: AdminOrderRow[] 
                   "Customer",
                   "Product",
                   "Amount",
-                  "Pay",
+                  "Gateway",
+                  "Method",
                   "Status",
                   "Fulfillment",
                   "Date",
@@ -95,7 +111,7 @@ export default function OrdersTableClient({ orders }: { orders: AdminOrderRow[] 
               {orders.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={9}
                     className="px-5 py-12 text-center text-sm text-text-muted"
                   >
                     No orders match this filter.
@@ -127,7 +143,10 @@ export default function OrdersTableClient({ orders }: { orders: AdminOrderRow[] 
                       </span>
                     </td>
                     <td className="px-5 py-3.5 text-xs text-text-muted uppercase">
-                      {order.paymentCurrency || order.paymentProvider || "—"}
+                      {gatewayLabel(order.paymentProvider)}
+                    </td>
+                    <td className="px-5 py-3.5 text-xs text-text-muted uppercase">
+                      {order.paymentCurrency || "—"}
                     </td>
                     <td className="px-5 py-3.5">
                       <span
@@ -169,8 +188,7 @@ export default function OrdersTableClient({ orders }: { orders: AdminOrderRow[] 
             aria-label="Close"
             onClick={() => setSelectedId(null)}
           />
-          {/* No max-height / no overflow scroll — compact single-screen panel */}
-          <div className="relative w-full max-w-2xl rounded-2xl border border-border bg-bg-secondary shadow-2xl overflow-hidden">
+          <div className="relative max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto rounded-2xl border border-border bg-bg-secondary shadow-2xl">
             <div className="flex items-start justify-between gap-3 px-4 py-3 border-b border-border">
               <div className="min-w-0">
                 <p className="text-[10px] text-text-muted uppercase tracking-wide">
@@ -297,11 +315,15 @@ export default function OrdersTableClient({ orders }: { orders: AdminOrderRow[] 
                 </p>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
-                    <p className="text-[10px] text-text-muted">Method</p>
+                    <p className="text-[10px] text-text-muted">Gateway</p>
+                    <p className="text-text-secondary">
+                      {gatewayLabel(selected.paymentProvider)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-text-muted">Method / currency</p>
                     <p className="text-text-secondary uppercase">
-                      {selected.paymentCurrency ||
-                        selected.paymentProvider ||
-                        "—"}
+                      {selected.paymentCurrency || "—"}
                     </p>
                   </div>
                   <div>
@@ -323,6 +345,11 @@ export default function OrdersTableClient({ orders }: { orders: AdminOrderRow[] 
                   >
                     Open payment URL
                   </a>
+                ) : null}
+                {selected.paymentProviderPaymentId ? (
+                  <p className="break-all text-[10px] font-mono text-text-muted">
+                    Provider ID: {selected.paymentProviderPaymentId}
+                  </p>
                 ) : null}
               </div>
 

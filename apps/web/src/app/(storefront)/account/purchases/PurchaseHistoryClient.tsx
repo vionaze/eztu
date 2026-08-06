@@ -23,12 +23,14 @@ import {
 type PurchaseOrderStatus =
   | "PENDING"
   | "UNDERPAID"
+  | "PAYMENT_REVIEW"
   | "PAID"
   | "PROCESSING"
   | "COMPLETED"
   | "FAILED"
   | "EXPIRED"
-  | "REFUNDED";
+  | "REFUNDED"
+  | "DISPUTED";
 
 type PurchaseFulfillmentStatus =
   | "PENDING"
@@ -209,12 +211,14 @@ const labelsByLocale: Record<"id" | "en", Labels> = {
 const orderStatusStyles: Record<PurchaseOrderStatus, string> = {
   PENDING: "border-yellow-400/25 bg-yellow-400/10 text-yellow-300",
   UNDERPAID: "border-amber-400/30 bg-amber-400/10 text-amber-200",
+  PAYMENT_REVIEW: "border-amber-400/30 bg-amber-400/10 text-amber-200",
   PAID: "border-sky-400/25 bg-sky-400/10 text-sky-300",
   PROCESSING: "border-orange-400/25 bg-orange-400/10 text-orange-300",
   COMPLETED: "border-emerald-400/25 bg-emerald-400/10 text-emerald-300",
   FAILED: "border-red-400/25 bg-red-400/10 text-red-300",
   EXPIRED: "border-zinc-400/25 bg-zinc-400/10 text-zinc-300",
   REFUNDED: "border-violet-400/25 bg-violet-400/10 text-violet-300",
+  DISPUTED: "border-red-500/30 bg-red-500/10 text-red-200",
 };
 
 const fulfillmentStatusStyles: Record<PurchaseFulfillmentStatus, string> = {
@@ -260,12 +264,14 @@ function formatStatus(label: string, locale: "id" | "en") {
   const statusMap: Record<string, string> = {
     PENDING: "MENUNGGU",
     UNDERPAID: "PEMBAYARAN KURANG",
+    PAYMENT_REVIEW: "REVIEW PEMBAYARAN",
     PAID: "DIBAYAR",
     PROCESSING: "DIPROSES",
     COMPLETED: "SELESAI",
     FAILED: "GAGAL",
     EXPIRED: "KEDALUWARSA",
     REFUNDED: "DIREFUND",
+    DISPUTED: "DISENGKETAKAN",
     FULFILLED: "TERKIRIM",
     MANUAL_REVIEW: "REVIEW MANUAL",
   };
@@ -375,7 +381,9 @@ export default function PurchaseHistoryClient({
   const labels = labelsByLocale[locale];
   const completedOrders = orders.filter((order) => order.status === "COMPLETED").length;
   const pendingOrders = orders.filter((order) =>
-    ["PENDING", "UNDERPAID", "PAID", "PROCESSING"].includes(order.status)
+    ["PENDING", "UNDERPAID", "PAYMENT_REVIEW", "PAID", "PROCESSING"].includes(
+      order.status
+    )
   ).length;
 
   return (
@@ -527,6 +535,29 @@ export default function PurchaseHistoryClient({
                                 : `The received payment is short by $${(
                                     (order.underpaidUSDCents || 0) / 100
                                   ).toFixed(2)}. Fulfillment has not started. Email cs@eztopup.io to resolve the remaining payment.`}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {order.status === "PAYMENT_REVIEW" && (
+                      <div className="border-b border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-100">
+                        <div className="flex items-start gap-3">
+                          <Clock
+                            size={20}
+                            weight="fill"
+                            className="mt-0.5 shrink-0 text-amber-300"
+                          />
+                          <div>
+                            <p className="font-semibold">
+                              {locale === "id"
+                                ? "Pembayaran diterima — sedang direview"
+                                : "Payment received — under review"}
+                            </p>
+                            <p className="mt-1 text-xs leading-relaxed text-amber-100/80">
+                              {locale === "id"
+                                ? "Tidak perlu membayar lagi. Pesanan akan diproses setelah pemeriksaan singkat oleh admin."
+                                : "No additional payment is needed. Fulfillment will start after a short admin review."}
                             </p>
                           </div>
                         </div>

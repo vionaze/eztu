@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   Clock,
   CurrencyBtc,
+  CreditCard,
   Check,
   User,
   Minus,
@@ -47,6 +48,8 @@ type LiveQuote = {
   expiresAt: string;
 };
 
+type PaymentMethod = "crypto" | "pakasir";
+
 export default function ProductDetailClient({ product, relatedProducts }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -70,6 +73,8 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
   const [liveQuote, setLiveQuote] = useState<LiveQuote | null>(null);
   const [quoteError, setQuoteError] = useState("");
   const [isQuoteLoading, setIsQuoteLoading] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
+  const [pakasirEnabled, setPakasirEnabled] = useState(false);
 
   // From DB: TOP_UP products need account fields; VOUCHER skips them
   const requiresGameAccount = product.fulfillmentType === "TOP_UP";
@@ -140,6 +145,27 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
     return () => controller.abort();
   }, [variant, quantity]);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/payment/methods", {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) return;
+        const data = (await response.json()) as {
+          pakasir?: { enabled?: boolean };
+        };
+        setPakasirEnabled(Boolean(data.pakasir?.enabled));
+      })
+      .catch((error) => {
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
+          console.error("[Payment Methods]", error);
+        }
+      });
+    return () => controller.abort();
+  }, []);
+
   const handleCheckout = async () => {
     if (!variant || quantity <= 0 || !liveQuote) return;
     if (requiresGameAccount && !gameId.trim()) {
@@ -164,6 +190,10 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
       alert("Please enter a recipient email.");
       return;
     }
+    if (!isFree && !paymentMethod) {
+      alert("Please choose Crypto or Pakasir.");
+      return;
+    }
 
     setIsCheckingOut(true);
 
@@ -181,6 +211,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
           company,
           checkoutStartedAt,
           quoteToken: liveQuote.quoteToken,
+          paymentMethod,
           gameId: requiresGameAccount ? gameId.trim() : "voucher",
           serverId: requiresGameAccount ? serverId.trim() : "",
         }),
@@ -194,8 +225,11 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
         return;
       }
 
-      // Redirect to payment URL or success page
-      router.push(data.paymentUrl);
+      if (data.isFree || data.checkout?.type === "redirect") {
+        router.push(data.paymentUrl);
+        return;
+      }
+      throw new Error("Payment checkout details are missing.");
     } catch (error) {
       console.error("[Checkout]", error);
       alert("Failed to checkout. Please try again.");
@@ -207,12 +241,21 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
   const totalUSD = liveQuote ? liveQuote.totalUSDCents / 100 : 0;
   const isFree =
     quantity > 0 && liveQuote !== null && liveQuote.totalUSDCents <= 0;
-  const usesCryptoCheckout = Boolean(variant && liveQuote && liveQuote.totalUSDCents > 0);
+  const usesCryptoCheckout = Boolean(
+    variant &&
+      liveQuote &&
+      liveQuote.totalUSDCents > 0 &&
+      paymentMethod === "crypto"
+  );
+  const requiresPaymentChoice = Boolean(
+    variant && liveQuote && liveQuote.totalUSDCents > 0
+  );
   const checkoutDisabled =
     isCheckingOut ||
     isQuoteLoading ||
     !liveQuote ||
     Boolean(quoteError) ||
+    (requiresPaymentChoice && !paymentMethod) ||
     (isSignedIn ? !canCheckout : !canStartLogin);
 
   return (
@@ -426,6 +469,64 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
               </div>
             </FadeUp>
 
+            {requiresPaymentChoice ? (
+              <FadeUp delay={0.33}>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-sm font-medium text-text-secondary">
+                      Choose payment method
+                    </p>
+                    <p className="mt-0.5 text-xs text-text-muted">
+                      Prices are locked and verified by the server.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod("crypto")}
+                      className={cn(
+                        "rounded-xl border p-3 text-left transition-all",
+                        paymentMethod === "crypto"
+                          ? "border-accent bg-accent/10"
+                          : "border-border bg-bg-card hover:border-accent/40"
+                      )}
+                    >
+                      <span className="flex items-center gap-2 font-medium text-text-primary">
+                        <CurrencyBtc size={18} />
+                        Crypto
+                      </span>
+                      <span className="mt-1 block text-xs text-text-muted">
+                        USDT / USDC via Cryptomus
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => pakasirEnabled && setPaymentMethod("pakasir")}
+                      disabled={!pakasirEnabled}
+                      className={cn(
+                        "rounded-xl border p-3 text-left transition-all",
+                        paymentMethod === "pakasir"
+                          ? "border-accent bg-accent/10"
+                          : "border-border bg-bg-card hover:border-accent/40",
+                        !pakasirEnabled &&
+                          "cursor-not-allowed opacity-45 hover:border-border"
+                      )}
+                    >
+                      <span className="flex items-center gap-2 font-medium text-text-primary">
+                        <CreditCard size={18} />
+                        Pakasir
+                      </span>
+                      <span className="mt-1 block text-xs text-text-muted">
+                        {pakasirEnabled
+                          ? "QRIS and Indonesian Virtual Accounts"
+                          : "Currently unavailable"}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              </FadeUp>
+            ) : null}
+
             {/* Price Summary */}
             <FadeUp delay={0.35}>
               <Card variant="glass" padding="md">
@@ -465,7 +566,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                         : "Live USD quote unavailable"}
                   </p>
                 )}
-                {liveQuote && (
+                {liveQuote && paymentMethod === "crypto" && (
                   <div className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-xs leading-relaxed text-amber-100/90">
                     <p>
                       Pay exactly <strong>${liveQuote.totalUSD} USDT/USDC</strong>.
@@ -484,6 +585,12 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                     </p>
                   </div>
                 )}
+                {liveQuote && paymentMethod === "pakasir" ? (
+                  <div className="mt-3 rounded-xl border border-sky-400/20 bg-sky-400/5 p-3 text-xs leading-relaxed text-sky-100/90">
+                    Pay exactly <strong>{formatPrice(liveQuote.totalIDR)}</strong>{" "}
+                    on Pakasir&apos;s secure hosted payment page.
+                  </div>
+                ) : null}
                 {quoteError && (
                   <p className="mt-2 text-right text-xs text-red-300">{quoteError}</p>
                 )}
@@ -519,11 +626,18 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                     <Check size={18} weight="bold" />
                     Claim for Free
                   </>
-                ) : (
+                ) : paymentMethod === "pakasir" ? (
+                  <>
+                    <CreditCard size={18} weight="bold" />
+                    Pay with Pakasir
+                  </>
+                ) : paymentMethod === "crypto" ? (
                   <>
                     <CurrencyBtc size={18} weight="bold" />
                     Pay with Crypto
                   </>
+                ) : (
+                  <>Choose Payment Method</>
                 )}
               </Button>
               {requiresGameAccount && !gameAccountReady && (
@@ -538,6 +652,11 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                   Powered by Cryptomus · USDT / USDC checkout
                 </p>
               )}
+              {paymentMethod === "pakasir" && gameAccountReady ? (
+                <p className="mt-2 text-center text-xs text-text-muted">
+                  Secure hosted checkout · QRIS and Indonesian Virtual Accounts
+                </p>
+              ) : null}
             </FadeUp>
 
             {/* Trust signals */}

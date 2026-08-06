@@ -335,6 +335,12 @@ export async function applySupplierOrderSnapshot(
       amountIDR: order.totalIDR,
       amountUSD: order.totalUSD,
       crypto: order.paymentCurrency || "unknown",
+      paymentGateway:
+        order.paymentProvider === "pakasir"
+          ? "Pakasir"
+          : order.paymentProvider === "cryptomus"
+            ? "Cryptomus"
+            : "—",
       status: "COMPLETED",
       supplierStatus: "FULFILLED",
       providerOrderId: snapshot.tid || order.supplierOrder?.providerOrderId,

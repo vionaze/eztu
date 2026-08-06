@@ -13,6 +13,7 @@ interface OrderNotification {
   amountIDR: number;
   amountUSD: number;
   crypto: string;
+  paymentGateway: string;
   status: string;
   email: string;
 }
@@ -94,6 +95,11 @@ export async function sendDiscordOrderNotification(
               {
                 name: "Amount",
                 value: `${fmtIDR(order.amountIDR)} (~$${order.amountUSD.toFixed(2)})`,
+                inline: true,
+              },
+              {
+                name: "Payment Gateway",
+                value: order.paymentGateway,
                 inline: true,
               },
               { name: "Crypto", value: order.crypto, inline: true },
@@ -241,6 +247,11 @@ export async function sendDiscordFulfillmentNotification(
               {
                 name: "Amount",
                 value: `${fmtIDR(order.amountIDR)} (~$${order.amountUSD.toFixed(2)})`,
+                inline: true,
+              },
+              {
+                name: "Payment Gateway",
+                value: order.paymentGateway,
                 inline: true,
               },
               { name: "Email", value: order.email, inline: true },

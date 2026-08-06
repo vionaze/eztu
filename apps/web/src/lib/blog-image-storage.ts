@@ -8,6 +8,14 @@ import {
 import { isAbsolute, join, relative, resolve } from "node:path";
 import sharp from "sharp";
 
+type SharpMetadata = Awaited<
+  ReturnType<ReturnType<typeof sharp>["metadata"]>
+>;
+type ConvertedImage = {
+  data: Buffer;
+  info: { width: number; height: number; size: number };
+};
+
 export type BlogImageKind = "hero" | "thumbnail";
 
 export const BLOG_IMAGE_MAX_UPLOAD_BYTES = 12 * 1024 * 1024;
@@ -151,7 +159,7 @@ export async function storeBlogImage(
     );
   }
 
-  let metadata: sharp.Metadata;
+  let metadata: SharpMetadata;
   try {
     metadata = await sharp(input.bytes, {
       failOn: "error",
@@ -178,7 +186,7 @@ export async function storeBlogImage(
   }
 
   const limit = OUTPUT_LIMITS[input.kind];
-  let converted: { data: Buffer; info: sharp.OutputInfo };
+  let converted: ConvertedImage;
   try {
     converted = await sharp(input.bytes, {
       failOn: "error",

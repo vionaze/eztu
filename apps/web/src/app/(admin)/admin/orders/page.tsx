@@ -7,15 +7,19 @@ export const dynamic = "force-dynamic";
 export default async function AdminOrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; gateway?: string }>;
 }) {
   const params = await searchParams;
   const q = (params.q || "").trim();
   const status = (params.status || "ALL").toUpperCase();
+  const gateway = (params.gateway || "ALL").toLowerCase();
 
   const orders = await prisma.order.findMany({
     where: {
       ...(status !== "ALL" ? { status: status as never } : {}),
+      ...(gateway === "cryptomus" || gateway === "pakasir"
+        ? { paymentProvider: gateway }
+        : {}),
       ...(q
         ? {
             OR: [
@@ -57,9 +61,17 @@ export default async function AdminOrdersPage({
       totalUSD: order.totalUSD,
       paymentCurrency: order.paymentCurrency,
       paymentProvider: order.paymentProvider,
+      paymentProviderPaymentId: order.paymentProviderPaymentId,
       paymentUrl: order.paymentUrl,
       paidAt: order.paidAt?.toISOString() || null,
       expiresAt: order.expiresAt?.toISOString() || null,
+      paymentReviewReason: order.paymentReviewReason,
+      paymentReviewRequiredAt:
+        order.paymentReviewRequiredAt?.toISOString() || null,
+      paymentReviewApprovedAt:
+        order.paymentReviewApprovedAt?.toISOString() || null,
+      paymentReviewApprovedBy: order.paymentReviewApprovedBy,
+      paymentReviewNote: order.paymentReviewNote,
       createdAt: order.createdAt.toISOString(),
       subtotalIDR: order.subtotalIDR,
       discountIDR: order.discountIDR,
@@ -80,7 +92,11 @@ export default async function AdminOrdersPage({
 
   return (
     <>
-      <OrdersFilterClient initialQ={q} initialStatus={status} />
+      <OrdersFilterClient
+        initialQ={q}
+        initialStatus={status}
+        initialGateway={gateway}
+      />
       <OrdersTableClient orders={rows} />
     </>
   );

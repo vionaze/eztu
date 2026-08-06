@@ -171,6 +171,12 @@ export async function applyPaymentEventToOrder(
   const firstItem = order.items[0];
   const orderIntegrityReasons: string[] = [];
 
+  if (order.paymentProvider && order.paymentProvider !== event.provider) {
+    orderIntegrityReasons.push(
+      `Order provider=${order.paymentProvider} does not match event provider=${event.provider}`
+    );
+  }
+
   if (order.totalIDR < 0 || order.totalUSD < 0) {
     orderIntegrityReasons.push(
       `Order has negative total: totalIDR=${order.totalIDR}, totalUSD=${order.totalUSD}`
@@ -194,19 +200,23 @@ export async function applyPaymentEventToOrder(
     }
   }
 
-  // NOWPayments used price_amount; Cryptomus invoice amount is usually `amount` (USD string).
+  // Cryptomus amounts are USD. Pakasir amounts are integer IDR.
   const providerPriceAmount =
     getRawNumber(event.raw, "price_amount") ??
     getRawNumber(event.raw, "amount") ??
     getRawNumber(event.raw, "payment_amount_usd");
-  if (
-    event.status === "paid" &&
-    providerPriceAmount !== null &&
-    Math.abs(providerPriceAmount - order.totalUSD) > 0.05
-  ) {
-    orderIntegrityReasons.push(
-      `Provider amount=${providerPriceAmount} does not match order totalUSD=${order.totalUSD}`
-    );
+  if (event.status === "paid" && providerPriceAmount !== null) {
+    const expectedAmount =
+      event.provider === "pakasir" ? order.totalIDR : order.totalUSD;
+    const amountMatches =
+      event.provider === "pakasir"
+        ? providerPriceAmount === expectedAmount
+        : Math.abs(providerPriceAmount - expectedAmount) <= 0.05;
+    if (!amountMatches) {
+      orderIntegrityReasons.push(
+        `Provider amount=${providerPriceAmount} does not match order ${event.provider === "pakasir" ? "totalIDR" : "totalUSD"}=${expectedAmount}`
+      );
+    }
   }
 
   if (orderIntegrityReasons.length > 0) {
@@ -343,8 +353,8 @@ export async function applyPaymentEventToOrder(
   }
   const isPaid = event.status === "paid";
 
-  await prisma.order.update({
-    where: { id: event.orderId },
+  const transition = await prisma.order.updateMany({
+    where: { id: event.orderId, status: order.status },
     data: {
       status: newStatus,
       paymentProvider: event.provider,
@@ -362,6 +372,21 @@ export async function applyPaymentEventToOrder(
     },
   });
 
+  // Only the request that wins the status transition may notify or fulfill.
+  // This keeps simultaneous webhook and customer sync requests idempotent.
+  if (transition.count === 0) {
+    const current = await prisma.order.findUnique({
+      where: { id: order.id },
+      select: { status: true },
+    });
+    return {
+      ok: true as const,
+      orderId: order.id,
+      previousStatus: order.status,
+      status: current?.status || newStatus,
+    };
+  }
+
   if (newStatus !== order.status) {
     if (firstItem) {
       const payload = {
@@ -373,6 +398,8 @@ export async function applyPaymentEventToOrder(
         amountIDR: order.totalIDR,
         amountUSD: order.totalUSD,
         crypto: event.payCurrency || "unknown",
+        paymentGateway:
+          event.provider === "pakasir" ? "Pakasir" : "Cryptomus",
         status: newStatus,
         email: order.email,
       };
@@ -398,6 +425,7 @@ export async function applyPaymentEventToOrder(
           route: "/api/payment/webhook",
           metadata: {
             crypto: event.payCurrency,
+            paymentGateway: event.provider,
             status: newStatus,
             email: order.email,
           },

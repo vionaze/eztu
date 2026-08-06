@@ -26,6 +26,7 @@ export const SETTING_KEYS = {
   AI_LAST_RUN_AT: "blog.ai.lastRunAt",
   /** Last market attempted by the rotating auto-publish queue */
   AI_LAST_AUTO_COUNTRY: "blog.ai.lastAutoCountry",
+  PAKASIR_ENABLED: "payment.pakasir.enabled",
 } as const;
 
 export const BLOG_AI_INTERVAL_OPTIONS = [1, 2, 4, 8, 12] as const;
@@ -60,6 +61,30 @@ export async function setSetting(key: string, value: string): Promise<void> {
     create: { key, value },
     update: { value },
   });
+}
+
+function isTruthySetting(value: string | undefined) {
+  const normalized = value?.trim().toLowerCase();
+  return normalized === "true" || normalized === "1" || normalized === "yes";
+}
+
+export async function getPakasirPaymentSettings() {
+  const adminEnabled = isTruthySetting(
+    await getSetting(SETTING_KEYS.PAKASIR_ENABLED, "false")
+  );
+  const environmentEnabled = isTruthySetting(process.env.PAKASIR_ENABLED);
+  const projectSlug = process.env.PAKASIR_PROJECT_SLUG?.trim() || "";
+  const hasApiKey = Boolean(process.env.PAKASIR_API_KEY?.trim());
+  const configured = Boolean(projectSlug && hasApiKey);
+
+  return {
+    adminEnabled,
+    environmentEnabled,
+    configured,
+    effectiveEnabled: adminEnabled && environmentEnabled && configured,
+    projectSlug,
+    hasApiKey,
+  };
 }
 
 function parseAllowedNumber<T extends number>(
@@ -135,12 +160,11 @@ export async function getBlogAiSettings() {
     ? systemPromptRaw
     : DEFAULT_BLOG_AI_SYSTEM_PROMPT;
 
-  const truthy = (v: string) => v === "true" || v === "1" || v === "yes";
   const resolvedBaseUrl = baseUrl.trim() || DEFAULT_BLOG_AI_BASE_URL;
   const resolvedModel = model.trim() || DEFAULT_BLOG_AI_MODEL;
 
   return {
-    enabled: truthy(enabled),
+    enabled: isTruthySetting(enabled),
     baseUrl: resolvedBaseUrl.replace(/\/$/, ""),
     apiKey,
     model: resolvedModel,
@@ -154,7 +178,7 @@ export async function getBlogAiSettings() {
       .filter(Boolean),
     systemPrompt,
     hasCustomSystemPrompt: Boolean(systemPromptRaw.trim()),
-    scheduleEnabled: truthy(scheduleEnabled),
+    scheduleEnabled: isTruthySetting(scheduleEnabled),
     intervalHours: parseAllowedNumber(
       intervalRaw,
       BLOG_AI_INTERVAL_OPTIONS,

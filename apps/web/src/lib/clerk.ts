@@ -29,12 +29,24 @@ export type AuthenticatedClerkUser = {
   dbUserId: string;
   dbUser: User;
   email: string | null;
+  emailVerified: boolean;
   walletAddress: string | null;
   role: Role;
 };
 
 function getPrimaryEmail(clerkUser: ClerkUser) {
   return clerkUser.primaryEmailAddress?.emailAddress.toLowerCase() ?? null;
+}
+
+function getIdentityFields(clerkUser: ClerkUser) {
+  const createdAt = clerkUser.createdAt
+    ? new Date(clerkUser.createdAt)
+    : new Date(Number.NaN);
+  return {
+    emailVerified:
+      clerkUser.primaryEmailAddress?.verification?.status === "verified",
+    identityCreatedAt: Number.isNaN(createdAt.getTime()) ? null : createdAt,
+  };
 }
 
 function getDisplayName(clerkUser: ClerkUser) {
@@ -64,6 +76,7 @@ async function syncClerkUser(clerkUser: ClerkUser) {
   const walletAddress = getPrimaryWallet(clerkUser);
   const name = getDisplayName(clerkUser);
   const image = clerkUser.imageUrl || null;
+  const identity = getIdentityFields(clerkUser);
 
   const byClerkId = await prisma.user.findUnique({
     where: { clerkId: clerkUser.id },
@@ -82,7 +95,7 @@ async function syncClerkUser(clerkUser: ClerkUser) {
           });
           return prisma.user.update({
             where: { id: merged.id },
-            data: { name, image, walletAddress, email },
+            data: { name, image, walletAddress, email, ...identity },
           });
         } catch (error) {
           console.error("[Clerk] Auto-merge email conflict failed", error);
@@ -98,6 +111,7 @@ async function syncClerkUser(clerkUser: ClerkUser) {
           ...(email ? { email } : {}),
           image,
           walletAddress,
+          ...identity,
         },
       });
     } catch (error) {
@@ -108,7 +122,7 @@ async function syncClerkUser(clerkUser: ClerkUser) {
       );
       return prisma.user.update({
         where: { id: byClerkId.id },
-        data: { name, image, walletAddress },
+        data: { name, image, walletAddress, ...identity },
       });
     }
   }
@@ -128,6 +142,7 @@ async function syncClerkUser(clerkUser: ClerkUser) {
             name,
             image,
             walletAddress,
+            ...identity,
           },
         });
       } catch (error) {
@@ -152,6 +167,7 @@ async function syncClerkUser(clerkUser: ClerkUser) {
                 image,
                 walletAddress,
                 role: byEmail.role,
+                ...identity,
               },
             });
           }
@@ -170,6 +186,7 @@ async function syncClerkUser(clerkUser: ClerkUser) {
         email,
         image,
         walletAddress,
+        ...identity,
       },
     });
   } catch (error) {
@@ -179,6 +196,7 @@ async function syncClerkUser(clerkUser: ClerkUser) {
         clerkId: clerkUser.id,
         name,
         image,
+        ...identity,
       },
     });
   }
@@ -296,6 +314,8 @@ export async function requireClerkUser(): Promise<AuthenticatedClerkUser> {
     dbUserId: dbUser.id,
     dbUser,
     email,
+    emailVerified:
+      clerkUser.primaryEmailAddress?.verification?.status === "verified",
     walletAddress: dbUser.walletAddress,
     role: dbUser.role,
   };

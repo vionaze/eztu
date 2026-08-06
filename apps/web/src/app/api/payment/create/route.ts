@@ -1,13 +1,16 @@
 /**
  * POST /api/payment/create
  *
- * Creates a new order and generates a Cryptomus crypto invoice.
+ * Creates a new order and a Cryptomus or Pakasir hosted payment.
  * Returns the payment URL for client-side redirect.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@kupon/db";
-import { createPaymentInvoice } from "@kupon/payments";
+import {
+  createPakasirPaymentUrl,
+  createPaymentInvoice,
+} from "@kupon/payments";
 import { sendOrderNotification } from "@/lib/telegram";
 import { writeAppLog } from "@/lib/app-log";
 import { MAX_SELF_SERVICE_QUANTITY } from "@/lib/checkout-limits";
@@ -27,6 +30,7 @@ import {
 } from "@/lib/clerk";
 import { verifyPricingQuote } from "@/lib/fx";
 import { usdCentsToAmount } from "@/lib/money";
+import { getPakasirPaymentSettings } from "@/lib/settings";
 
 function generateOrderNumber(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -55,6 +59,10 @@ function getPaymentErrorMessage(error: unknown) {
 
   if (error.message.includes("CRYPTOMUS_API_URL")) {
     return "Cryptomus API URL is invalid.";
+  }
+
+  if (error.message.includes("Pakasir") || error.message.includes("PAKASIR_")) {
+    return "Pakasir checkout is temporarily unavailable. Please choose crypto or try again.";
   }
 
   return "Failed to create payment";
@@ -89,6 +97,10 @@ export async function POST(request: NextRequest) {
       typeof body.checkoutStartedAt === "number" ? body.checkoutStartedAt : null;
     const quoteToken =
       typeof body.quoteToken === "string" ? body.quoteToken.trim() : "";
+    const paymentMethod =
+      body.paymentMethod === "crypto" || body.paymentMethod === "pakasir"
+        ? body.paymentMethod
+        : null;
     const fraudAssessment = evaluateCheckoutFraud(request, {
       productId,
       variantId,
@@ -296,6 +308,22 @@ export async function POST(request: NextRequest) {
     const totalUSD = usdCentsToAmount(totalUSDCents);
     const isFree = totalUSDCents <= 0;
     const now = new Date();
+    if (!isFree && !paymentMethod) {
+      return NextResponse.json(
+        { error: "Please choose Crypto or Pakasir as your payment method." },
+        { status: 400 }
+      );
+    }
+    const pakasirSettings =
+      !isFree && paymentMethod === "pakasir"
+        ? await getPakasirPaymentSettings()
+        : null;
+    if (pakasirSettings && !pakasirSettings.effectiveEnabled) {
+      return NextResponse.json(
+        { error: "Pakasir is currently unavailable. Please choose Crypto." },
+        { status: 503 }
+      );
+    }
 
     // Create order
     const orderNumber = generateOrderNumber();
@@ -321,6 +349,8 @@ export async function POST(request: NextRequest) {
         fxQuoteExpiresAt: new Date(quote.expiresAt),
         promoCodeId: null,
         status: isFree ? "PAID" : "PENDING",
+        paymentProvider:
+          isFree ? null : paymentMethod === "pakasir" ? "pakasir" : "cryptomus",
         paidAt: isFree ? now : null,
         expiresAt: isFree ? null : resolvePaymentExpiresAt({ createdAt: now }),
         items: {
@@ -336,9 +366,10 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    let paymentUrl = null;
+    let paymentUrl: string | null = null;
+    let checkout: { type: "redirect"; url: string } | null = null;
 
-    if (!isFree) {
+    if (!isFree && paymentMethod === "crypto") {
       const invoice = await createPaymentInvoice({
         orderId: order.id,
         orderNumber,
@@ -363,6 +394,28 @@ export async function POST(request: NextRequest) {
         },
       });
       paymentUrl = invoice.paymentUrl;
+      checkout = { type: "redirect", url: invoice.paymentUrl };
+    } else if (!isFree && paymentMethod === "pakasir") {
+      const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
+      if (!appUrl) throw new Error("NEXT_PUBLIC_APP_URL is required.");
+      const pakasirUrl = createPakasirPaymentUrl({
+        orderId: order.id,
+        amountIDR: totalIDR,
+        redirectUrl: `${appUrl}/order/success?orderId=${encodeURIComponent(order.id)}`,
+        appUrl,
+      });
+      await prisma.order.update({
+        where: { id: order.id },
+        data: {
+          paymentProvider: "pakasir",
+          paymentProviderPaymentId: order.id,
+          paymentProviderInvoiceId: order.id,
+          paymentCurrency: "IDR",
+          paymentUrl: pakasirUrl,
+        },
+      });
+      paymentUrl = pakasirUrl;
+      checkout = { type: "redirect", url: pakasirUrl };
     }
 
     // Send Telegram notification
@@ -374,7 +427,12 @@ export async function POST(request: NextRequest) {
       gameId,
       amountIDR: totalIDR,
       amountUSD: totalUSD,
-      crypto: isFree ? "FREE/VOUCHER" : "pending",
+      crypto:
+        isFree
+          ? "FREE/VOUCHER"
+          : paymentMethod === "pakasir"
+            ? "IDR"
+            : "pending",
       status: isFree ? "PAID" : "PENDING",
       email,
     });
@@ -389,14 +447,21 @@ export async function POST(request: NextRequest) {
       actor: email,
       orderId: order.id,
       route: "/api/payment/create",
-      metadata: { isFree, gameId },
+      metadata: {
+        isFree,
+        gameId,
+        paymentGateway:
+          isFree ? null : paymentMethod === "pakasir" ? "pakasir" : "cryptomus",
+      },
     });
 
     return NextResponse.json({
       orderId: order.id,
       orderNumber,
       paymentUrl: isFree ? `${process.env.NEXT_PUBLIC_APP_URL}/order/success` : paymentUrl,
-      isFree
+      checkout,
+      paymentMethod: isFree ? "free" : paymentMethod,
+      isFree,
     });
   } catch (error) {
     console.error("[Payment Create]", error);

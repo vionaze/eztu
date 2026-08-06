@@ -13,11 +13,10 @@ export default function OrderSuccessPage() {
             <CheckCircle size={32} weight="fill" className="text-accent" />
           </div>
           <h1 className="text-2xl font-bold text-text-primary">
-            Payment Successful
+            Order Status
           </h1>
           <p className="text-sm text-text-secondary leading-relaxed">
-            Your payment has been confirmed. A secure voucher link will be
-            delivered to the recipient email shortly.
+            We are confirming your payment and fulfillment status.
           </p>
           <PaymentStatusSync />
           <div className="space-y-3 pt-2">

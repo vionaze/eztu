@@ -1,14 +1,19 @@
 import {
   DEFAULT_BLOG_AI_SYSTEM_PROMPT,
   getBlogAiSettings,
+  getPakasirPaymentSettings,
 } from "@/lib/settings";
 import BlogAiSettingsForm from "./BlogAiSettingsForm";
+import PaymentSettingsForm from "./PaymentSettingsForm";
 import { Key, Bell, Globe } from "@phosphor-icons/react/dist/ssr";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminSettingsPage() {
-  const ai = await getBlogAiSettings();
+  const [ai, payments] = await Promise.all([
+    getBlogAiSettings(),
+    getPakasirPaymentSettings(),
+  ]);
   const key = ai.apiKey;
   const masked =
     key.length > 8
@@ -19,6 +24,8 @@ export default async function AdminSettingsPage() {
 
   return (
     <>
+      <PaymentSettingsForm initial={payments} />
+
       <BlogAiSettingsForm
         initial={{
           enabled: ai.enabled,
@@ -52,6 +59,17 @@ export default async function AdminSettingsPage() {
             Secrets hanya di env VPS:{" "}
             <code className="text-text-secondary">CRYPTOMUS_*</code> — tidak
             diedit dari browser.
+          </p>
+        </div>
+        <div className="admin-tile">
+          <div className="flex items-center gap-2">
+            <Key size={16} className="text-accent shrink-0" />
+            <p className="admin-tile-title">Pakasir</p>
+          </div>
+          <p className="admin-tile-desc">
+            API key hanya di env VPS:{" "}
+            <code className="text-text-secondary">PAKASIR_API_KEY</code> —
+            admin hanya mengontrol switch checkout.
           </p>
         </div>
         <div className="admin-tile">
