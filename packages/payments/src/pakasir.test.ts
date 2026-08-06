@@ -4,6 +4,9 @@ import {
   assertPakasirTransactionMatches,
   createPakasirPaymentUrl,
   getPakasirTransactionDetail,
+  isPakasirCheckoutEnabled,
+  isPakasirConfigured,
+  isPakasirEnvironmentEnabled,
   parsePakasirWebhook,
 } from "./pakasir.ts";
 
@@ -11,6 +14,33 @@ function restoreEnv(name: string, previous: string | undefined) {
   if (previous === undefined) delete process.env[name];
   else process.env[name] = previous;
 }
+
+test("enables checkout only from the server environment and credentials", () => {
+  const previousEnabled = process.env.PAKASIR_ENABLED;
+  const previousSlug = process.env.PAKASIR_PROJECT_SLUG;
+  const previousKey = process.env.PAKASIR_API_KEY;
+
+  try {
+    process.env.PAKASIR_ENABLED = "false";
+    process.env.PAKASIR_PROJECT_SLUG = "eztopup";
+    process.env.PAKASIR_API_KEY = "server-secret";
+    assert.equal(isPakasirConfigured(), true);
+    assert.equal(isPakasirEnvironmentEnabled(), false);
+    assert.equal(isPakasirCheckoutEnabled(), false);
+
+    process.env.PAKASIR_ENABLED = "true";
+    assert.equal(isPakasirEnvironmentEnabled(), true);
+    assert.equal(isPakasirCheckoutEnabled(), true);
+
+    delete process.env.PAKASIR_API_KEY;
+    assert.equal(isPakasirConfigured(), false);
+    assert.equal(isPakasirCheckoutEnabled(), false);
+  } finally {
+    restoreEnv("PAKASIR_ENABLED", previousEnabled);
+    restoreEnv("PAKASIR_PROJECT_SLUG", previousSlug);
+    restoreEnv("PAKASIR_API_KEY", previousKey);
+  }
+});
 
 test("creates an HTTPS hosted checkout URL without an API key", () => {
   const previous = process.env.PAKASIR_PROJECT_SLUG;

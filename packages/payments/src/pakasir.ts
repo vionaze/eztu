@@ -123,6 +123,10 @@ export function isPakasirConfigured() {
   );
 }
 
+export function isPakasirCheckoutEnabled() {
+  return isPakasirEnvironmentEnabled() && isPakasirConfigured();
+}
+
 export function getPakasirProjectSlug() {
   return validateProjectSlug(requiredEnv("PAKASIR_PROJECT_SLUG"));
 }

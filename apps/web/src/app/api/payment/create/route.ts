@@ -10,6 +10,7 @@ import { prisma } from "@kupon/db";
 import {
   createPakasirPaymentUrl,
   createPaymentInvoice,
+  isPakasirCheckoutEnabled,
 } from "@kupon/payments";
 import { sendOrderNotification } from "@/lib/telegram";
 import { writeAppLog } from "@/lib/app-log";
@@ -30,7 +31,6 @@ import {
 } from "@/lib/clerk";
 import { verifyPricingQuote } from "@/lib/fx";
 import { usdCentsToAmount } from "@/lib/money";
-import { getPakasirPaymentSettings } from "@/lib/settings";
 
 function generateOrderNumber(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -314,11 +314,11 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    const pakasirSettings =
-      !isFree && paymentMethod === "pakasir"
-        ? await getPakasirPaymentSettings()
-        : null;
-    if (pakasirSettings && !pakasirSettings.effectiveEnabled) {
+    if (
+      !isFree &&
+      paymentMethod === "pakasir" &&
+      !isPakasirCheckoutEnabled()
+    ) {
       return NextResponse.json(
         { error: "Pakasir is currently unavailable. Please choose Crypto." },
         { status: 503 }

@@ -434,6 +434,7 @@ export {
   createPakasirPaymentUrl,
   getPakasirProjectSlug,
   getPakasirTransactionDetail,
+  isPakasirCheckoutEnabled,
   isPakasirConfigured,
   isPakasirEnvironmentEnabled,
   parsePakasirWebhook,

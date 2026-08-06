@@ -8,7 +8,7 @@ Offer exactly two checkout choices: Cryptomus for USDT/USDC and Pakasir for Indo
 
 - Keep `PAKASIR_PROJECT_SLUG` and `PAKASIR_API_KEY` server-only.
 - `PAKASIR_ENABLED=false` is the fail-safe environment default.
-- Store the admin-controlled runtime switch in the existing `Setting` table. Pakasir is available only when the environment switch, admin switch, slug, and API key are all valid.
+- Use the server environment as the only availability control. Pakasir is available only when `PAKASIR_ENABLED=true`, the project slug is present, and the API key is present. Do not expose or persist a second payment switch in admin settings.
 - Never expose the API key through public endpoints, client props, logs, URLs, or webhook responses.
 
 ## Checkout Flow

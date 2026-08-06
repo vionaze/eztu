@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
-import { getPakasirPaymentSettings } from "@/lib/settings";
+import { isPakasirCheckoutEnabled } from "@kupon/payments";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const pakasir = await getPakasirPaymentSettings();
   return NextResponse.json(
     {
       crypto: { enabled: true },
-      pakasir: { enabled: pakasir.effectiveEnabled },
+      pakasir: { enabled: isPakasirCheckoutEnabled() },
     },
     { headers: { "Cache-Control": "no-store" } }
   );
