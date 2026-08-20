@@ -32,6 +32,7 @@ import {
   EnvelopeSimple,
 } from "@phosphor-icons/react";
 import { trackProductEvent } from "@/lib/product-analytics-client";
+import { getProductVariantsForMarket } from "@/lib/product-availability";
 
 interface Props {
   product: Product;
@@ -85,11 +86,8 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
   const gameIdLabel = product.gameIdLabel || "User ID";
   const serverIdLabel = product.serverIdLabel || "Zone / Server ID";
   const availableVariants = useMemo(
-    () =>
-      product.variants.filter(
-        (candidate) => candidate.countryCode === country.supplierCode,
-      ),
-    [product.variants, country.supplierCode],
+    () => getProductVariantsForMarket(product, country.supplierCode),
+    [product, country.supplierCode],
   );
   const effectiveSelectedVariant = availableVariants.some(
     (candidate) => candidate.id === selectedVariant,

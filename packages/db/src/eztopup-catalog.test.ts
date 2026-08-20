@@ -32,12 +32,27 @@ test("normalizes an Indonesia top-up row with exact SKU and local image", () => 
     categorySlug: "game-top-up",
     fulfillmentType: "TOP_UP",
     requiresServerId: true,
+    globalAvailability: false,
     countryCode: "id",
     supplierSku: "ML15_2-S121",
     variantName: "17 Diamonds",
     supplierCostIDR: 4_488,
     supplierStatus: "available",
   });
+});
+
+test("marks Mobile Legends Global as worldwide while retaining Indonesia supplier country", () => {
+  const rows = [
+    ["Country", "Category Code", "Product Code", "Product Name", "MODAL"],
+    ["Indonesia", "MLGLO", "MLGLO86-S1", "86 Diamonds", 25_000],
+  ];
+
+  const result = parseCatalogSheetRows("ML Global", rows);
+
+  assert.equal(result.items.length, 1);
+  assert.equal(result.items[0]?.productKey, "mobile-legends-global");
+  assert.equal(result.items[0]?.globalAvailability, true);
+  assert.equal(result.items[0]?.countryCode, "id");
 });
 
 test("accepts header aliases and country-specific voucher rows", () => {

@@ -180,6 +180,7 @@ async function main() {
           categoryId,
           featured: true,
           published: true,
+          globalAvailability: item.globalAvailability,
           fulfillmentType: item.fulfillmentType,
           requiresServerId: item.requiresServerId,
           gameIdLabel: "User ID",

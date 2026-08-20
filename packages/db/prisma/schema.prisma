@@ -79,6 +79,8 @@ model Product {
   promoCodes  PromoCode[]
   featured    Boolean          @default(false)
   published   Boolean          @default(false)
+  /// Global products are purchasable from every visitor market.
+  globalAvailability Boolean   @default(false)
   /// TOP_UP = needs player account fields; VOUCHER = code delivery only
   fulfillmentType ProductFulfillmentType @default(VOUCHER)
   /// When TOP_UP: also require Zone/Server ID (e.g. MLBB)

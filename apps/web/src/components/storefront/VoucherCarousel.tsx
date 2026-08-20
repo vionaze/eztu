@@ -8,6 +8,7 @@ import { useCurrency } from "@/context/CurrencyContext";
 import { FadeUp } from "@/components/motion/StaggerReveal";
 import { ArrowRight, CaretLeft, CaretRight } from "@phosphor-icons/react";
 import { Badge } from "@kupon/ui";
+import { getProductVariantsForMarket } from "@/lib/product-availability";
 
 interface VoucherCarouselProps {
   title: string;
@@ -100,8 +101,9 @@ export default function VoucherCarousel({
         className="flex gap-4 overflow-x-auto hide-scrollbar scroll-smooth pb-2"
       >
         {products.map((product) => {
-          const variants = product.variants.filter(
-            (variant) => variant.countryCode === country.supplierCode,
+          const variants = getProductVariantsForMarket(
+            product,
+            country.supplierCode,
           );
           if (variants.length === 0) return null;
           const lowestPriceIDR = variants.length > 0

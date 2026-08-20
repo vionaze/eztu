@@ -6,6 +6,7 @@ import { useCurrency } from "@/context/CurrencyContext";
 import type { Product } from "@/types/product";
 import { Badge } from "@kupon/ui";
 import { trackProductEvent } from "@/lib/product-analytics-client";
+import { getProductVariantsForMarket } from "@/lib/product-availability";
 
 interface ProductCardProps {
   product: Product;
@@ -14,8 +15,9 @@ interface ProductCardProps {
 
 export default function ProductCard({ product, size = "default" }: ProductCardProps) {
   const { country, formatLocalPrice } = useCurrency();
-  const variants = product.variants.filter(
-    (variant) => variant.countryCode === country.supplierCode,
+  const variants = getProductVariantsForMarket(
+    product,
+    country.supplierCode,
   );
   const hasMultipleVariants = variants.length > 1;
 

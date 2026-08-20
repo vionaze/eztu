@@ -31,10 +31,15 @@ test("defines every catalog product and restricts Valorant to Indonesia", () => 
   const valorant = BLOG_PRODUCT_DEFINITIONS.find(
     (product) => product.key === "valorant",
   );
+  const mobileLegendsGlobal = BLOG_PRODUCT_DEFINITIONS.find(
+    (product) => product.key === "mobile-legends-global",
+  );
   assert.deepEqual(valorant?.markets, ["ID"]);
+  assert.deepEqual(mobileLegendsGlobal?.markets, CATALOG_BLOG_MARKETS);
 
   const defaults = createDefaultProductMarketSettings();
   assert.deepEqual(defaults.valorant, ["ID"]);
+  assert.deepEqual(defaults["mobile-legends-global"], CATALOG_BLOG_MARKETS);
   assert.deepEqual(defaults.steam, ["BR", "DE", "ID", "MY", "PH", "SG", "TH", "US", "VN"]);
 });
 
@@ -60,7 +65,7 @@ test("selects only products enabled for a market and avoids recent products", ()
   assert.equal(indonesia.some((product) => product.key === "valorant"), true);
   assert.deepEqual(
     getEligibleBlogProducts("VN", settings).map((product) => product.key),
-    ["steam"],
+    ["mobile-legends-global", "steam"],
   );
 
   const first = selectBlogProductForMarket("BR", settings, []);

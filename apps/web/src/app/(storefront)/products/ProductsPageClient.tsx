@@ -8,6 +8,7 @@ import { StaggerReveal, StaggerItem, FadeUp } from "@/components/motion/StaggerR
 import { MagnifyingGlass, FunnelSimple } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { useCurrency } from "@/context/CurrencyContext";
+import { isProductAvailableInMarket } from "@/lib/product-availability";
 
 interface Props {
   products: Product[];
@@ -21,9 +22,7 @@ export default function ProductsPageClient({ products, categories }: Props) {
 
   const filtered = useMemo(() => {
     let result = products.filter((product) =>
-      product.variants.some(
-        (variant) => variant.countryCode === country.supplierCode,
-      ),
+      isProductAvailableInMarket(product, country.supplierCode),
     );
 
     if (activeCategory) {

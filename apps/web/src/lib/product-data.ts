@@ -44,6 +44,7 @@ function toProduct(product: ProductWithRelations): Product {
     })),
     featured: product.featured,
     published: product.published,
+    globalAvailability: product.globalAvailability,
     fulfillmentType: product.fulfillmentType || "VOUCHER",
     requiresServerId: Boolean(product.requiresServerId),
     gameIdLabel: product.gameIdLabel || "User ID",

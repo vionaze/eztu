@@ -31,7 +31,7 @@ export const BLOG_PRODUCT_DEFINITIONS: readonly BlogProductDefinition[] = [
   {
     key: "mobile-legends-global",
     name: "Mobile Legends Global",
-    markets: ["ID"],
+    markets: CATALOG_BLOG_MARKETS,
     focus: "when to use the Global catalog and how to verify account identifiers before topping up",
   },
   {

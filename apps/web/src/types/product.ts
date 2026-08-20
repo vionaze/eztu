@@ -32,6 +32,8 @@ export interface Product {
   variants: ProductVariant[];
   featured: boolean;
   published: boolean;
+  /** Global products remain purchasable in every visitor market. */
+  globalAvailability?: boolean;
   /** TOP_UP = account fields; VOUCHER = code only */
   fulfillmentType: ProductFulfillmentType;
   requiresServerId: boolean;

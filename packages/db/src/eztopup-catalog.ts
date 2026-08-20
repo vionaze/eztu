@@ -8,6 +8,7 @@ export type CatalogItem = {
   categorySlug: "game-top-up" | "game-vouchers";
   fulfillmentType: CatalogFulfillmentType;
   requiresServerId: boolean;
+  globalAvailability: boolean;
   countryCode: string;
   supplierSku: string;
   variantName: string;
@@ -27,6 +28,7 @@ type ProductDefinition = {
   categorySlug: CatalogItem["categorySlug"];
   fulfillmentType: CatalogFulfillmentType;
   requiresServerId: boolean;
+  globalAvailability?: boolean;
 };
 
 const COUNTRY_CODES: Record<string, string> = {
@@ -60,6 +62,7 @@ const PRODUCTS: Record<string, ProductDefinition> = {
     categorySlug: "game-top-up",
     fulfillmentType: "TOP_UP",
     requiresServerId: true,
+    globalAvailability: true,
   },
   HOK: {
     key: "honor-of-kings",
@@ -286,6 +289,7 @@ export function parseCatalogSheetRows(
       fulfillmentType,
       requiresServerId:
         fulfillmentType === "TOP_UP" && product.requiresServerId,
+      globalAvailability: Boolean(product.globalAvailability),
       countryCode,
       supplierSku,
       variantName,
