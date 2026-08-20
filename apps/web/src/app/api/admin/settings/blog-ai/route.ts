@@ -15,6 +15,7 @@ import {
   DEFAULT_BLOG_AI_BASE_URL,
   DEFAULT_BLOG_AI_MODEL,
 } from "@/lib/blog-ai-defaults";
+import { normalizeProductMarketSettings } from "@/lib/blog-product-topics";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,7 @@ async function publicSettings() {
     model: settings.model,
     countries: settings.countries,
     autoCountries: settings.autoCountries,
+    productMarkets: settings.productMarkets,
     systemPrompt: settings.systemPrompt,
     hasCustomSystemPrompt: settings.hasCustomSystemPrompt,
     defaultSystemPrompt: DEFAULT_BLOG_AI_SYSTEM_PROMPT,
@@ -70,6 +72,7 @@ export async function PUT(request: Request) {
       model?: string;
       countries?: string[] | string;
       autoCountries?: string[] | string;
+      productMarkets?: unknown;
       systemPrompt?: string;
       resetSystemPrompt?: boolean;
       scheduleEnabled?: boolean;
@@ -127,6 +130,12 @@ export async function PUT(request: Request) {
           .map((c) => String(c).trim().toUpperCase())
           .filter(Boolean)
           .join(",")
+      );
+    }
+    if (body.productMarkets !== undefined) {
+      await setSetting(
+        SETTING_KEYS.AI_PRODUCT_MARKETS,
+        JSON.stringify(normalizeProductMarketSettings(body.productMarkets)),
       );
     }
     if (body.scheduleEnabled !== undefined) {
@@ -192,6 +201,7 @@ export async function PUT(request: Request) {
         articlesPerRun: settings.articlesPerRun,
         autoPublish: settings.autoPublish,
         autoCountries: settings.autoCountries,
+        productMarkets: settings.productMarkets,
       },
     });
 

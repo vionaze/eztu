@@ -8,6 +8,8 @@ const BLOG_MARKET_LANGUAGES: Record<string, string> = {
   EG: "Arabic (Egypt)",
   PH: "Filipino",
   BR: "Portuguese (Brazil)",
+  DE: "German",
+  GB: "English (United Kingdom)",
   ID: "Indonesian",
   US: "English (United States)",
   JO: "Arabic (Jordan)",

@@ -17,7 +17,12 @@ import {
   reconcilePendingBlogImageGenerations,
   startBlogImageGenerations,
 } from "@/lib/blog-image-generation";
-import { buildIndonesianProductTopic } from "@/lib/blog-product-topics";
+import {
+  buildProductBlogTopic,
+  getEnabledBlogMarkets,
+  selectBlogProductForMarket,
+  type ProductMarketSettings,
+} from "@/lib/blog-product-topics";
 
 /**
  * Blog AI auto-publish — still BLOG SCOPE ONLY.
@@ -138,8 +143,11 @@ export async function persistBlogDraft(params: {
   };
 }
 
-/** Build a unique topic seed for a market, avoiding recent titles. */
-async function buildTopicForCountry(country: string): Promise<string> {
+/** Build a unique product topic for a market, avoiding recent titles. */
+async function buildTopicForCountry(
+  country: string,
+  productMarkets: ProductMarketSettings,
+) {
   const recent = await prisma.blogPost.findMany({
     where: { countryCode: country },
     orderBy: { createdAt: "desc" },
@@ -147,33 +155,25 @@ async function buildTopicForCountry(country: string): Promise<string> {
     select: { title: true },
   });
   const avoid = recent.map((r) => r.title).filter(Boolean);
-  const avoidLine =
-    avoid.length > 0
-      ? ` Avoid repeating these existing titles: ${avoid.slice(0, 15).join(" | ")}.`
-      : "";
-
-  if (country.toUpperCase() === "ID") {
-    return (
-      `Tulis artikel SEO yang unik dan bermanfaat dalam Bahasa Indonesia untuk pasar Indonesia. ` +
-      `Topik produk: ${buildIndonesianProductTopic(avoid)}. ` +
-      `Hubungkan secara natural dengan pembelian produk digital di EZTopUp dan pilihan pembayaran yang tersedia, ` +
-      `tanpa membuat klaim harga termurah atau janji yang tidak dapat diverifikasi.` +
-      avoidLine
-    );
-  }
-
-  return (
-    `Write a unique, useful SEO blog article for the ${country} market about ` +
-    `EZTopUp digital game vouchers / mobile game top-ups paid with USDT or USDC. ` +
-    `Pick a specific fresh angle (how-to, comparison, tips, regional payment guide, or game-focused guide).` +
-    avoidLine
-  );
+  const product = selectBlogProductForMarket(country, productMarkets, avoid);
+  if (!product) return null;
+  return {
+    product,
+    topic: buildProductBlogTopic(product, country, avoid),
+  };
 }
 
 export type AutoRunResult = {
   skipped: boolean;
   reason?: string;
-  created: { id: string; slug: string; title: string; country: string; published: boolean }[];
+  created: {
+    id: string;
+    slug: string;
+    title: string;
+    country: string;
+    product: string;
+    published: boolean;
+  }[];
   errors: string[];
   intervalHours: number;
   articlesPerRun: number;
@@ -196,12 +196,16 @@ export async function runBlogAiAutoBatch(opts?: {
 
   const settings = await getBlogAiSettings();
   const publish = opts?.publish ?? settings.autoPublish;
-  const countries =
+  const configuredCountries =
     settings.autoCountries.length > 0
       ? settings.autoCountries
       : settings.countries.length > 0
         ? settings.countries
         : ["GLOBAL"];
+  const countries = getEnabledBlogMarkets(
+    configuredCountries,
+    settings.productMarkets,
+  );
 
   if (!settings.enabled) {
     return {
@@ -231,6 +235,18 @@ export async function runBlogAiAutoBatch(opts?: {
     return {
       skipped: true,
       reason: "AI base URL / API key missing",
+      created: [],
+      errors: [],
+      intervalHours: settings.intervalHours,
+      articlesPerRun: settings.articlesPerRun,
+      countries,
+    };
+  }
+
+  if (countries.length === 0) {
+    return {
+      skipped: true,
+      reason: "No enabled product-market combinations",
       created: [],
       errors: [],
       intervalHours: settings.intervalHours,
@@ -304,9 +320,16 @@ export async function runBlogAiAutoBatch(opts?: {
   for (let i = 0; i < rotation.markets.length; i++) {
     const country = rotation.markets[i];
     try {
-      const topic = await buildTopicForCountry(country);
+      const planned = await buildTopicForCountry(
+        country,
+        settings.productMarkets,
+      );
+      if (!planned) {
+        errors.push(`${country}#${i + 1}: no enabled product`);
+        continue;
+      }
       const draft = await generateBlogArticleDraft({
-        topic,
+        topic: planned.topic,
         countryCode: country,
         language: getBlogLanguageForCountry(country),
       });
@@ -322,6 +345,7 @@ export async function runBlogAiAutoBatch(opts?: {
         slug: post.slug,
         title: post.title,
         country,
+        product: planned.product.key,
         published: post.published,
       });
     } catch (e) {
@@ -352,6 +376,7 @@ export async function runBlogAiAutoBatch(opts?: {
       errors: errors.length,
       publish,
       countries,
+      productMarkets: settings.productMarkets,
       scheduledMarkets: rotation.markets,
       lastAutoCountry: rotation.lastCountry,
     },

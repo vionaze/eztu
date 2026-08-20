@@ -17,6 +17,12 @@ import {
   DEFAULT_BLOG_AI_COUNTRIES,
   DEFAULT_BLOG_AI_MODEL,
 } from "@/lib/blog-ai-defaults";
+import {
+  BLOG_PRODUCT_DEFINITIONS,
+  normalizeProductMarketSettings,
+  type ProductMarketSettings,
+} from "@/lib/blog-product-topics";
+import { getBlogLanguageForCountry } from "@/lib/blog-market";
 
 type Initial = {
   enabled: boolean;
@@ -26,6 +32,7 @@ type Initial = {
   model: string;
   countries: string;
   autoCountries: string[];
+  productMarkets: ProductMarketSettings;
   systemPrompt: string;
   hasCustomSystemPrompt: boolean;
   defaultSystemPrompt: string;
@@ -62,6 +69,9 @@ export default function BlogAiSettingsForm({ initial }: { initial: Initial }) {
   );
   const [autoCountries, setAutoCountries] = useState<string[]>(
     initial.autoCountries.map(normalizeCountryCode).filter(Boolean)
+  );
+  const [productMarkets, setProductMarkets] = useState<ProductMarketSettings>(
+    () => normalizeProductMarketSettings(initial.productMarkets),
   );
   const [newCountry, setNewCountry] = useState("");
   const [systemPrompt, setSystemPrompt] = useState(initial.systemPrompt);
@@ -106,6 +116,29 @@ export default function BlogAiSettingsForm({ initial }: { initial: Initial }) {
     );
   };
 
+  const toggleProductMarket = (productKey: string, market: string) => {
+    setProductMarkets((current) => {
+      const enabled = current[productKey] || [];
+      return {
+        ...current,
+        [productKey]: enabled.includes(market)
+          ? enabled.filter((code) => code !== market)
+          : [...enabled, market],
+      };
+    });
+  };
+
+  const setAllProductMarkets = (
+    productKey: string,
+    markets: readonly string[],
+    enabled: boolean,
+  ) => {
+    setProductMarkets((current) => ({
+      ...current,
+      [productKey]: enabled ? [...markets] : [],
+    }));
+  };
+
   const save = async (opts?: { resetSystemPrompt?: boolean }) => {
     setSaving(true);
     setMessage("");
@@ -118,6 +151,7 @@ export default function BlogAiSettingsForm({ initial }: { initial: Initial }) {
         countries: countryList,
         // Only keep auto flags for countries that still exist in the list
         autoCountries: autoCountries.filter((c) => countryList.includes(c)),
+        productMarkets,
         scheduleEnabled,
         intervalHours,
         articlesPerRun,
@@ -176,6 +210,7 @@ export default function BlogAiSettingsForm({ initial }: { initial: Initial }) {
           model,
           countries: countryList,
           autoCountries: autoCountries.filter((c) => countryList.includes(c)),
+          productMarkets,
           scheduleEnabled,
           intervalHours,
           articlesPerRun,
@@ -205,6 +240,7 @@ export default function BlogAiSettingsForm({ initial }: { initial: Initial }) {
       const created = (data.created || []) as {
         title: string;
         country: string;
+        product?: string;
       }[];
       const errs = (data.errors || []) as string[];
       if (data.skipped) {
@@ -214,7 +250,9 @@ export default function BlogAiSettingsForm({ initial }: { initial: Initial }) {
           `Created ${created.length} article(s)` +
             (created.length
               ? `: ${created
-                  .map((c) => `[${c.country}] ${c.title}`)
+                  .map((c) =>
+                    `[${c.country}${c.product ? `/${c.product}` : ""}] ${c.title}`,
+                  )
                   .join(" · ")}`
               : "") +
             (errs.length ? ` · Errors: ${errs.join("; ")}` : "")
@@ -579,6 +617,94 @@ export default function BlogAiSettingsForm({ initial }: { initial: Initial }) {
             )}
             {running ? "Running…" : "Run now"}
           </Button>
+        </div>
+      </div>
+
+      {/* Product × market language matrix */}
+      <div className="admin-tile">
+        <div>
+          <p className="admin-tile-title">Produk × bahasa / market</p>
+          <p className="admin-tile-desc">
+            Filter kedua untuk auto-blog. Sebuah kombinasi hanya berjalan jika
+            market-nya juga aktif pada “Auto-generate aktif” di atas. Bahasa
+            artikel otomatis mengikuti market; Valorant hanya tersedia untuk ID.
+          </p>
+        </div>
+
+        <div className="grid gap-2 lg:grid-cols-2">
+          {BLOG_PRODUCT_DEFINITIONS.map((product) => {
+            const enabledMarkets = productMarkets[product.key] || [];
+            return (
+              <div
+                key={product.key}
+                className="rounded-xl border border-border/80 bg-bg-elevated/20 p-3 space-y-2"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-semibold text-text-primary">
+                      {product.name}
+                    </p>
+                    <p className="text-[10px] text-text-muted">
+                      {enabledMarkets.length}/{product.markets.length} market aktif
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setAllProductMarkets(product.key, product.markets, true)
+                      }
+                      className="rounded-md border border-emerald-400/25 px-1.5 py-0.5 text-[9px] text-emerald-300 hover:bg-emerald-400/10"
+                    >
+                      Semua
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setAllProductMarkets(product.key, product.markets, false)
+                      }
+                      className="rounded-md border border-border px-1.5 py-0.5 text-[9px] text-text-muted hover:text-red-300"
+                    >
+                      Nonaktifkan
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5">
+                  {product.markets.map((market) => {
+                    const enabled = enabledMarkets.includes(market);
+                    const globallyActive = autoCountries.includes(market);
+                    const language = getBlogLanguageForCountry(market);
+                    return (
+                      <button
+                        key={market}
+                        type="button"
+                        aria-pressed={enabled}
+                        title={`${market}: ${language}${globallyActive ? "" : " — market global sedang nonaktif"}`}
+                        onClick={() => toggleProductMarket(product.key, market)}
+                        className={`rounded-full border px-2 py-1 text-[10px] font-medium transition-colors ${
+                          enabled && globallyActive
+                            ? "border-emerald-400/40 bg-emerald-400/15 text-emerald-200"
+                            : enabled
+                              ? "border-amber-400/30 bg-amber-400/10 text-amber-200/70"
+                              : "border-border text-text-muted hover:text-text-primary"
+                        }`}
+                      >
+                        {enabled ? "✓ " : ""}
+                        {market} · {language}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-text-muted">
+          <span><span className="text-emerald-300">●</span> efektif aktif</span>
+          <span><span className="text-amber-300">●</span> produk aktif, market global nonaktif</span>
+          <span><span className="text-zinc-500">●</span> kombinasi nonaktif</span>
         </div>
       </div>
 

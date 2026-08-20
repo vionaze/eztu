@@ -16,6 +16,8 @@ test("maps every configured blog market to its intended article language", () =>
     EG: "Arabic (Egypt)",
     PH: "Filipino",
     BR: "Portuguese (Brazil)",
+    DE: "German",
+    GB: "English (United Kingdom)",
     ID: "Indonesian",
     US: "English (United States)",
     JO: "Arabic (Jordan)",

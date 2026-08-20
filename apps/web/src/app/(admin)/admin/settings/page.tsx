@@ -28,6 +28,7 @@ export default async function AdminSettingsPage() {
           model: ai.model,
           countries: ai.countries.join(","),
           autoCountries: ai.autoCountries,
+          productMarkets: ai.productMarkets,
           systemPrompt: ai.systemPrompt,
           hasCustomSystemPrompt: ai.hasCustomSystemPrompt,
           defaultSystemPrompt: DEFAULT_BLOG_AI_SYSTEM_PROMPT,

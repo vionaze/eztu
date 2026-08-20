@@ -5,6 +5,7 @@ import {
   DEFAULT_BLOG_AI_COUNTRIES,
   DEFAULT_BLOG_AI_MODEL,
 } from "@/lib/blog-ai-defaults";
+import { parseProductMarketSettings } from "@/lib/blog-product-topics";
 
 export const SETTING_KEYS = {
   AI_ENABLED: "blog.ai.enabled",
@@ -13,6 +14,7 @@ export const SETTING_KEYS = {
   AI_MODEL: "blog.ai.model",
   AI_COUNTRIES: "blog.ai.countries",
   AI_AUTO_COUNTRIES: "blog.ai.autoCountries",
+  AI_PRODUCT_MARKETS: "blog.ai.productMarkets",
   AI_SYSTEM_PROMPT: "blog.ai.systemPrompt",
   /** Master switch for scheduled auto generate+publish */
   AI_SCHEDULE_ENABLED: "blog.ai.scheduleEnabled",
@@ -91,6 +93,7 @@ export async function getBlogAiSettings() {
     model,
     countriesRaw,
     autoCountriesRaw,
+    productMarketsRaw,
     systemPromptRaw,
     scheduleEnabled,
     intervalRaw,
@@ -114,7 +117,11 @@ export async function getBlogAiSettings() {
       SETTING_KEYS.AI_COUNTRIES,
       DEFAULT_BLOG_AI_COUNTRIES.join(",")
     ),
-    getSetting(SETTING_KEYS.AI_AUTO_COUNTRIES, "ID,GLOBAL"),
+    getSetting(
+      SETTING_KEYS.AI_AUTO_COUNTRIES,
+      DEFAULT_BLOG_AI_COUNTRIES.join(","),
+    ),
+    getSetting(SETTING_KEYS.AI_PRODUCT_MARKETS, ""),
     getSetting(SETTING_KEYS.AI_SYSTEM_PROMPT, ""),
     getSetting(
       SETTING_KEYS.AI_SCHEDULE_ENABLED,
@@ -156,6 +163,7 @@ export async function getBlogAiSettings() {
       .split(",")
       .map((c) => c.trim().toUpperCase())
       .filter(Boolean),
+    productMarkets: parseProductMarketSettings(productMarketsRaw),
     systemPrompt,
     hasCustomSystemPrompt: Boolean(systemPromptRaw.trim()),
     scheduleEnabled: isTruthySetting(scheduleEnabled),
