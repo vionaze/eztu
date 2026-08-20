@@ -4,9 +4,15 @@ import React, {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useSyncExternalStore,
 } from "react";
-import { COUNTRIES, Country, DEFAULT_COUNTRY } from "@/lib/currencies";
+import {
+  COUNTRIES,
+  Country,
+  DEFAULT_COUNTRY,
+  findCountryByRegion,
+} from "@/lib/currencies";
 
 interface CurrencyContextType {
   country: Country;
@@ -51,6 +57,36 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     () => DEFAULT_COUNTRY.code
   );
   const country = countryFromCode(countryCode);
+
+  useEffect(() => {
+    if (localStorage.getItem(COUNTRY_STORAGE_KEY)) return;
+    const controller = new AbortController();
+    const localeRegion = navigator.languages
+      .map((language) => language.split("-")[1])
+      .find(Boolean);
+    const localeCountry = findCountryByRegion(localeRegion);
+
+    fetch("/api/location", { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        return (await response.json()) as { countryCode?: string | null };
+      })
+      .then((data) => {
+        if (controller.signal.aborted) return;
+        const detected =
+          findCountryByRegion(data?.countryCode) || localeCountry || DEFAULT_COUNTRY;
+        localStorage.setItem(COUNTRY_STORAGE_KEY, detected.code);
+        window.dispatchEvent(new Event(COUNTRY_CHANGE_EVENT));
+      })
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        const detected = localeCountry || DEFAULT_COUNTRY;
+        localStorage.setItem(COUNTRY_STORAGE_KEY, detected.code);
+        window.dispatchEvent(new Event(COUNTRY_CHANGE_EVENT));
+      });
+
+    return () => controller.abort();
+  }, []);
 
   const setCountry = useCallback((newCountry: Country) => {
     localStorage.setItem(COUNTRY_STORAGE_KEY, newCountry.code);

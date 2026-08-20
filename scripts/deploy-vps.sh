@@ -10,22 +10,25 @@ cd "$ROOT"
 APP_NAME="${PM2_APP_NAME:-eztu}"
 BRANCH="${DEPLOY_BRANCH:-main}"
 
-echo "==> [1/6] git pull origin ${BRANCH}"
+echo "==> [1/7] git pull origin ${BRANCH}"
 git fetch origin "${BRANCH}"
 git checkout "${BRANCH}"
 git pull --ff-only origin "${BRANCH}"
 
-echo "==> [2/6] pnpm install"
+echo "==> [2/7] pnpm install"
 pnpm install --frozen-lockfile 2>/dev/null || pnpm install
 
-echo "==> [3/6] prisma migrate deploy + generate"
+echo "==> [3/7] prisma migrate deploy + generate"
 pnpm db:migrate
 pnpm prisma:generate
 
-echo "==> [4/6] build web"
+echo "==> [4/7] import EZ All Products catalog"
+pnpm products:import:eztopup
+
+echo "==> [5/7] build web"
 pnpm build
 
-echo "==> [5/6] pm2 restart ${APP_NAME}"
+echo "==> [6/7] pm2 restart ${APP_NAME}"
 if pm2 describe "${APP_NAME}" >/dev/null 2>&1; then
   pm2 restart "${APP_NAME}" --update-env
 else
@@ -36,7 +39,7 @@ else
   cd "$ROOT"
 fi
 
-echo "==> [6/6] pm2 save"
+echo "==> [7/7] pm2 save"
 pm2 save
 
 echo ""

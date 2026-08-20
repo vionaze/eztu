@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useCurrency } from "@/context/CurrencyContext";
 import type { Product } from "@/types/product";
 import { Badge } from "@kupon/ui";
+import { trackProductEvent } from "@/lib/product-analytics-client";
 
 interface ProductCardProps {
   product: Product;
@@ -12,22 +13,34 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product, size = "default" }: ProductCardProps) {
-  const { formatLocalPrice } = useCurrency();
-  const hasMultipleVariants = product.variants.length > 1;
+  const { country, formatLocalPrice } = useCurrency();
+  const variants = product.variants.filter(
+    (variant) => variant.countryCode === country.supplierCode,
+  );
+  const hasMultipleVariants = variants.length > 1;
 
-  const lowestPriceIDR = product.variants.length > 0
-    ? Math.min(...product.variants.map((v) => v.priceIDR))
+  const lowestPriceIDR = variants.length > 0
+    ? Math.min(...variants.map((v) => v.priceIDR))
     : 0;
   
-  const lowestPriceUSD = product.variants.length > 0
-    ? Math.min(...product.variants.map((v) => v.priceUSD))
+  const lowestPriceUSD = variants.length > 0
+    ? Math.min(...variants.map((v) => v.priceUSD))
     : 0;
+
+  if (variants.length === 0) return null;
 
   return (
     <Link
       href={`/products/${product.slug}`}
       className="group block rounded-xl md:rounded-2xl overflow-hidden bg-bg-card border border-white/[0.08] transition-all duration-[var(--duration-normal)] ease-[var(--ease-spring)] hover:border-accent/30 hover:shadow-[var(--shadow-glow)] hover:-translate-y-1"
       id={`product-card-${product.slug}`}
+      onClick={() =>
+        trackProductEvent({
+          productId: product.id,
+          eventType: "CARD_CLICK",
+          countryCode: country.supplierCode,
+        })
+      }
     >
       {/* Image — shorter on mobile so cards stay compact */}
       <div
@@ -61,8 +74,8 @@ export default function ProductCard({ product, size = "default" }: ProductCardPr
           </h3>
           <p className="text-[11px] md:text-xs text-text-secondary mt-0.5 md:mt-1 line-clamp-1">
             {hasMultipleVariants
-              ? `${product.variants.length} options`
-              : product.variants[0]?.name || "1 option"}
+              ? `${variants.length} options`
+              : variants[0]?.name || "1 option"}
           </p>
         </div>
       </div>

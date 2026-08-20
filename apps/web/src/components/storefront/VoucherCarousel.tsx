@@ -20,7 +20,7 @@ export default function VoucherCarousel({
   products,
   viewAllHref,
 }: VoucherCarouselProps) {
-  const { formatLocalPrice } = useCurrency();
+  const { country, formatLocalPrice } = useCurrency();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
@@ -100,12 +100,16 @@ export default function VoucherCarousel({
         className="flex gap-4 overflow-x-auto hide-scrollbar scroll-smooth pb-2"
       >
         {products.map((product) => {
-          const lowestPriceIDR = product.variants.length > 0
-            ? Math.min(...product.variants.map((v) => v.priceIDR))
+          const variants = product.variants.filter(
+            (variant) => variant.countryCode === country.supplierCode,
+          );
+          if (variants.length === 0) return null;
+          const lowestPriceIDR = variants.length > 0
+            ? Math.min(...variants.map((v) => v.priceIDR))
             : 0;
             
-          const lowestPriceUSD = product.variants.length > 0
-            ? Math.min(...product.variants.map((v) => v.priceUSD))
+          const lowestPriceUSD = variants.length > 0
+            ? Math.min(...variants.map((v) => v.priceUSD))
             : 0;
 
           return (
@@ -136,7 +140,7 @@ export default function VoucherCarousel({
               </div>
               <div className="px-2.5 py-2 md:px-3 md:py-2.5">
                 <p className="text-[10px] md:text-xs text-text-muted">
-                  {product.variants.length > 1 ? "From" : "Price"}
+                  {variants.length > 1 ? "From" : "Price"}
                 </p>
                 <p className="text-xs sm:text-sm font-semibold text-accent font-[family-name:var(--font-geist-mono)]">
                   {formatLocalPrice(lowestPriceIDR, lowestPriceUSD)}

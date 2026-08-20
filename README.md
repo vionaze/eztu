@@ -68,6 +68,7 @@ git pull --ff-only origin main
 pnpm install
 pnpm db:migrate          # WAJIB — schema DB (categories, blog, logs, dll.)
 pnpm prisma:generate
+pnpm products:import:eztopup # jadikan workbook EZ All Products katalog aktif
 pnpm build
 pm2 restart eztu --update-env
 pm2 save
@@ -83,6 +84,7 @@ pm2 logs eztu --lines 40
 | Admin | https://eztopup.io/admin/dashboard |
 | Categories | https://eztopup.io/admin/categories |
 | Cron blog (if used) | needs `CRON_SECRET` + crontab Bearer header |
+| Supplier price cron | call `/api/cron/product-prices` every 6 hours with `PRODUCT_PRICE_CRON_SECRET` (or `CRON_SECRET`) |
 
 ### If permission errors
 

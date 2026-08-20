@@ -29,8 +29,14 @@ import {
   AuthenticationRequiredError,
   requireClerkUser,
 } from "@/lib/clerk";
-import { verifyPricingQuote } from "@/lib/fx";
+import {
+  createPricingQuote,
+  getUsdIdrRate,
+  signPricingQuote,
+  verifyPricingQuote,
+} from "@/lib/fx";
 import { usdCentsToAmount } from "@/lib/money";
+import { getFreshVariantPricing } from "@/lib/supplier-pricing";
 
 function generateOrderNumber(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -182,6 +188,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!paymentMethod) {
+      return NextResponse.json(
+        { error: "Please choose Crypto or Pakasir as your payment method." },
+        { status: 400 },
+      );
+    }
+
     if (
       quantity === null ||
       !Number.isInteger(quantity) ||
@@ -226,10 +239,31 @@ export async function POST(request: NextRequest) {
       include: { product: true },
     });
 
-    if (!variant || variant.productId !== productId) {
+    if (
+      !variant ||
+      !variant.published ||
+      !variant.product.published ||
+      variant.productId !== productId
+    ) {
       return NextResponse.json(
         { error: "Product or variant not found" },
         { status: 404 }
+      );
+    }
+
+    let freshPricing;
+    try {
+      freshPricing = await getFreshVariantPricing(variant, paymentMethod);
+    } catch (error) {
+      return NextResponse.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "The supplier price is temporarily unavailable.",
+          code: "SUPPLIER_PRICE_UNAVAILABLE",
+        },
+        { status: 503 },
       );
     }
 
@@ -238,15 +272,45 @@ export async function POST(request: NextRequest) {
       quote = verifyPricingQuote(quoteToken, {
         variantId: variant.id,
         quantity,
-        unitPriceIDR: variant.priceIDR,
+        paymentMethod,
+        supplierCostIDR: freshPricing.supplierCostIDR,
+        supplierCountryCode: freshPricing.countryCode,
+        pricingMarkupBps: freshPricing.markupBps,
+        unitPriceIDR: freshPricing.unitPriceIDR,
       });
     } catch (error) {
+      const isExpired =
+        error instanceof Error && error.message.includes("expired");
+      const rate = await getUsdIdrRate();
+      const replacementQuote = createPricingQuote({
+        variantId: variant.id,
+        quantity,
+        paymentMethod,
+        supplierCostIDR: freshPricing.supplierCostIDR,
+        supplierCountryCode: freshPricing.countryCode,
+        pricingMarkupBps: freshPricing.markupBps,
+        unitPriceIDR: freshPricing.unitPriceIDR,
+        rate,
+      });
       return NextResponse.json(
         {
-          error:
-            error instanceof Error && error.message.includes("expired")
-              ? "The exchange-rate quote expired. Please refresh the price and try again."
-              : "The pricing quote is invalid. Please refresh the page.",
+          error: isExpired
+            ? "The price quote expired. Please confirm the refreshed price."
+            : "The supplier price changed. Please confirm the refreshed price.",
+          code: isExpired ? "QUOTE_EXPIRED" : "PRICE_CHANGED",
+          quote: {
+            quoteToken: signPricingQuote(replacementQuote),
+            paymentMethod,
+            unitPriceIDR: replacementQuote.unitPriceIDR,
+            totalIDR: replacementQuote.totalIDR,
+            totalUSDCents: replacementQuote.totalUSDCents,
+            totalUSD: usdCentsToAmount(replacementQuote.totalUSDCents).toFixed(2),
+            usdIdrRate: replacementQuote.usdIdrRate,
+            fxSource: replacementQuote.fxSource,
+            quotedAt: replacementQuote.quotedAt,
+            expiresAt: replacementQuote.expiresAt,
+            supplierPriceVerifiedAt: freshPricing.verifiedAt.toISOString(),
+          },
         },
         { status: 409 }
       );
@@ -308,12 +372,6 @@ export async function POST(request: NextRequest) {
     const totalUSD = usdCentsToAmount(totalUSDCents);
     const isFree = totalUSDCents <= 0;
     const now = new Date();
-    if (!isFree && !paymentMethod) {
-      return NextResponse.json(
-        { error: "Please choose Crypto or Pakasir as your payment method." },
-        { status: 400 }
-      );
-    }
     if (
       !isFree &&
       paymentMethod === "pakasir" &&
@@ -334,7 +392,7 @@ export async function POST(request: NextRequest) {
         email,
         gameId,
         serverId: serverId || null,
-        subtotalIDR: variant.priceIDR * quantity,
+        subtotalIDR: quote.unitPriceIDR * quantity,
         subtotalUSD: totalUSD,
         subtotalUSDCents: totalUSDCents,
         discountIDR: 0,
@@ -343,6 +401,11 @@ export async function POST(request: NextRequest) {
         totalIDR,
         totalUSD,
         totalUSDCents,
+        pricingTier: paymentMethod === "crypto" ? "CRYPTO" : "NON_CRYPTO",
+        supplierCountryCode: freshPricing.countryCode,
+        supplierCostIDR: freshPricing.supplierCostIDR,
+        pricingMarkupBps: freshPricing.markupBps,
+        pricingVerifiedAt: freshPricing.verifiedAt,
         usdIdrRate: quote.usdIdrRate,
         fxSource: quote.fxSource,
         fxQuotedAt: new Date(quote.quotedAt),
@@ -358,9 +421,12 @@ export async function POST(request: NextRequest) {
             productId,
             variantId,
             quantity,
-            priceIDR: variant.priceIDR,
+            priceIDR: quote.unitPriceIDR,
             priceUSD: totalUSD / quantity,
             priceUSDCents: Math.ceil(totalUSDCents / quantity),
+            supplierCostIDR: freshPricing.supplierCostIDR,
+            supplierCountryCode: freshPricing.countryCode,
+            pricingMarkupBps: freshPricing.markupBps,
           },
         },
       },

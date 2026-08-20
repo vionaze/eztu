@@ -26,7 +26,7 @@ export default async function HomePage() {
         {/* Popular Products — asymmetric grid */}
         <ProductGrid
           title="Popular Products"
-          products={popular.slice(0, 5)}
+          products={popular}
           viewAllHref="/products"
           variant="asymmetric"
         />

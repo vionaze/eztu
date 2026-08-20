@@ -17,6 +17,7 @@ import {
   reconcilePendingBlogImageGenerations,
   startBlogImageGenerations,
 } from "@/lib/blog-image-generation";
+import { buildIndonesianProductTopic } from "@/lib/blog-product-topics";
 
 /**
  * Blog AI auto-publish — still BLOG SCOPE ONLY.
@@ -150,6 +151,16 @@ async function buildTopicForCountry(country: string): Promise<string> {
     avoid.length > 0
       ? ` Avoid repeating these existing titles: ${avoid.slice(0, 15).join(" | ")}.`
       : "";
+
+  if (country.toUpperCase() === "ID") {
+    return (
+      `Tulis artikel SEO yang unik dan bermanfaat dalam Bahasa Indonesia untuk pasar Indonesia. ` +
+      `Topik produk: ${buildIndonesianProductTopic(avoid)}. ` +
+      `Hubungkan secara natural dengan pembelian produk digital di EZTopUp dan pilihan pembayaran yang tersedia, ` +
+      `tanpa membuat klaim harga termurah atau janji yang tidak dapat diverifikasi.` +
+      avoidLine
+    );
+  }
 
   return (
     `Write a unique, useful SEO blog article for the ${country} market about ` +

@@ -40,6 +40,21 @@ type SupplierOrderStatusData = {
   transactions?: SupplierTransaction[];
 };
 
+export type SupplierProduct = {
+  code: string;
+  category_code?: string;
+  name: string;
+  provider_code?: string;
+  price: number;
+  country_code?: string;
+  process_time?: number;
+  status: string;
+};
+
+type SupplierProductsData = {
+  products?: SupplierProduct[];
+};
+
 export class SupplierApiError extends Error {
   code?: string;
   httpStatus?: number;
@@ -248,6 +263,7 @@ export async function createSupplierOrder(params: {
   gameId?: string | null;
   serverId?: string | null;
   endUserIpAddress?: string | null;
+  countryCode?: string | null;
 }) {
   const productCode = params.productCode.trim();
   if (!isSupplierProductCode(productCode)) {
@@ -257,7 +273,7 @@ export async function createSupplierOrder(params: {
   const payload: Record<string, unknown> = {
     count_order: params.quantity,
     product_code: productCode,
-    country_code: getSupplierCountryCode(),
+    country_code: params.countryCode?.trim().toLowerCase() || getSupplierCountryCode(),
     partner_reference_id: params.orderNumber,
     override_callback_url: getSupplierOrderCallbackUrl(),
   };
@@ -305,6 +321,83 @@ export async function createSupplierOrder(params: {
     totalPrice,
     raw: result as unknown as Record<string, unknown>,
   };
+}
+
+function normalizeSupplierProduct(value: unknown): SupplierProduct | null {
+  const product = toRecord(value);
+  const code = getString(product.code);
+  const name = getString(product.name);
+  const price = getNumber(product.price);
+  const status = getString(product.status);
+  if (!code || !name || price === null || price <= 0 || !status) return null;
+
+  return {
+    code,
+    name,
+    price: Math.round(price),
+    status: status.toLowerCase(),
+    category_code: getString(product.category_code) || undefined,
+    provider_code: getString(product.provider_code) || undefined,
+    country_code: getString(product.country_code)?.toLowerCase() || undefined,
+    process_time: getNumber(product.process_time) || undefined,
+  };
+}
+
+function normalizeSupplierProducts(value: unknown) {
+  const products = toRecord(value).products;
+  if (!Array.isArray(products)) return [];
+  return products
+    .map(normalizeSupplierProduct)
+    .filter((product): product is SupplierProduct => Boolean(product));
+}
+
+export async function getSupplierProduct(params: {
+  productCode: string;
+  countryCode: string;
+}) {
+  const productCode = params.productCode.trim();
+  if (!isSupplierProductCode(productCode)) {
+    throw new SupplierApiError("Supplier product_code is missing or invalid.");
+  }
+  const search = new URLSearchParams({
+    product_code: productCode,
+    country_code: params.countryCode.trim().toLowerCase(),
+  });
+  const result = await requestSupplier<SupplierProductsData>(
+    `/api/product?${search.toString()}`,
+  );
+  if (result.code !== "SUCCESS") {
+    throw new SupplierApiError(`Supplier product lookup failed: ${result.code}`, {
+      code: result.code,
+      raw: result,
+    });
+  }
+  const product = normalizeSupplierProducts(result.data).find(
+    (candidate) => candidate.code === productCode,
+  );
+  if (!product) {
+    throw new SupplierApiError(`Supplier product not found: ${productCode}`, {
+      code: "PRODUCT_NOT_FOUND",
+      raw: result,
+    });
+  }
+  return product;
+}
+
+export async function getSupplierProducts(countryCode: string) {
+  const search = new URLSearchParams({
+    country_code: countryCode.trim().toLowerCase(),
+  });
+  const result = await requestSupplier<SupplierProductsData>(
+    `/api/all-products?${search.toString()}`,
+  );
+  if (result.code !== "SUCCESS") {
+    throw new SupplierApiError(`Supplier catalog refresh failed: ${result.code}`, {
+      code: result.code,
+      raw: result,
+    });
+  }
+  return normalizeSupplierProducts(result.data);
 }
 
 export async function getSupplierOrderStatus(params: {

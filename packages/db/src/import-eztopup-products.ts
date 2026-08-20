@@ -3,6 +3,12 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config as loadEnv } from "dotenv";
 import xlsx from "xlsx";
+import {
+  calculateSellPriceIDR,
+  deduplicateCatalogItems,
+  parseCatalogSheetRows,
+  type CatalogItem,
+} from "./eztopup-catalog.ts";
 
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const repoRoot = resolve(packageRoot, "../..");
@@ -19,51 +25,20 @@ for (const envFile of envFiles) {
   }
 }
 
-const { prisma } = await import("./index.ts");
-
-type SheetRow = Record<string, unknown>;
-
-type ImportProduct = {
-  id: string;
-  name: string;
-  slug: string;
-  description: string;
-  image: string;
-  categoryId: string;
-  featured: boolean;
-  published: boolean;
-  variants: ImportVariant[];
-};
-
-type ImportVariant = {
-  id: string;
-  name: string;
-  priceIDR: number;
-  priceUSD: number;
-  supplierCostIDR: number;
-  supplierSku: string;
-};
-
-const SOURCE_SHEET = "list product";
-const CATEGORY = {
-  id: "cat-eztopup-game",
-  name: "Game Vouchers",
-  slug: "game-vouchers",
-  image: "/images/categories/game-vouchers.jpg",
-};
-
-const PRODUCT_IMAGE_OVERRIDES: Record<string, string> = {
-  "google-play": "/google-play.webp",
-  "pc-game-pass": "/xbox.png",
-  "playstation-store": "/ps.png",
-  "riot-games": "/riotgames.png",
-  roblox: "/roblox.png",
-  webtoon: "/webtoon.png",
-};
-
-const PRODUCT_NAME_OVERRIDES: Record<string, string> = {
-  webtoon: "LINE Webtoon",
-};
+const CATEGORIES = {
+  "game-top-up": {
+    id: "cat-game-top-up",
+    name: "Game Top-Up",
+    slug: "game-top-up",
+    image: "/mlbb.webp",
+  },
+  "game-vouchers": {
+    id: "cat-game-vouchers",
+    name: "Game Vouchers",
+    slug: "game-vouchers",
+    image: "/steam.webp",
+  },
+} as const;
 
 function slugify(value: string) {
   return value
@@ -76,234 +51,197 @@ function slugify(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
-function getText(row: SheetRow, key: string) {
-  const value = row[key];
-  if (typeof value === "string") return value.trim();
-  if (typeof value === "number") return value.toString();
-  return "";
-}
-
-function parseMoney(value: unknown) {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-
-  if (typeof value !== "string") return null;
-
-  const raw = value
-    .trim()
-    .replace(/rp|idr/gi, "")
-    .replace(/\s/g, "");
-
-  if (!raw) return null;
-
-  const commaIndex = raw.lastIndexOf(",");
-  const dotIndex = raw.lastIndexOf(".");
-  let normalized = raw;
-
-  if (commaIndex > -1 && dotIndex > -1) {
-    normalized =
-      commaIndex > dotIndex
-        ? raw.replace(/\./g, "").replace(",", ".")
-        : raw.replace(/,/g, "");
-  } else if (commaIndex > -1) {
-    const decimals = raw.length - commaIndex - 1;
-    normalized =
-      decimals > 0 && decimals <= 2
-        ? raw.replace(",", ".")
-        : raw.replace(/,/g, "");
-  } else {
-    const parts = raw.split(".");
-    normalized =
-      parts.length > 2 || parts.at(-1)?.length === 3
-        ? raw.replace(/\./g, "")
-        : raw;
-  }
-
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function roundCurrency(value: number) {
-  return Math.round(value);
-}
-
 function getUsdIdrRate() {
   const parsed = Number(process.env.PRODUCT_USD_IDR_RATE || "15500");
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 15500;
 }
 
-function toUSD(priceIDR: number, usdIdrRate: number) {
-  return Number((priceIDR / usdIdrRate).toFixed(2));
-}
-
-function getProductImage(productSlug: string) {
-  return (
-    PRODUCT_IMAGE_OVERRIDES[productSlug] ||
-    `https://picsum.photos/seed/eztopup-${productSlug}/400/500`
-  );
-}
-
-function getProductName(productSlug: string, merchantName: string) {
-  return PRODUCT_NAME_OVERRIDES[productSlug] || merchantName;
-}
-
 function getWorkbookPath() {
   return (
     process.env.EZTOPUP_PRODUCTS_XLSX ||
-    resolve(repoRoot, "data/list-product-for-eztopup.xlsx")
+    resolve(repoRoot, "data/EZ ALL PRODUCTS.xlsx")
   );
 }
 
-function readProductsFromWorkbook() {
-  const workbookPath = getWorkbookPath();
-
+export function readCatalogWorkbook(workbookPath = getWorkbookPath()) {
   if (!existsSync(workbookPath)) {
-    throw new Error(`EZTOPUP workbook not found: ${workbookPath}`);
+    throw new Error(`EZTopUp workbook not found: ${workbookPath}`);
   }
 
   const workbook = xlsx.readFile(workbookPath);
-  const sheet = workbook.Sheets[SOURCE_SHEET];
-
-  if (!sheet) {
-    throw new Error(`Sheet "${SOURCE_SHEET}" not found in ${workbookPath}`);
-  }
-
-  const rows = xlsx.utils.sheet_to_json<SheetRow>(sheet, { defval: null });
-  const usdIdrRate = getUsdIdrRate();
-  const products = new Map<string, ImportProduct>();
+  const parsedItems: CatalogItem[] = [];
   const skipped: string[] = [];
 
-  for (const [index, row] of rows.entries()) {
-    const line = index + 2;
-    const merchantName = getText(row, "Merchant Name");
-    const productName = getText(row, "Product Name");
-    const denom = parseMoney(row.Denom);
-    const supplierCost = parseMoney(row["Cost Price from Merchant"]);
-
-    if (!merchantName || !productName || !denom || !supplierCost) {
-      skipped.push(
-        `row ${line}: missing merchant/product/denom/supplier cost`
-      );
-      continue;
-    }
-
-    const productSlug = slugify(merchantName);
-    const productId = `eztopup-${productSlug}`;
-    const variantSlug = slugify(`${productName}-${roundCurrency(denom)}`);
-    const variant: ImportVariant = {
-      id: `eztopup-${productSlug}-${variantSlug}`,
-      name: productName,
-      priceIDR: roundCurrency(denom),
-      priceUSD: toUSD(roundCurrency(denom), usdIdrRate),
-      supplierCostIDR: roundCurrency(supplierCost),
-      supplierSku: productName,
-    };
-
-    const existing = products.get(productId);
-    if (existing) {
-      existing.variants.push(variant);
-      continue;
-    }
-
-    products.set(productId, {
-      id: productId,
-      name: getProductName(productSlug, merchantName),
-      slug: productSlug,
-      description: `${getProductName(productSlug, merchantName)} digital voucher. Pay with crypto and receive your code after payment confirmation.`,
-      image: getProductImage(productSlug),
-      categoryId: CATEGORY.id,
-      featured: products.size < 6,
-      published: true,
-      variants: [variant],
+  for (const sheetName of workbook.SheetNames) {
+    const sheet = workbook.Sheets[sheetName];
+    if (!sheet) continue;
+    const rows = xlsx.utils.sheet_to_json<unknown[]>(sheet, {
+      header: 1,
+      defval: null,
+      raw: true,
     });
+    const parsed = parseCatalogSheetRows(sheetName, rows);
+    parsedItems.push(...parsed.items);
+    skipped.push(...parsed.skipped);
   }
 
+  const deduplicated = deduplicateCatalogItems(parsedItems);
   return {
-    products: [...products.values()].map((product) => ({
-      ...product,
-      variants: product.variants.sort((a, b) => a.priceIDR - b.priceIDR),
-    })),
-    skipped,
     workbookPath,
+    items: deduplicated.items,
+    duplicates: deduplicated.duplicates,
+    skipped,
   };
 }
 
+function groupCatalog(items: CatalogItem[]) {
+  const products = new Map<string, { item: CatalogItem; variants: CatalogItem[] }>();
+  for (const item of items) {
+    const existing = products.get(item.productKey);
+    if (existing) existing.variants.push(item);
+    else products.set(item.productKey, { item, variants: [item] });
+  }
+  return [...products.values()];
+}
+
 async function main() {
-  const { products, skipped, workbookPath } = readProductsFromWorkbook();
+  const catalog = readCatalogWorkbook();
+  const products = groupCatalog(catalog.items);
+  const countries = [...new Set(catalog.items.map((item) => item.countryCode))].sort();
 
-  await prisma.category.upsert({
-    where: { id: CATEGORY.id },
-    update: CATEGORY,
-    create: CATEGORY,
-  });
+  console.log(
+    `Validated ${products.length} products, ${catalog.items.length} SKU-country rows, ` +
+      `${countries.length} countries from ${catalog.workbookPath}`,
+  );
+  console.log(`Countries: ${countries.join(", ")}`);
+  console.log(
+    `Products: ${products.map(({ item }) => item.productName).sort().join(", ")}`,
+  );
 
-  const legacyProducts = await prisma.product.findMany({
-    where: {
-      id: {
-        startsWith: "prod-",
-      },
-    },
-    select: {
-      id: true,
-      slug: true,
-    },
-  });
-
-  for (const product of legacyProducts) {
-    await prisma.product.update({
-      where: { id: product.id },
-      data: {
-        slug: product.slug.startsWith("legacy-")
-          ? product.slug
-          : `legacy-${product.slug}`,
-        published: false,
-        featured: false,
-      },
-    });
+  if (catalog.duplicates.length > 0) {
+    throw new Error(
+      `Duplicate supplier SKU/country rows: ${catalog.duplicates.slice(0, 20).join(", ")}`,
+    );
   }
 
-  let variantCount = 0;
+  if (process.argv.includes("--dry-run")) {
+    console.log(`Dry run complete. Skipped ${catalog.skipped.length} non-catalog rows.`);
+    return;
+  }
 
-  for (const product of products) {
-    const { variants, ...productData } = product;
+  const { prisma } = await import("./index.ts");
+  const usdIdrRate = getUsdIdrRate();
 
-    await prisma.product.upsert({
-      where: { id: product.id },
-      update: productData,
-      create: productData,
-    });
+  try {
+    await prisma.$transaction(async (tx) => {
+      for (const category of Object.values(CATEGORIES)) {
+        await tx.category.upsert({
+          where: { slug: category.slug },
+          update: category,
+          create: category,
+        });
+      }
 
-    for (const variant of variants) {
-      await prisma.productVariant.upsert({
-        where: { id: variant.id },
-        update: {
-          ...variant,
-          productId: product.id,
+      const productIds = products.map(({ item }) => `eztopup-${item.productKey}`);
+      const productSlugs = products.map(({ item }) => item.productKey);
+      const conflictingProducts = await tx.product.findMany({
+        where: {
+          slug: { in: productSlugs },
+          id: { notIn: productIds },
         },
-        create: {
-          ...variant,
-          productId: product.id,
-        },
+        select: { id: true, slug: true },
       });
-      variantCount += 1;
-    }
-  }
+      for (const product of conflictingProducts) {
+        await tx.product.update({
+          where: { id: product.id },
+          data: {
+            slug: `legacy-${product.slug}-${slugify(product.id).slice(-8)}`,
+            published: false,
+            featured: false,
+          },
+        });
+      }
 
-  console.log(`Imported EZTOPUP catalog from ${workbookPath}`);
-  console.log(`Published ${products.length} products and ${variantCount} variants.`);
+      // Preserve historical rows but hide everything not re-enabled below.
+      await tx.product.updateMany({ data: { published: false, featured: false } });
+      await tx.productVariant.updateMany({ data: { published: false } });
 
-  if (skipped.length > 0) {
-    console.log(`Skipped ${skipped.length} rows:`);
-    for (const reason of skipped) {
-      console.log(`- ${reason}`);
-    }
+      for (const { item, variants } of products) {
+        const productId = `eztopup-${item.productKey}`;
+        const categoryId = CATEGORIES[item.categorySlug].id;
+        const productData = {
+          name: item.productName,
+          slug: item.productKey,
+          description:
+            item.fulfillmentType === "TOP_UP"
+              ? `${item.productName} top-up with live pricing and secure checkout.`
+              : `${item.productName} digital voucher with live pricing and secure delivery.`,
+          image: item.productImage,
+          categoryId,
+          featured: true,
+          published: true,
+          fulfillmentType: item.fulfillmentType,
+          requiresServerId: item.requiresServerId,
+          gameIdLabel: "User ID",
+          serverIdLabel: item.requiresServerId ? "Zone / Server ID" : "Server ID",
+        } as const;
+
+        await tx.product.upsert({
+          where: { id: productId },
+          update: productData,
+          create: { id: productId, ...productData },
+        });
+
+        for (const variant of variants) {
+          const variantId = `eztopup-${item.productKey}-${variant.countryCode}-${slugify(variant.supplierSku)}`;
+          const nonCryptoPriceIDR = calculateSellPriceIDR(
+            variant.supplierCostIDR,
+            "NON_CRYPTO",
+          );
+          await tx.productVariant.upsert({
+            where: { id: variantId },
+            update: {
+              name: variant.variantName,
+              published: true,
+              priceIDR: nonCryptoPriceIDR,
+              priceUSD: Number((nonCryptoPriceIDR / usdIdrRate).toFixed(2)),
+              supplierCostIDR: variant.supplierCostIDR,
+              supplierSku: variant.supplierSku,
+              countryCode: variant.countryCode,
+              supplierStatus: variant.supplierStatus,
+              nonCryptoMarkupBps: 1000,
+              cryptoMarkupBps: 1200,
+              productId,
+            },
+            create: {
+              id: variantId,
+              name: variant.variantName,
+              published: true,
+              priceIDR: nonCryptoPriceIDR,
+              priceUSD: Number((nonCryptoPriceIDR / usdIdrRate).toFixed(2)),
+              supplierCostIDR: variant.supplierCostIDR,
+              supplierSku: variant.supplierSku,
+              countryCode: variant.countryCode,
+              supplierStatus: variant.supplierStatus,
+              nonCryptoMarkupBps: 1000,
+              cryptoMarkupBps: 1200,
+              productId,
+            },
+          });
+        }
+      }
+    });
+
+    console.log(
+      `Published only the workbook catalog. Hidden products include Roblox, Riot Games, and every product absent from Excel.`,
+    );
+    console.log(`Skipped ${catalog.skipped.length} blank/header/malformed rows.`);
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
-main()
-  .catch((error) => {
-    console.error(error);
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

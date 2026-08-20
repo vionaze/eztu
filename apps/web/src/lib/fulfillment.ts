@@ -512,6 +512,10 @@ export async function fulfillPaidOrder(orderId: string) {
         productCode: supplierSku,
         quantity: firstItem.quantity,
         unitPriceIDR: firstItem.variant.supplierCostIDR,
+        countryCode:
+          firstItem.supplierCountryCode ||
+          order.supplierCountryCode ||
+          firstItem.variant.countryCode,
         gameId: order.gameId,
         serverId: order.serverId,
       });

@@ -8,9 +8,13 @@ export type FxRate = {
 };
 
 export type PricingQuote = {
-  version: 1;
+  version: 2;
   variantId: string;
   quantity: number;
+  paymentMethod: "pakasir" | "crypto";
+  supplierCostIDR: number;
+  supplierCountryCode: string;
+  pricingMarkupBps: number;
   unitPriceIDR: number;
   totalIDR: number;
   totalUSDCents: number;
@@ -136,19 +140,37 @@ export async function getUsdIdrRate(): Promise<FxRate> {
 export function createPricingQuote(params: {
   variantId: string;
   quantity: number;
+  paymentMethod: "pakasir" | "crypto";
+  supplierCostIDR: number;
+  supplierCountryCode: string;
+  pricingMarkupBps: number;
   unitPriceIDR: number;
   rate: FxRate;
   now?: Date;
 }): PricingQuote {
-  if (!params.variantId || !Number.isSafeInteger(params.quantity) || params.quantity < 1) {
+  if (
+    !params.variantId ||
+    !Number.isSafeInteger(params.quantity) ||
+    params.quantity < 1 ||
+    !["pakasir", "crypto"].includes(params.paymentMethod) ||
+    !Number.isSafeInteger(params.supplierCostIDR) ||
+    params.supplierCostIDR < 0 ||
+    !params.supplierCountryCode ||
+    !Number.isSafeInteger(params.pricingMarkupBps) ||
+    params.pricingMarkupBps < 0
+  ) {
     throw new Error("Invalid quote product or quantity");
   }
   const now = params.now || new Date();
   const totalIDR = params.unitPriceIDR * params.quantity;
   return {
-    version: 1,
+    version: 2,
     variantId: params.variantId,
     quantity: params.quantity,
+    paymentMethod: params.paymentMethod,
+    supplierCostIDR: params.supplierCostIDR,
+    supplierCountryCode: params.supplierCountryCode,
+    pricingMarkupBps: params.pricingMarkupBps,
     unitPriceIDR: params.unitPriceIDR,
     totalIDR,
     totalUSDCents: idrToUsdCentsCeil(totalIDR, params.rate.usdIdrRate),
@@ -175,7 +197,16 @@ export function signPricingQuote(quote: PricingQuote, secret = quoteSecret()): s
 
 export function verifyPricingQuote(
   token: string,
-  params: { variantId: string; quantity: number; unitPriceIDR: number; now?: Date },
+  params: {
+    variantId: string;
+    quantity: number;
+    paymentMethod: "pakasir" | "crypto";
+    supplierCostIDR: number;
+    supplierCountryCode: string;
+    pricingMarkupBps: number;
+    unitPriceIDR: number;
+    now?: Date;
+  },
   secret = quoteSecret()
 ): PricingQuote {
   const [payload, suppliedSignature, extra] = token.split(".");
@@ -188,9 +219,13 @@ export function verifyPricingQuote(
   const quote = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as PricingQuote;
   const now = params.now || new Date();
   if (
-    quote.version !== 1 ||
+    quote.version !== 2 ||
     quote.variantId !== params.variantId ||
     quote.quantity !== params.quantity ||
+    quote.paymentMethod !== params.paymentMethod ||
+    quote.supplierCostIDR !== params.supplierCostIDR ||
+    quote.supplierCountryCode !== params.supplierCountryCode ||
+    quote.pricingMarkupBps !== params.pricingMarkupBps ||
     quote.unitPriceIDR !== params.unitPriceIDR ||
     quote.totalIDR !== params.unitPriceIDR * params.quantity
   ) {

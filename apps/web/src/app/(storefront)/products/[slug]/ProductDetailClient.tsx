@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -31,6 +31,7 @@ import {
   X,
   EnvelopeSimple,
 } from "@phosphor-icons/react";
+import { trackProductEvent } from "@/lib/product-analytics-client";
 
 interface Props {
   product: Product;
@@ -39,6 +40,8 @@ interface Props {
 
 type LiveQuote = {
   quoteToken: string;
+  paymentMethod: PaymentMethod;
+  unitPriceIDR: number;
   totalIDR: number;
   totalUSDCents: number;
   totalUSD: string;
@@ -53,13 +56,11 @@ type PaymentMethod = "crypto" | "pakasir";
 export default function ProductDetailClient({ product, relatedProducts }: Props) {
   const router = useRouter();
   const pathname = usePathname();
-  const { formatLocalPrice } = useCurrency();
+  const { country, formatLocalPrice } = useCurrency();
   const { isLoaded, isSignedIn } = useAuth();
   const { user } = useUser();
   
-  const [selectedVariant, setSelectedVariant] = useState(
-    product.variants[0]?.id || ""
-  );
+  const [selectedVariant, setSelectedVariant] = useState("");
   const [email, setEmail] = useState("");
   const [emailWasEdited, setEmailWasEdited] = useState(false);
   const [gameId, setGameId] = useState("");
@@ -75,6 +76,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
   const [isQuoteLoading, setIsQuoteLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [pakasirEnabled, setPakasirEnabled] = useState(false);
+  const trackedViewKey = useRef("");
 
   // From DB: TOP_UP products need account fields; VOUCHER skips them
   const requiresGameAccount = product.fulfillmentType === "TOP_UP";
@@ -82,7 +84,21 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
     requiresGameAccount && Boolean(product.requiresServerId);
   const gameIdLabel = product.gameIdLabel || "User ID";
   const serverIdLabel = product.serverIdLabel || "Zone / Server ID";
-  const variant = product.variants.find((v) => v.id === selectedVariant);
+  const availableVariants = useMemo(
+    () =>
+      product.variants.filter(
+        (candidate) => candidate.countryCode === country.supplierCode,
+      ),
+    [product.variants, country.supplierCode],
+  );
+  const effectiveSelectedVariant = availableVariants.some(
+    (candidate) => candidate.id === selectedVariant,
+  )
+    ? selectedVariant
+    : availableVariants[0]?.id || "";
+  const variant = availableVariants.find(
+    (candidate) => candidate.id === effectiveSelectedVariant,
+  );
   const loginEmail = user?.primaryEmailAddress?.emailAddress || "";
   const recipientEmail = emailWasEdited ? email : loginEmail;
   const gameIdReady = gameId.trim().length > 0;
@@ -111,8 +127,20 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
   };
 
   const canStartLogin =
-    isLoaded && Boolean(selectedVariant) && quantity > 0 && gameAccountReady;
+    isLoaded && Boolean(effectiveSelectedVariant) && quantity > 0 && gameAccountReady;
   const canCheckout = canStartLogin && Boolean(recipientEmail.trim());
+
+  useEffect(() => {
+    if (availableVariants.length === 0) return;
+    const key = `${product.id}:${country.supplierCode}`;
+    if (trackedViewKey.current === key) return;
+    trackedViewKey.current = key;
+    trackProductEvent({
+      productId: product.id,
+      eventType: "VIEW",
+      countryCode: country.supplierCode,
+    });
+  }, [availableVariants.length, country.supplierCode, product.id]);
 
   useEffect(() => {
     if (!variant || quantity < 1) {
@@ -127,7 +155,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
     setQuoteError("");
     setLiveQuote(null);
     fetch(
-      `/api/pricing/quote?variantId=${encodeURIComponent(variant.id)}&quantity=${quantity}`,
+      `/api/pricing/quote?variantId=${encodeURIComponent(variant.id)}&quantity=${quantity}&paymentMethod=${paymentMethod || "pakasir"}`,
       { cache: "no-store", signal: controller.signal }
     )
       .then(async (response) => {
@@ -137,13 +165,23 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
       })
       .catch((error) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
-        setQuoteError(error instanceof Error ? error.message : "Unable to load live price");
+        const message =
+          error instanceof Error ? error.message : "Unable to load live price";
+        setQuoteError(message);
+        trackProductEvent({
+          productId: product.id,
+          variantId: variant.id,
+          eventType: "QUOTE_ERROR",
+          countryCode: country.supplierCode,
+          paymentMethod: paymentMethod || "pakasir",
+          reason: message,
+        });
       })
       .finally(() => {
         if (!controller.signal.aborted) setIsQuoteLoading(false);
       });
     return () => controller.abort();
-  }, [variant, quantity]);
+  }, [variant, quantity, paymentMethod, product.id, country.supplierCode]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -196,6 +234,13 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
     }
 
     setIsCheckingOut(true);
+    trackProductEvent({
+      productId: product.id,
+      variantId: variant.id,
+      eventType: "CHECKOUT_SUBMITTED",
+      countryCode: country.supplierCode,
+      paymentMethod,
+    });
 
     try {
       const res = await fetch("/api/payment/create", {
@@ -220,12 +265,33 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
       const data = await res.json();
       
       if (!res.ok) {
+        trackProductEvent({
+          productId: product.id,
+          variantId: variant.id,
+          eventType: "CHECKOUT_REJECTED",
+          countryCode: country.supplierCode,
+          paymentMethod,
+          reason: data.code || data.error || `HTTP_${res.status}`,
+        });
+        if (res.status === 409 && data.quote) {
+          setLiveQuote(data.quote as LiveQuote);
+          alert(data.error || "The price changed. Please confirm the refreshed total.");
+          setIsCheckingOut(false);
+          return;
+        }
         alert(data.error || "Failed to create order");
         setIsCheckingOut(false);
         return;
       }
 
       if (data.isFree || data.checkout?.type === "redirect") {
+        trackProductEvent({
+          productId: product.id,
+          variantId: variant.id,
+          eventType: "PAYMENT_CREATED",
+          countryCode: country.supplierCode,
+          paymentMethod,
+        });
         router.push(data.paymentUrl);
         return;
       }
@@ -237,7 +303,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
     }
   };
 
-  const totalIDR = variant ? Math.max(0, variant.priceIDR * quantity) : 0;
+  const totalIDR = liveQuote?.totalIDR || 0;
   const totalUSD = liveQuote ? liveQuote.totalUSDCents / 100 : 0;
   const isFree =
     quantity > 0 && liveQuote !== null && liveQuote.totalUSDCents <= 0;
@@ -307,8 +373,8 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
             <FadeUp delay={0.1}>
               <div className="space-y-2 md:space-y-3 text-center md:text-left">
                 <Badge variant="muted">
-                  {product.variants.length}{" "}
-                  {product.variants.length === 1 ? "package" : "variants"}
+                  {availableVariants.length}{" "}
+                  {availableVariants.length === 1 ? "package" : "variants"}
                 </Badge>
                 <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-text-primary">
                   {product.name}
@@ -328,24 +394,30 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                 <div
                   className={cn(
                     "grid gap-2",
-                    product.variants.length === 1 ? "grid-cols-1" : "grid-cols-2"
+                    availableVariants.length === 1 ? "grid-cols-1" : "grid-cols-2"
                   )}
                 >
-                  {product.variants.map((v) => (
+                  {availableVariants.map((v) => (
                     <button
                       key={v.id}
                       onClick={() => {
                         setSelectedVariant(v.id);
+                        trackProductEvent({
+                          productId: product.id,
+                          variantId: v.id,
+                          eventType: "VARIANT_SELECTED",
+                          countryCode: country.supplierCode,
+                        });
                       }}
                       className={cn(
                         "relative p-3 rounded-xl border text-left transition-all cursor-pointer",
                         "hover:border-accent/40",
-                        selectedVariant === v.id
+                        effectiveSelectedVariant === v.id
                           ? "border-accent bg-accent/5 shadow-[var(--shadow-glow)]"
                           : "border-border bg-bg-card hover:bg-bg-elevated/50"
                       )}
                     >
-                      {selectedVariant === v.id && (
+                      {effectiveSelectedVariant === v.id && (
                         <motion.div
                           layoutId="variant-check"
                           className="absolute top-2 right-2 w-5 h-5 rounded-full bg-accent flex items-center justify-center"
@@ -364,6 +436,12 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                     </button>
                   ))}
                 </div>
+                {availableVariants.length === 0 ? (
+                  <p className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-sm text-amber-100/90">
+                    This product is not available for {country.name}. Choose another
+                    country to see eligible SKUs.
+                  </p>
+                ) : null}
               </div>
             </FadeUp>
 
@@ -483,7 +561,16 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <button
                       type="button"
-                      onClick={() => setPaymentMethod("crypto")}
+                      onClick={() => {
+                        setPaymentMethod("crypto");
+                        trackProductEvent({
+                          productId: product.id,
+                          variantId: variant?.id,
+                          eventType: "PAYMENT_METHOD_SELECTED",
+                          countryCode: country.supplierCode,
+                          paymentMethod: "crypto",
+                        });
+                      }}
                       className={cn(
                         "rounded-xl border p-3 text-left transition-all",
                         paymentMethod === "crypto"
@@ -501,7 +588,17 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                     </button>
                     <button
                       type="button"
-                      onClick={() => pakasirEnabled && setPaymentMethod("pakasir")}
+                      onClick={() => {
+                        if (!pakasirEnabled) return;
+                        setPaymentMethod("pakasir");
+                        trackProductEvent({
+                          productId: product.id,
+                          variantId: variant?.id,
+                          eventType: "PAYMENT_METHOD_SELECTED",
+                          countryCode: country.supplierCode,
+                          paymentMethod: "pakasir",
+                        });
+                      }}
                       disabled={!pakasirEnabled}
                       className={cn(
                         "rounded-xl border p-3 text-left transition-all",
@@ -540,7 +637,12 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm text-text-secondary">Unit Price</span>
                   <span className="text-sm font-medium text-text-primary font-[family-name:var(--font-geist-mono)]">
-                    {variant ? formatLocalPrice(variant.priceIDR, variant.priceUSD) : "—"}
+                    {variant && liveQuote
+                      ? formatLocalPrice(
+                          liveQuote.unitPriceIDR,
+                          totalUSD / Math.max(1, quantity),
+                        )
+                      : "—"}
                   </span>
                 </div>
 

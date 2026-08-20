@@ -15,7 +15,10 @@ function getStorefrontProductName(name: string) {
 function toProduct(product: ProductWithRelations): Product {
   return {
     id: product.id,
-    name: getStorefrontProductName(product.name),
+    name:
+      product.fulfillmentType === "VOUCHER"
+        ? getStorefrontProductName(product.name)
+        : product.name,
     slug: product.slug,
     description: product.description,
     image: product.image,
@@ -35,6 +38,9 @@ function toProduct(product: ProductWithRelations): Product {
       priceUSD: variant.priceUSD,
       supplierCostIDR: variant.supplierCostIDR,
       supplierSku: variant.supplierSku,
+      countryCode: variant.countryCode,
+      supplierStatus: variant.supplierStatus,
+      supplierPriceUpdatedAt: variant.supplierPriceUpdatedAt?.toISOString() || null,
     })),
     featured: product.featured,
     published: product.published,
@@ -52,6 +58,7 @@ export async function getPublishedProducts() {
     include: {
       category: true,
       variants: {
+        where: { published: true },
         orderBy: [{ priceIDR: "asc" }, { name: "asc" }],
       },
     },
@@ -70,6 +77,7 @@ export async function getStorefrontProductBySlug(slug: string) {
     include: {
       category: true,
       variants: {
+        where: { published: true },
         orderBy: [{ priceIDR: "asc" }, { name: "asc" }],
       },
     },

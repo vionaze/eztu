@@ -7,6 +7,7 @@ import { Input } from "@kupon/ui";
 import { StaggerReveal, StaggerItem, FadeUp } from "@/components/motion/StaggerReveal";
 import { MagnifyingGlass, FunnelSimple } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { useCurrency } from "@/context/CurrencyContext";
 
 interface Props {
   products: Product[];
@@ -14,11 +15,16 @@ interface Props {
 }
 
 export default function ProductsPageClient({ products, categories }: Props) {
+  const { country } = useCurrency();
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
-    let result = products;
+    let result = products.filter((product) =>
+      product.variants.some(
+        (variant) => variant.countryCode === country.supplierCode,
+      ),
+    );
 
     if (activeCategory) {
       result = result.filter((p) => p.categoryId === activeCategory);
@@ -34,7 +40,7 @@ export default function ProductsPageClient({ products, categories }: Props) {
     }
 
     return result;
-  }, [products, activeCategory, search]);
+  }, [products, activeCategory, search, country.supplierCode]);
 
   return (
     <div className="min-h-[100dvh] pt-28 pb-20">

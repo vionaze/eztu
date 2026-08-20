@@ -15,6 +15,10 @@ export interface ProductVariant {
   priceUSD: number;
   supplierCostIDR?: number | null;
   supplierSku?: string | null;
+  /** Present for database-backed catalog variants; legacy fixtures may omit it. */
+  countryCode?: string;
+  supplierStatus?: string | null;
+  supplierPriceUpdatedAt?: string | null;
 }
 
 export interface Product {
