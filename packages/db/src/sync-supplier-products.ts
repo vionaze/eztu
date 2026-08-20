@@ -69,6 +69,7 @@ async function main() {
       id: true,
       supplierSku: true,
       countryCode: true,
+      nonCryptoMarkupBps: true,
       product: { select: { name: true } },
       name: true,
     },
@@ -102,7 +103,7 @@ async function main() {
             supplierCostIDR: Math.round(supplierProduct.price),
             priceIDR: calculateSellPriceIDR(
               Math.round(supplierProduct.price),
-              "NON_CRYPTO",
+              variant.nonCryptoMarkupBps,
             ),
             supplierStatus: supplierProduct.status.toLowerCase(),
             supplierPriceUpdatedAt: new Date(),

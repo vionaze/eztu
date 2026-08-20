@@ -1,5 +1,4 @@
 export type CatalogFulfillmentType = "TOP_UP" | "VOUCHER";
-export type CatalogPaymentTier = "NON_CRYPTO" | "CRYPTO";
 
 export type CatalogItem = {
   productKey: string;
@@ -14,6 +13,8 @@ export type CatalogItem = {
   variantName: string;
   supplierCostIDR: number;
   supplierStatus: string;
+  nonCryptoMarkupBps: number;
+  cryptoMarkupBps: number;
 };
 
 export type ParsedCatalogSheet = {
@@ -144,6 +145,20 @@ const COST_HEADERS = [
   "MODAL",
 ];
 
+const NON_CRYPTO_MARKUP_HEADERS = new Set([
+  "dynamic non crypto",
+  "price dynamic non crypto",
+  "dynamic pricing non crypto",
+]);
+
+const CRYPTO_MARKUP_HEADERS = new Set([
+  "dynamic crypto",
+  "price dynamic crypto",
+  "dynamic pricing crypto",
+]);
+
+const CRYPTO_MARKUP_FALLBACK_BPS = 200;
+
 function normalizedText(value: unknown) {
   return String(value ?? "")
     .trim()
@@ -171,6 +186,30 @@ function readNumber(value: unknown) {
     : cleaned.replace(/,/g, "");
   const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function readMarkupBps(value: unknown) {
+  const percentage = readNumber(value);
+  if (percentage === null || percentage < 0 || percentage > 1) return null;
+  return Math.round(percentage * 10_000);
+}
+
+function findMarkupColumnIndexes(headerRow: unknown[]) {
+  const normalizedHeaders = headerRow.map(normalizedKey);
+  const nonCryptoMatches = normalizedHeaders.flatMap((header, index) =>
+    NON_CRYPTO_MARKUP_HEADERS.has(header) ? [index] : [],
+  );
+  const explicitCryptoIndex = normalizedHeaders.findIndex((header) =>
+    CRYPTO_MARKUP_HEADERS.has(header),
+  );
+
+  return {
+    nonCrypto: nonCryptoMatches[0] ?? -1,
+    crypto:
+      explicitCryptoIndex >= 0
+        ? explicitCryptoIndex
+        : (nonCryptoMatches[1] ?? -1),
+  };
 }
 
 function valueByAliases(
@@ -217,13 +256,15 @@ function inferProductCode(
 
 export function calculateSellPriceIDR(
   supplierCostIDR: number,
-  tier: CatalogPaymentTier,
+  markupBps: number,
 ) {
   if (!Number.isFinite(supplierCostIDR) || supplierCostIDR < 0) {
     throw new Error("Supplier cost must be a non-negative number.");
   }
-  const multiplier = tier === "CRYPTO" ? 1.12 : 1.1;
-  return Math.ceil(supplierCostIDR * multiplier);
+  if (!Number.isSafeInteger(markupBps) || markupBps < 0) {
+    throw new Error("Pricing markup must be a non-negative integer.");
+  }
+  return Math.ceil((supplierCostIDR * (10_000 + markupBps)) / 10_000);
 }
 
 export function parseCatalogSheetRows(
@@ -236,6 +277,23 @@ export function parseCatalogSheetRows(
   const headerIndex = new Map(
     headerRow.map((value, index) => [normalizedKey(value), index]),
   );
+  const markupColumns = findMarkupColumnIndexes(headerRow);
+  const sheetNonCryptoMarkups = new Set(
+    dataRows
+      .map((row) => readMarkupBps(row[markupColumns.nonCrypto]))
+      .filter((value): value is number => value !== null),
+  );
+  const sheetCryptoMarkups = new Set(
+    dataRows
+      .map((row) => readMarkupBps(row[markupColumns.crypto]))
+      .filter((value): value is number => value !== null),
+  );
+  const uniformNonCryptoMarkupBps =
+    sheetNonCryptoMarkups.size === 1
+      ? [...sheetNonCryptoMarkups][0] ?? null
+      : null;
+  const uniformCryptoMarkupBps =
+    sheetCryptoMarkups.size === 1 ? [...sheetCryptoMarkups][0] ?? null : null;
   const items: CatalogItem[] = [];
   const skipped: string[] = [];
 
@@ -258,6 +316,15 @@ export function parseCatalogSheetRows(
     const supplierCost = readNumber(
       valueByAliases(row, headerIndex, COST_HEADERS),
     );
+    const nonCryptoMarkupBps =
+      readMarkupBps(row[markupColumns.nonCrypto]) ?? uniformNonCryptoMarkupBps;
+    const workbookCryptoMarkupBps = readMarkupBps(row[markupColumns.crypto]);
+    const cryptoMarkupBps =
+      workbookCryptoMarkupBps ??
+      uniformCryptoMarkupBps ??
+      (nonCryptoMarkupBps === null
+        ? null
+        : nonCryptoMarkupBps + CRYPTO_MARKUP_FALLBACK_BPS);
 
     if (
       !supplierSku ||
@@ -267,7 +334,9 @@ export function parseCatalogSheetRows(
       !countryCode ||
       !product ||
       supplierCost === null ||
-      supplierCost <= 0
+      supplierCost <= 0 ||
+      nonCryptoMarkupBps === null ||
+      cryptoMarkupBps === null
     ) {
       skipped.push(`${sheetName}:${line}`);
       continue;
@@ -297,6 +366,8 @@ export function parseCatalogSheetRows(
       supplierStatus:
         normalizedKey(valueByAliases(row, headerIndex, ["Status"])) ||
         "available",
+      nonCryptoMarkupBps,
+      cryptoMarkupBps,
     });
   }
 

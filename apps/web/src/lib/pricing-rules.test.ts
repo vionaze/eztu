@@ -1,16 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  calculatePaymentPriceIDR,
-  getPricingMarkupBps,
+  calculatePriceWithMarkupBps,
   isSupplierPurchasable,
 } from "./pricing-rules.ts";
 
-test("Pakasir uses 10% and crypto uses 12%", () => {
-  assert.equal(getPricingMarkupBps("pakasir"), 1000);
-  assert.equal(getPricingMarkupBps("crypto"), 1200);
-  assert.equal(calculatePaymentPriceIDR(10_001, "pakasir"), 11_002);
-  assert.equal(calculatePaymentPriceIDR(10_001, "crypto"), 11_202);
+test("calculates checkout prices from the variant markup", () => {
+  assert.equal(calculatePriceWithMarkupBps(10_001, 850), 10_852);
+  assert.equal(calculatePriceWithMarkupBps(10_001, 1_050), 11_052);
 });
 
 test("only an available supplier SKU is purchasable", () => {

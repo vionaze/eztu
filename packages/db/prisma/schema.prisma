@@ -106,7 +106,7 @@ model ProductVariant {
   countryCode     String      @default("id")
   supplierStatus String?
   supplierPriceUpdatedAt DateTime?
-  /// Global checkout rules: 1000 = 10%, 1200 = 12%.
+  /// Per-SKU checkout markup imported from EZ All Products; 1000 = 10%.
   nonCryptoMarkupBps Int      @default(1000)
   cryptoMarkupBps    Int      @default(1200)
   productId String

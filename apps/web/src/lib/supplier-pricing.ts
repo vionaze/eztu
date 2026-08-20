@@ -7,7 +7,6 @@ import {
   type SupplierProduct,
 } from "@/lib/supplier";
 import {
-  calculatePaymentPriceIDR,
   calculatePriceWithMarkupBps,
   isSupplierPurchasable,
   type CheckoutPaymentMethod,
@@ -89,10 +88,7 @@ export async function getFreshVariantPricing(
     countryCode: variant.countryCode,
     supplierCostIDR: supplierProduct.price,
     supplierStatus: supplierProduct.status,
-    unitPriceIDR:
-      markupBps === 1000 || markupBps === 1200
-        ? calculatePaymentPriceIDR(supplierProduct.price, paymentMethod)
-        : calculatePriceWithMarkupBps(supplierProduct.price, markupBps),
+    unitPriceIDR: calculatePriceWithMarkupBps(supplierProduct.price, markupBps),
     markupBps,
     verifiedAt,
   };

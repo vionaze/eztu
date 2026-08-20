@@ -197,7 +197,7 @@ async function main() {
           const variantId = `eztopup-${item.productKey}-${variant.countryCode}-${slugify(variant.supplierSku)}`;
           const nonCryptoPriceIDR = calculateSellPriceIDR(
             variant.supplierCostIDR,
-            "NON_CRYPTO",
+            variant.nonCryptoMarkupBps,
           );
           await tx.productVariant.upsert({
             where: { id: variantId },
@@ -210,8 +210,8 @@ async function main() {
               supplierSku: variant.supplierSku,
               countryCode: variant.countryCode,
               supplierStatus: variant.supplierStatus,
-              nonCryptoMarkupBps: 1000,
-              cryptoMarkupBps: 1200,
+              nonCryptoMarkupBps: variant.nonCryptoMarkupBps,
+              cryptoMarkupBps: variant.cryptoMarkupBps,
               productId,
             },
             create: {
@@ -224,8 +224,8 @@ async function main() {
               supplierSku: variant.supplierSku,
               countryCode: variant.countryCode,
               supplierStatus: variant.supplierStatus,
-              nonCryptoMarkupBps: 1000,
-              cryptoMarkupBps: 1200,
+              nonCryptoMarkupBps: variant.nonCryptoMarkupBps,
+              cryptoMarkupBps: variant.cryptoMarkupBps,
               productId,
             },
           });
