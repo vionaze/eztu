@@ -20,8 +20,7 @@ import {
 import CountrySelector from "@/components/ui/CountrySelector";
 
 const navLinks = [
-  { label: "Vouchers", href: "/vouchers" },
-  { label: "Products", href: "/products" },
+  { label: "Vouchers", href: "/products" },
   { label: "Blog", href: "/blog" },
 ];
 
