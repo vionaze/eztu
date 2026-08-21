@@ -1,5 +1,7 @@
 import { Prisma, prisma } from "@kupon/db";
 import type { Product } from "@/types/product";
+import { getDisplayPriceUSD } from "./display-price.ts";
+import { getUsdIdrRate } from "./fx.ts";
 
 type ProductWithRelations = Prisma.ProductGetPayload<{
   include: {
@@ -12,7 +14,7 @@ function getStorefrontProductName(name: string) {
   return name.startsWith("E-voucher ") ? name : `E-voucher ${name}`;
 }
 
-function toProduct(product: ProductWithRelations): Product {
+function toProduct(product: ProductWithRelations, usdIdrRate: number | null): Product {
   return {
     id: product.id,
     name:
@@ -35,7 +37,7 @@ function toProduct(product: ProductWithRelations): Product {
       id: variant.id,
       name: variant.name,
       priceIDR: variant.priceIDR,
-      priceUSD: variant.priceUSD,
+      priceUSD: getDisplayPriceUSD(variant.priceIDR, variant.priceUSD, usdIdrRate),
       supplierCostIDR: variant.supplierCostIDR,
       supplierSku: variant.supplierSku,
       countryCode: variant.countryCode,
@@ -53,6 +55,15 @@ function toProduct(product: ProductWithRelations): Product {
   };
 }
 
+async function getDisplayUsdIdrRate() {
+  try {
+    return (await getUsdIdrRate()).usdIdrRate;
+  } catch (error) {
+    console.error("Catalog FX refresh failed; using imported USD fallback", error);
+    return null;
+  }
+}
+
 export async function getPublishedProducts() {
   return prisma.product.findMany({
     where: { published: true },
@@ -68,23 +79,29 @@ export async function getPublishedProducts() {
 }
 
 export async function getStorefrontProducts() {
-  const products = await getPublishedProducts();
-  return products.map(toProduct);
+  const [products, usdIdrRate] = await Promise.all([
+    getPublishedProducts(),
+    getDisplayUsdIdrRate(),
+  ]);
+  return products.map((product) => toProduct(product, usdIdrRate));
 }
 
 export async function getStorefrontProductBySlug(slug: string) {
-  const product = await prisma.product.findFirst({
-    where: { slug, published: true },
-    include: {
-      category: true,
-      variants: {
-        where: { published: true },
-        orderBy: [{ priceIDR: "asc" }, { name: "asc" }],
+  const [product, usdIdrRate] = await Promise.all([
+    prisma.product.findFirst({
+      where: { slug, published: true },
+      include: {
+        category: true,
+        variants: {
+          where: { published: true },
+          orderBy: [{ priceIDR: "asc" }, { name: "asc" }],
+        },
       },
-    },
-  });
+    }),
+    getDisplayUsdIdrRate(),
+  ]);
 
-  return product ? toProduct(product) : null;
+  return product ? toProduct(product, usdIdrRate) : null;
 }
 
 export async function getStorefrontCategories() {
