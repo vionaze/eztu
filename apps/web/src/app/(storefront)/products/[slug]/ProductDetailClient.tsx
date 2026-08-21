@@ -28,12 +28,12 @@ import {
   User,
   Minus,
   Plus,
-  WarningCircle,
   X,
   EnvelopeSimple,
 } from "@phosphor-icons/react";
 import { trackProductEvent } from "@/lib/product-analytics-client";
 import { getProductVariantsForMarket } from "@/lib/product-availability";
+import { getDisplayPriceUSD } from "@/lib/display-price";
 
 interface Props {
   product: Product;
@@ -54,6 +54,11 @@ type LiveQuote = {
 };
 
 type PaymentMethod = "crypto" | "pakasir";
+
+type PakasirDisplayPrice = {
+  priceIDR: number;
+  priceUSD: number;
+};
 
 export default function ProductDetailClient({ product, relatedProducts }: Props) {
   const router = useRouter();
@@ -78,6 +83,9 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
   const [isQuoteLoading, setIsQuoteLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [pakasirEnabled, setPakasirEnabled] = useState(false);
+  const [pakasirDisplayPrices, setPakasirDisplayPrices] = useState<
+    Record<string, PakasirDisplayPrice>
+  >({});
   const trackedViewKey = useRef("");
 
   // From DB: TOP_UP products need account fields; VOUCHER skips them
@@ -98,6 +106,9 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
   const variant = availableVariants.find(
     (candidate) => candidate.id === effectiveSelectedVariant,
   );
+  const selectedPakasirDisplayPrice = variant
+    ? pakasirDisplayPrices[variant.id]
+    : undefined;
   const loginEmail = user?.primaryEmailAddress?.emailAddress || "";
   const recipientEmail = emailWasEdited ? email : loginEmail;
   const gameIdReady = gameId.trim().length > 0;
@@ -160,7 +171,21 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
       .then(async (response) => {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Unable to load live price");
-        setLiveQuote(data as LiveQuote);
+        const quote = data as LiveQuote;
+        setLiveQuote(quote);
+        if (quote.paymentMethod === "pakasir") {
+          setPakasirDisplayPrices((current) => ({
+            ...current,
+            [variant.id]: {
+              priceIDR: quote.unitPriceIDR,
+              priceUSD: getDisplayPriceUSD(
+                quote.unitPriceIDR,
+                variant.priceUSD,
+                quote.usdIdrRate,
+              ),
+            },
+          }));
+        }
       })
       .catch((error) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
@@ -181,6 +206,50 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
       });
     return () => controller.abort();
   }, [variant, quantity, paymentMethod, product.id, country.supplierCode]);
+
+  useEffect(() => {
+    if (
+      !variant ||
+      paymentMethod !== "crypto" ||
+      selectedPakasirDisplayPrice
+    ) {
+      return;
+    }
+
+    const controller = new AbortController();
+    fetch(
+      `/api/pricing/quote?variantId=${encodeURIComponent(variant.id)}&quantity=1&paymentMethod=pakasir&marketCode=${encodeURIComponent(country.supplierCode)}`,
+      { cache: "no-store", signal: controller.signal },
+    )
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) return;
+        const quote = data as LiveQuote;
+        setPakasirDisplayPrices((current) => ({
+          ...current,
+          [variant.id]: {
+            priceIDR: quote.unitPriceIDR,
+            priceUSD: getDisplayPriceUSD(
+              quote.unitPriceIDR,
+              variant.priceUSD,
+              quote.usdIdrRate,
+            ),
+          },
+        }));
+      })
+      .catch((error) => {
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
+          console.error("[Pakasir Display Quote]", error);
+        }
+      });
+
+    return () => controller.abort();
+  }, [
+    country.supplierCode,
+    paymentMethod,
+    selectedPakasirDisplayPrice,
+    variant,
+  ]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -431,7 +500,15 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                       </p>
                       <p className="text-[11px] text-text-muted mt-1.5">Price</p>
                       <p className="text-sm font-semibold text-accent font-[family-name:var(--font-geist-mono)]">
-                        {formatLocalPrice(v.priceIDR, v.priceUSD)}
+                        {pakasirDisplayPrices[v.id]
+                          ? formatLocalPrice(
+                              pakasirDisplayPrices[v.id].priceIDR,
+                              pakasirDisplayPrices[v.id].priceUSD,
+                            )
+                          : formatLocalPrice(v.priceIDR, v.priceUSD)}
+                      </p>
+                      <p className="mt-1 text-[10px] leading-tight text-red-400">
+                        Dynamic price · final price follows Total Price below
                       </p>
                     </button>
                   ))}
@@ -441,23 +518,6 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                     This product is not available for {country.name}. Choose another
                     country to see eligible SKUs.
                   </p>
-                ) : null}
-                {availableVariants.length > 0 ? (
-                  <div
-                    role="note"
-                    className="flex gap-2.5 rounded-xl border border-amber-400/25 bg-amber-400/5 p-3 text-xs leading-relaxed text-amber-100/90"
-                  >
-                    <WarningCircle
-                      size={18}
-                      weight="fill"
-                      className="mt-0.5 shrink-0 text-amber-300"
-                    />
-                    <p>
-                      <strong>Dynamic pricing:</strong> Displayed prices may change
-                      with live supplier prices and exchange rates. The price
-                      confirmed at checkout is final.
-                    </p>
-                  </div>
                 ) : null}
               </div>
             </FadeUp>
