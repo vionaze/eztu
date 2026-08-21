@@ -507,7 +507,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                             )
                           : formatLocalPrice(v.priceIDR, v.priceUSD)}
                       </p>
-                      <p className="mt-1 text-[10px] leading-tight text-red-400">
+                      <p className="mt-1 text-[10px] leading-tight text-amber-300">
                         Dynamic price · final price follows Total Price below
                       </p>
                     </button>
