@@ -13,8 +13,7 @@ for (const envFile of [
   resolve(repoRoot, "apps/web/.env"),
 ]) {
   if (existsSync(envFile)) {
-    loadEnv({ path: envFile });
-    break;
+    loadEnv({ path: envFile, override: false });
   }
 }
 

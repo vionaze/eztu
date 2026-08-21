@@ -24,8 +24,7 @@ const envFiles = [
 
 for (const envFile of envFiles) {
   if (existsSync(envFile)) {
-    loadEnv({ path: envFile });
-    break;
+    loadEnv({ path: envFile, override: false });
   }
 }
 
