@@ -11,11 +11,17 @@ import {
   getFreshVariantPricing,
   SupplierPriceUnavailableError,
 } from "@/lib/supplier-pricing";
+import {
+  getDetectedMarketCode,
+  isProductExcludedFromMarket,
+} from "@/lib/product-availability";
 
 export async function GET(request: NextRequest) {
   try {
     const variantId = request.nextUrl.searchParams.get("variantId")?.trim() || "";
     const quantity = Number(request.nextUrl.searchParams.get("quantity") || "1");
+    const marketCode =
+      request.nextUrl.searchParams.get("marketCode")?.trim().toLowerCase() || "";
     const paymentMethod =
       request.nextUrl.searchParams.get("paymentMethod") === "crypto"
         ? "crypto"
@@ -38,11 +44,23 @@ export async function GET(request: NextRequest) {
         countryCode: true,
         nonCryptoMarkupBps: true,
         cryptoMarkupBps: true,
-        product: { select: { published: true } },
+        product: {
+          select: { published: true, unavailableMarketCodes: true },
+        },
       },
     });
     if (!variant || !variant.published || !variant.product.published) {
       return NextResponse.json({ error: "Product is not available" }, { status: 404 });
+    }
+    const detectedMarketCode = getDetectedMarketCode(request.headers);
+    if (
+      isProductExcludedFromMarket(variant.product, marketCode) ||
+      isProductExcludedFromMarket(variant.product, detectedMarketCode)
+    ) {
+      return NextResponse.json(
+        { error: "Product is not available in this market" },
+        { status: 404 },
+      );
     }
 
     const freshPricing = await getFreshVariantPricing(variant, paymentMethod);

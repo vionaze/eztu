@@ -12,6 +12,7 @@ function catalogItem(overrides: Partial<CatalogItem> = {}): CatalogItem {
     fulfillmentType: "VOUCHER",
     requiresServerId: false,
     globalAvailability: false,
+    unavailableMarketCodes: [],
     countryCode: "id",
     supplierSku: "ROB50IDR-S22",
     variantName: "Roblox Gift Card IDR 50K",

@@ -47,6 +47,7 @@ function toProduct(product: ProductWithRelations, usdIdrRate: number | null): Pr
     featured: product.featured,
     published: product.published,
     globalAvailability: product.globalAvailability,
+    unavailableMarketCodes: product.unavailableMarketCodes,
     fulfillmentType: product.fulfillmentType || "VOUCHER",
     requiresServerId: Boolean(product.requiresServerId),
     gameIdLabel: product.gameIdLabel || "User ID",

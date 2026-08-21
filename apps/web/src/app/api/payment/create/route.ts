@@ -37,6 +37,10 @@ import {
 } from "@/lib/fx";
 import { usdCentsToAmount } from "@/lib/money";
 import { getFreshVariantPricing } from "@/lib/supplier-pricing";
+import {
+  getDetectedMarketCode,
+  isProductExcludedFromMarket,
+} from "@/lib/product-availability";
 
 function generateOrderNumber(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -107,6 +111,10 @@ export async function POST(request: NextRequest) {
       body.paymentMethod === "crypto" || body.paymentMethod === "pakasir"
         ? body.paymentMethod
         : null;
+    const marketCode =
+      typeof body.marketCode === "string"
+        ? body.marketCode.trim().toLowerCase()
+        : "";
     const fraudAssessment = evaluateCheckoutFraud(request, {
       productId,
       variantId,
@@ -248,6 +256,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Product or variant not found" },
         { status: 404 }
+      );
+    }
+    const detectedMarketCode = getDetectedMarketCode(request.headers);
+    if (
+      isProductExcludedFromMarket(variant.product, marketCode) ||
+      isProductExcludedFromMarket(variant.product, detectedMarketCode)
+    ) {
+      return NextResponse.json(
+        { error: "Product is not available in this market" },
+        { status: 404 },
       );
     }
 

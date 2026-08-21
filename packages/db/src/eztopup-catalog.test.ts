@@ -43,6 +43,7 @@ test("normalizes an Indonesia top-up row with exact SKU and local image", () => 
     fulfillmentType: "TOP_UP",
     requiresServerId: true,
     globalAvailability: false,
+    unavailableMarketCodes: [],
     countryCode: "id",
     supplierSku: "ML15_2-S121",
     variantName: "17 Diamonds",
@@ -214,6 +215,8 @@ test("parses Roblox voucher SKU with live supplier cost and margin headers", () 
   assert.equal(result.items.length, 1);
   assert.equal(result.items[0]?.productKey, "roblox-gift-card");
   assert.equal(result.items[0]?.categorySlug, "game-vouchers");
+  assert.equal(result.items[0]?.globalAvailability, true);
+  assert.deepEqual(result.items[0]?.unavailableMarketCodes, ["vn"]);
   assert.equal(result.items[0]?.supplierCostIDR, null);
   assert.equal(result.items[0]?.nonCryptoMarkupBps, 400);
   assert.equal(result.items[0]?.cryptoMarkupBps, 600);

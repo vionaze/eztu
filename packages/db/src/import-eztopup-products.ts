@@ -198,6 +198,7 @@ async function main() {
           featured: true,
           published: true,
           globalAvailability: item.globalAvailability,
+          unavailableMarketCodes: item.unavailableMarketCodes,
           fulfillmentType: item.fulfillmentType,
           requiresServerId: item.requiresServerId,
           gameIdLabel: "User ID",

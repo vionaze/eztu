@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  getDetectedMarketCode,
   getProductVariantsForMarket,
+  isProductExcludedFromMarket,
   isProductAvailableInMarket,
 } from "./product-availability.ts";
 
@@ -32,4 +34,28 @@ test("global products expose their supplier variants in every visitor market", (
     ["global-id-sku"],
   );
   assert.equal(isProductAvailableInMarket(globalProduct, "de"), true);
+});
+
+test("Roblox-style global products remain unavailable in excluded markets", () => {
+  const globalExceptVietnam = {
+    globalAvailability: true,
+    unavailableMarketCodes: ["vn"],
+    variants: [{ id: "roblox-id-sku", countryCode: "id" }],
+  };
+
+  assert.equal(isProductAvailableInMarket(globalExceptVietnam, "us"), true);
+  assert.equal(isProductAvailableInMarket(globalExceptVietnam, "sg"), true);
+  assert.equal(isProductAvailableInMarket(globalExceptVietnam, "VN"), false);
+  assert.deepEqual(getProductVariantsForMarket(globalExceptVietnam, "vn"), []);
+});
+
+test("normalizes the detected request market for server-side enforcement", () => {
+  const headers = new Headers({ "cf-ipcountry": "VN" });
+  const marketCode = getDetectedMarketCode(headers);
+
+  assert.equal(marketCode, "vn");
+  assert.equal(
+    isProductExcludedFromMarket({ unavailableMarketCodes: ["vn"] }, marketCode),
+    true,
+  );
 });

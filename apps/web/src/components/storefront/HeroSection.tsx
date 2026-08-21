@@ -6,6 +6,9 @@ import { Button } from "@kupon/ui";
 import { FadeUp } from "@/components/motion/StaggerReveal";
 import { motion } from "framer-motion";
 import { ArrowRight, Lightning } from "@phosphor-icons/react";
+import type { Product } from "@/types/product";
+import { useCurrency } from "@/context/CurrencyContext";
+import { isProductAvailableInMarket } from "@/lib/product-availability";
 
 const heroCards = [
   {
@@ -17,6 +20,7 @@ const heroCards = [
   },
   {
     name: "Roblox",
+    productSlugs: ["roblox-gift-card", "roblox"],
     price: "$6.45",
     image: "/roblox.png",
     className: "top-[25%] left-[5%] w-[160px]",
@@ -38,8 +42,17 @@ const heroCards = [
   },
 ];
 
-export default function HeroSection() {
+export default function HeroSection({ products }: { products: Product[] }) {
   const router = useRouter();
+  const { country } = useCurrency();
+  const visibleHeroCards = heroCards.filter((card) => {
+    const productSlugs = "productSlugs" in card ? card.productSlugs : undefined;
+    if (!productSlugs) return true;
+    const product = products.find((item) => productSlugs.includes(item.slug));
+    return product
+      ? isProductAvailableInMarket(product, country.supplierCode)
+      : false;
+  });
 
   const scrollToFaq = () => {
     if (typeof window === "undefined") return;
@@ -157,7 +170,7 @@ export default function HeroSection() {
               <div className="absolute inset-0 bg-accent/[0.06] rounded-full blur-[80px]" />
 
               {/* Floating cards */}
-              {heroCards.map((card) => (
+              {visibleHeroCards.map((card) => (
                 <motion.div
                   key={card.name}
                   className={`absolute ${card.className} rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-bg-card`}

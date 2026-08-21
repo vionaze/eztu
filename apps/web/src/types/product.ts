@@ -34,6 +34,8 @@ export interface Product {
   published: boolean;
   /** Global products remain purchasable in every visitor market. */
   globalAvailability?: boolean;
+  /** Lower-case market codes where this product remains unavailable. */
+  unavailableMarketCodes?: string[];
   /** TOP_UP = account fields; VOUCHER = code only */
   fulfillmentType: ProductFulfillmentType;
   requiresServerId: boolean;

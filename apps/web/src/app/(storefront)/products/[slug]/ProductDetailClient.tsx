@@ -154,7 +154,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
     setQuoteError("");
     setLiveQuote(null);
     fetch(
-      `/api/pricing/quote?variantId=${encodeURIComponent(variant.id)}&quantity=${quantity}&paymentMethod=${paymentMethod || "pakasir"}`,
+      `/api/pricing/quote?variantId=${encodeURIComponent(variant.id)}&quantity=${quantity}&paymentMethod=${paymentMethod || "pakasir"}&marketCode=${encodeURIComponent(country.supplierCode)}`,
       { cache: "no-store", signal: controller.signal }
     )
       .then(async (response) => {
@@ -256,6 +256,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
           checkoutStartedAt,
           quoteToken: liveQuote.quoteToken,
           paymentMethod,
+          marketCode: country.supplierCode,
           gameId: requiresGameAccount ? gameId.trim() : "voucher",
           serverId: requiresGameAccount ? serverId.trim() : "",
         }),

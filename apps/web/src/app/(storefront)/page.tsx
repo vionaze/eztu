@@ -16,7 +16,7 @@ export default async function HomePage() {
   return (
     <>
       {/* Hero — Asymmetric split with floating cards */}
-      <HeroSection />
+      <HeroSection products={products} />
 
       {/* Trust/Features Bar — overlapping hero bottom */}
       <FeaturesBar />

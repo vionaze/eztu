@@ -8,6 +8,7 @@ export type CatalogItem = {
   fulfillmentType: CatalogFulfillmentType;
   requiresServerId: boolean;
   globalAvailability: boolean;
+  unavailableMarketCodes: string[];
   countryCode: string;
   supplierSku: string;
   variantName: string;
@@ -30,6 +31,7 @@ type ProductDefinition = {
   fulfillmentType: CatalogFulfillmentType;
   requiresServerId: boolean;
   globalAvailability?: boolean;
+  unavailableMarketCodes?: string[];
   allowMissingSupplierCost?: boolean;
 };
 
@@ -138,6 +140,8 @@ const PRODUCTS: Record<string, ProductDefinition> = {
     categorySlug: "game-vouchers",
     fulfillmentType: "VOUCHER",
     requiresServerId: false,
+    globalAvailability: true,
+    unavailableMarketCodes: ["vn"],
     allowMissingSupplierCost: true,
   },
   LOL: {
@@ -406,6 +410,7 @@ export function parseCatalogSheetRows(
       requiresServerId:
         fulfillmentType === "TOP_UP" && product.requiresServerId,
       globalAvailability: Boolean(product.globalAvailability),
+      unavailableMarketCodes: [...(product.unavailableMarketCodes || [])],
       countryCode,
       supplierSku,
       variantName,
