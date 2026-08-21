@@ -9,6 +9,10 @@ import {
   parseCatalogSheetRows,
   type CatalogItem,
 } from "./eztopup-catalog.ts";
+import {
+  hydrateMissingSupplierCosts,
+  type PricedCatalogItem,
+} from "./supplier-catalog.ts";
 
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const repoRoot = resolve(packageRoot, "../..");
@@ -56,46 +60,52 @@ function getUsdIdrRate() {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 15500;
 }
 
-function getWorkbookPath() {
-  return (
+function getWorkbookPaths() {
+  return [
     process.env.EZTOPUP_PRODUCTS_XLSX ||
-    resolve(repoRoot, "data/EZ ALL PRODUCTS.xlsx")
-  );
+      resolve(repoRoot, "data/EZ ALL PRODUCTS.xlsx"),
+    process.env.EZTOPUP_SUPPLEMENTAL_PRODUCTS_XLSX ||
+      resolve(repoRoot, "data/roblox riot lol.xlsx"),
+  ];
 }
 
-export function readCatalogWorkbook(workbookPath = getWorkbookPath()) {
-  if (!existsSync(workbookPath)) {
-    throw new Error(`EZTopUp workbook not found: ${workbookPath}`);
-  }
-
-  const workbook = xlsx.readFile(workbookPath);
+export function readCatalogWorkbook(
+  workbookPaths: string | string[] = getWorkbookPaths(),
+) {
+  const paths = Array.isArray(workbookPaths) ? workbookPaths : [workbookPaths];
   const parsedItems: CatalogItem[] = [];
   const skipped: string[] = [];
 
-  for (const sheetName of workbook.SheetNames) {
-    const sheet = workbook.Sheets[sheetName];
-    if (!sheet) continue;
-    const rows = xlsx.utils.sheet_to_json<unknown[]>(sheet, {
-      header: 1,
-      defval: null,
-      raw: true,
-    });
-    const parsed = parseCatalogSheetRows(sheetName, rows);
-    parsedItems.push(...parsed.items);
-    skipped.push(...parsed.skipped);
+  for (const workbookPath of paths) {
+    if (!existsSync(workbookPath)) {
+      throw new Error(`EZTopUp workbook not found: ${workbookPath}`);
+    }
+    const workbook = xlsx.readFile(workbookPath);
+    for (const sheetName of workbook.SheetNames) {
+      const sheet = workbook.Sheets[sheetName];
+      if (!sheet) continue;
+      const rows = xlsx.utils.sheet_to_json<unknown[]>(sheet, {
+        header: 1,
+        defval: null,
+        raw: true,
+      });
+      const parsed = parseCatalogSheetRows(sheetName, rows);
+      parsedItems.push(...parsed.items);
+      skipped.push(...parsed.skipped);
+    }
   }
 
   const deduplicated = deduplicateCatalogItems(parsedItems);
   return {
-    workbookPath,
+    workbookPaths: paths,
     items: deduplicated.items,
     duplicates: deduplicated.duplicates,
     skipped,
   };
 }
 
-function groupCatalog(items: CatalogItem[]) {
-  const products = new Map<string, { item: CatalogItem; variants: CatalogItem[] }>();
+function groupCatalog<T extends CatalogItem>(items: T[]) {
+  const products = new Map<string, { item: T; variants: T[] }>();
   for (const item of items) {
     const existing = products.get(item.productKey);
     if (existing) existing.variants.push(item);
@@ -106,16 +116,21 @@ function groupCatalog(items: CatalogItem[]) {
 
 async function main() {
   const catalog = readCatalogWorkbook();
-  const products = groupCatalog(catalog.items);
+  const parsedProducts = groupCatalog(catalog.items);
   const countries = [...new Set(catalog.items.map((item) => item.countryCode))].sort();
+  const livePriceRows = catalog.items.filter(
+    (item) => item.supplierCostIDR === null,
+  ).length;
 
   console.log(
-    `Validated ${products.length} products, ${catalog.items.length} SKU-country rows, ` +
-      `${countries.length} countries from ${catalog.workbookPath}`,
+    `Validated ${parsedProducts.length} products, ${catalog.items.length} SKU-country rows, ` +
+      `${countries.length} countries from ${catalog.workbookPaths.length} workbooks`,
   );
+  console.log(`Workbooks: ${catalog.workbookPaths.join(", ")}`);
+  console.log(`Rows requiring live supplier price: ${livePriceRows}`);
   console.log(`Countries: ${countries.join(", ")}`);
   console.log(
-    `Products: ${products.map(({ item }) => item.productName).sort().join(", ")}`,
+    `Products: ${parsedProducts.map(({ item }) => item.productName).sort().join(", ")}`,
   );
 
   if (catalog.duplicates.length > 0) {
@@ -129,6 +144,9 @@ async function main() {
     return;
   }
 
+  const pricedItems: PricedCatalogItem[] =
+    await hydrateMissingSupplierCosts(catalog.items);
+  const products = groupCatalog(pricedItems);
   const { prisma } = await import("./index.ts");
   const usdIdrRate = getUsdIdrRate();
 
@@ -234,7 +252,7 @@ async function main() {
     });
 
     console.log(
-      `Published only the workbook catalog. Hidden products include Roblox, Riot Games, and every product absent from Excel.`,
+      `Published the combined workbook catalog and hid every product absent from both sources.`,
     );
     console.log(`Skipped ${catalog.skipped.length} blank/header/malformed rows.`);
   } finally {

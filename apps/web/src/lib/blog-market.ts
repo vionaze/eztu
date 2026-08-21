@@ -22,6 +22,7 @@ const BLOG_MARKET_LANGUAGES: Record<string, string> = {
   UZ: "Uzbek",
   GE: "Georgian",
   MY: "Malay",
+  MX: "Spanish (Mexico)",
   TH: "Thai",
   SG: "English (Singapore)",
   VN: "Vietnamese",

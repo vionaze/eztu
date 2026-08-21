@@ -185,6 +185,131 @@ test("inherits a uniform game-sheet markup when a product row is blank", () => {
   assert.equal(result.items[1]?.cryptoMarkupBps, 1_350);
 });
 
+test("parses Roblox voucher SKU with live supplier cost and margin headers", () => {
+  const rows = [
+    [
+      "Country",
+      "Category Code",
+      "Variant",
+      "Product Code",
+      "Product Name",
+      "Reseller Price",
+      "MARGIN NON CRYPTO",
+      "MARGIN CRYPTO",
+    ],
+    [
+      "Indonesia",
+      "ROB",
+      "VOUCHER",
+      "ROB50IDR-S22",
+      "Roblox Gift Card IDR 50K",
+      "Ikutin price terbaru",
+      0.04,
+      0.06,
+    ],
+  ];
+
+  const result = parseCatalogSheetRows("ROBLOX FOR EZ FINAL PRICE", rows);
+
+  assert.equal(result.items.length, 1);
+  assert.equal(result.items[0]?.productKey, "roblox-gift-card");
+  assert.equal(result.items[0]?.categorySlug, "game-vouchers");
+  assert.equal(result.items[0]?.supplierCostIDR, null);
+  assert.equal(result.items[0]?.nonCryptoMarkupBps, 400);
+  assert.equal(result.items[0]?.cryptoMarkupBps, 600);
+});
+
+test("parses League of Legends PC top-up SKU by market", () => {
+  const rows = [
+    [
+      "Country",
+      "Category Code",
+      "Variant",
+      "Product Code",
+      "Product Name",
+      "Reseller Price",
+      "MARGIN NON CRYPTO",
+      "MARGIN CRYPTO",
+    ],
+    [
+      "Philippines",
+      "LOLPC",
+      "DIGITAL",
+      "LOLPC575-S10-ph",
+      "575 RP",
+      "ikutin harga update aja",
+      0.06,
+      0.085,
+    ],
+  ];
+
+  const result = parseCatalogSheetRows("LEAGUE OF LEGENDS PC", rows);
+
+  assert.equal(result.items.length, 1);
+  assert.equal(result.items[0]?.productKey, "league-of-legends-pc");
+  assert.equal(result.items[0]?.categorySlug, "game-top-up");
+  assert.equal(result.items[0]?.countryCode, "ph");
+  assert.equal(result.items[0]?.nonCryptoMarkupBps, 600);
+  assert.equal(result.items[0]?.cryptoMarkupBps, 850);
+});
+
+test("parses Mexico Riot gift card with duplicated legacy margin headers", () => {
+  const rows = [
+    [
+      "Country",
+      "Category Code",
+      "Variant",
+      "Product Code",
+      "Product Name",
+      "Reseller Price",
+      "Status",
+      "MARGIN NON CRYPTO",
+      "MARGIN NON CRYPTO",
+    ],
+    [
+      "Mexico",
+      "RPGC",
+      "VOUCHER",
+      "RPGCMXN99-S16-mx",
+      "Riot Access 99 MXN",
+      "ikutin harga update aja",
+      "available",
+      0.05,
+      0.07,
+    ],
+  ];
+
+  const result = parseCatalogSheetRows("RIOT GAMES", rows);
+
+  assert.equal(result.items.length, 1);
+  assert.equal(result.items[0]?.productKey, "riot-points-gift-card");
+  assert.equal(result.items[0]?.categorySlug, "game-vouchers");
+  assert.equal(result.items[0]?.countryCode, "mx");
+  assert.equal(result.items[0]?.nonCryptoMarkupBps, 500);
+  assert.equal(result.items[0]?.cryptoMarkupBps, 700);
+});
+
+test("keeps Riot rows without workbook margins inactive", () => {
+  const rows = [
+    [
+      "Country",
+      "Category Code",
+      "Variant",
+      "Product Code",
+      "Product Name",
+      "Reseller Price",
+      "MARGIN NON CRYPTO",
+      "MARGIN CRYPTO",
+    ],
+    ["Indonesia", "LOL", "DIGITAL", "LOL425-S10", "425 Cores", 51_623, null, null],
+  ];
+
+  const result = parseCatalogSheetRows("LEAGUE OF LEGENDS PC", rows);
+
+  assert.equal(result.items.length, 0);
+  assert.equal(result.skipped.length, 1);
+});
+
 test("rejects blank, repeated-header, and unknown product rows", () => {
   const rows = [
     [
@@ -197,10 +322,10 @@ test("rejects blank, repeated-header, and unknown product rows", () => {
     ],
     [null, null, null, null],
     ["Country", "Product Code", "Product Name", "MODAL Reseller Price"],
-    ["Indonesia", "ROB100-S1", "Robux 100", 15_000, 0.1, 0.12],
+    ["Indonesia", "UNKNOWN100-S1", "Unknown 100", 15_000, 0.1, 0.12],
   ];
 
-  const result = parseCatalogSheetRows("ROBLOX", rows);
+  const result = parseCatalogSheetRows("UNKNOWN", rows);
 
   assert.equal(result.items.length, 0);
   assert.equal(result.skipped.length, 3);

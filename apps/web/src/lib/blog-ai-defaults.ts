@@ -6,6 +6,7 @@ export const DEFAULT_BLOG_AI_COUNTRIES = [
   "GB",
   "ID",
   "MY",
+  "MX",
   "PH",
   "SA",
   "SG",

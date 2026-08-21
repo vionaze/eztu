@@ -66,6 +66,8 @@ export function buildBlogJsonLd(post: BlogPost) {
         ? "id-ID"
         : post.countryCode === "MY"
           ? "en-MY"
+          : post.countryCode === "MX"
+            ? "es-MX"
           : "en",
   };
 

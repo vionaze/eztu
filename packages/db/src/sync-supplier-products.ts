@@ -3,6 +3,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config as loadEnv } from "dotenv";
 import { calculateSellPriceIDR } from "./eztopup-catalog.ts";
+import { fetchCountryCatalog } from "./supplier-catalog.ts";
 
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const repoRoot = resolve(packageRoot, "../..");
@@ -18,44 +19,6 @@ for (const envFile of [
 }
 
 const { prisma } = await import("./index.ts");
-
-type SupplierProduct = {
-  code: string;
-  name: string;
-  price: number;
-  status: string;
-};
-
-function apiUrl() {
-  const value = process.env.SUPPLIER_API_URL?.trim().replace(/\/+$/, "");
-  if (!value) throw new Error("SUPPLIER_API_URL is required.");
-  return value;
-}
-
-function apiKey() {
-  const value =
-    process.env.SUPPLIER_SECRET_KEY?.trim() ||
-    process.env.SUPPLIER_API_KEY?.trim();
-  if (!value) throw new Error("SUPPLIER_SECRET_KEY is required.");
-  return value;
-}
-
-async function fetchCountryCatalog(countryCode: string) {
-  const url = new URL("/api/all-products", apiUrl());
-  url.searchParams.set("country_code", countryCode);
-  const response = await fetch(url, {
-    headers: { Accept: "application/json", Authorization: `Bearer ${apiKey()}` },
-  });
-  if (!response.ok) throw new Error(`Supplier ${countryCode} returned ${response.status}`);
-  const body = (await response.json()) as {
-    code?: string;
-    data?: { products?: SupplierProduct[] };
-  };
-  if (body.code !== "SUCCESS" || !Array.isArray(body.data?.products)) {
-    throw new Error(`Supplier ${countryCode} returned ${body.code || "invalid response"}`);
-  }
-  return body.data.products;
-}
 
 async function main() {
   const shouldApply = process.argv.includes("--apply");

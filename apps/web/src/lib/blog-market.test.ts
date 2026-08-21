@@ -30,6 +30,7 @@ test("maps every configured blog market to its intended article language", () =>
     UZ: "Uzbek",
     GE: "Georgian",
     MY: "Malay",
+    MX: "Spanish (Mexico)",
     TH: "Thai",
     SG: "English (Singapore)",
     VN: "Vietnamese",

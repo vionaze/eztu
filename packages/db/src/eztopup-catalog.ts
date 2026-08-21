@@ -11,7 +11,7 @@ export type CatalogItem = {
   countryCode: string;
   supplierSku: string;
   variantName: string;
-  supplierCostIDR: number;
+  supplierCostIDR: number | null;
   supplierStatus: string;
   nonCryptoMarkupBps: number;
   cryptoMarkupBps: number;
@@ -30,6 +30,7 @@ type ProductDefinition = {
   fulfillmentType: CatalogFulfillmentType;
   requiresServerId: boolean;
   globalAvailability?: boolean;
+  allowMissingSupplierCost?: boolean;
 };
 
 const COUNTRY_CODES: Record<string, string> = {
@@ -37,6 +38,7 @@ const COUNTRY_CODES: Record<string, string> = {
   germany: "de",
   indonesia: "id",
   malaysia: "my",
+  mexico: "mx",
   philippines: "ph",
   phillipines: "ph",
   "saudi arabia": "sa",
@@ -129,6 +131,49 @@ const PRODUCTS: Record<string, ProductDefinition> = {
     fulfillmentType: "VOUCHER",
     requiresServerId: false,
   },
+  ROB: {
+    key: "roblox-gift-card",
+    name: "Roblox Gift Card",
+    image: "/roblox.png",
+    categorySlug: "game-vouchers",
+    fulfillmentType: "VOUCHER",
+    requiresServerId: false,
+    allowMissingSupplierCost: true,
+  },
+  LOL: {
+    key: "league-of-legends-wild-rift",
+    name: "League of Legends: Wild Rift",
+    image: "/riotgames.png",
+    categorySlug: "game-top-up",
+    fulfillmentType: "TOP_UP",
+    requiresServerId: false,
+  },
+  LOLPC: {
+    key: "league-of-legends-pc",
+    name: "League of Legends PC",
+    image: "/riotgames.png",
+    categorySlug: "game-top-up",
+    fulfillmentType: "TOP_UP",
+    requiresServerId: false,
+    allowMissingSupplierCost: true,
+  },
+  VLOL: {
+    key: "league-of-legends-voucher",
+    name: "League of Legends Voucher",
+    image: "/riotgames.png",
+    categorySlug: "game-vouchers",
+    fulfillmentType: "VOUCHER",
+    requiresServerId: false,
+  },
+  RPGC: {
+    key: "riot-points-gift-card",
+    name: "Riot Points Gift Card",
+    image: "/riotgames.png",
+    categorySlug: "game-vouchers",
+    fulfillmentType: "VOUCHER",
+    requiresServerId: false,
+    allowMissingSupplierCost: true,
+  },
 };
 
 const PRODUCT_CODE_PREFIXES = Object.keys(PRODUCTS).sort(
@@ -149,12 +194,14 @@ const NON_CRYPTO_MARKUP_HEADERS = new Set([
   "dynamic non crypto",
   "price dynamic non crypto",
   "dynamic pricing non crypto",
+  "margin non crypto",
 ]);
 
 const CRYPTO_MARKUP_HEADERS = new Set([
   "dynamic crypto",
   "price dynamic crypto",
   "dynamic pricing crypto",
+  "margin crypto",
 ]);
 
 const CRYPTO_MARKUP_FALLBACK_BPS = 200;
@@ -333,8 +380,8 @@ export function parseCatalogSheetRows(
       normalizedKey(variantName) === "product name" ||
       !countryCode ||
       !product ||
-      supplierCost === null ||
-      supplierCost <= 0 ||
+      (supplierCost === null && !product.allowMissingSupplierCost) ||
+      (supplierCost !== null && supplierCost <= 0) ||
       nonCryptoMarkupBps === null ||
       cryptoMarkupBps === null
     ) {
@@ -362,7 +409,8 @@ export function parseCatalogSheetRows(
       countryCode,
       supplierSku,
       variantName,
-      supplierCostIDR: Math.round(supplierCost),
+      supplierCostIDR:
+        supplierCost === null ? null : Math.round(supplierCost),
       supplierStatus:
         normalizedKey(valueByAliases(row, headerIndex, ["Status"])) ||
         "available",
