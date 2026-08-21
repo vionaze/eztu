@@ -10,7 +10,6 @@ import {
 const footerLinks = {
   products: [
     { label: "Vouchers", href: "/vouchers" },
-    { label: "All Products", href: "/products" },
   ],
   company: [
     { label: "About Us", href: "/" },

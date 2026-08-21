@@ -16,7 +16,7 @@ interface Props {
   categories: Category[];
 }
 
-export default function ProductsPageClient({ products, categories }: Props) {
+export default function VouchersPageClient({ products, categories }: Props) {
   const { country } = useCurrency();
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -49,7 +49,7 @@ export default function ProductsPageClient({ products, categories }: Props) {
         <FadeUp>
           <div className="mb-10">
             <h1 className="text-3xl md:text-5xl font-bold tracking-tighter text-text-primary">
-              All Products
+              All Vouchers
             </h1>
             <p className="text-base text-text-secondary mt-3 max-w-[55ch] leading-relaxed">
               Browse our collection of digital vouchers and e-vouchers for
@@ -64,7 +64,7 @@ export default function ProductsPageClient({ products, categories }: Props) {
             {/* Search */}
             <div className="w-full sm:w-80">
               <Input
-                placeholder="Search products..."
+                placeholder="Search vouchers..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 icon={<MagnifyingGlass size={16} />}
@@ -109,7 +109,7 @@ export default function ProductsPageClient({ products, categories }: Props) {
 
         {/* Results count */}
         <p className="text-xs text-text-muted mb-6">
-          Showing {filtered.length} of {products.length} products
+          Showing {filtered.length} of {products.length} vouchers
         </p>
 
         {/* Product Grid */}
@@ -135,7 +135,7 @@ export default function ProductsPageClient({ products, categories }: Props) {
                 <MagnifyingGlass size={24} className="text-text-muted" />
               </div>
               <h3 className="text-lg font-semibold text-text-primary mb-1">
-                No products found
+                No vouchers found
               </h3>
               <p className="text-sm text-text-secondary max-w-[35ch]">
                 Try adjusting your search or filter to find what you&apos;re
