@@ -5,7 +5,6 @@ import type { Product, Category } from "@/types/product";
 import ProductCard from "@/components/storefront/ProductCard";
 import { Input } from "@kupon/ui";
 import { FadeUp } from "@/components/motion/StaggerReveal";
-import { motion } from "framer-motion";
 import { MagnifyingGlass, FunnelSimple } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { useCurrency } from "@/context/CurrencyContext";
@@ -114,20 +113,11 @@ export default function VouchersPageClient({ products, categories }: Props) {
 
         {/* Product Grid */}
         {filtered.length > 0 ? (
-          <motion.div
-            layout
-            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5"
-          >
+          <div className="grid grid-cols-2 items-start gap-3 md:grid-cols-3 md:gap-5 lg:grid-cols-4">
             {filtered.map((product) => (
-              <motion.div
-                key={product.id}
-                layout="position"
-                transition={{ layout: { duration: 0.2 } }}
-              >
-                <ProductCard product={product} />
-              </motion.div>
+              <ProductCard key={product.id} product={product} />
             ))}
-          </motion.div>
+          </div>
         ) : (
           <FadeUp>
             <div className="flex flex-col items-center justify-center py-24 text-center">
