@@ -4,7 +4,8 @@ import { useState, useMemo } from "react";
 import type { Product, Category } from "@/types/product";
 import ProductCard from "@/components/storefront/ProductCard";
 import { Input } from "@kupon/ui";
-import { StaggerReveal, StaggerItem, FadeUp } from "@/components/motion/StaggerReveal";
+import { FadeUp } from "@/components/motion/StaggerReveal";
+import { motion } from "framer-motion";
 import { MagnifyingGlass, FunnelSimple } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { useCurrency } from "@/context/CurrencyContext";
@@ -113,13 +114,20 @@ export default function ProductsPageClient({ products, categories }: Props) {
 
         {/* Product Grid */}
         {filtered.length > 0 ? (
-          <StaggerReveal className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
+          <motion.div
+            layout
+            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5"
+          >
             {filtered.map((product) => (
-              <StaggerItem key={product.id}>
+              <motion.div
+                key={product.id}
+                layout="position"
+                transition={{ layout: { duration: 0.2 } }}
+              >
                 <ProductCard product={product} />
-              </StaggerItem>
+              </motion.div>
             ))}
-          </StaggerReveal>
+          </motion.div>
         ) : (
           <FadeUp>
             <div className="flex flex-col items-center justify-center py-24 text-center">
