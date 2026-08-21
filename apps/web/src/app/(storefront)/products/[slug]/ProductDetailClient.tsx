@@ -28,6 +28,7 @@ import {
   User,
   Minus,
   Plus,
+  WarningCircle,
   X,
   EnvelopeSimple,
 } from "@phosphor-icons/react";
@@ -440,6 +441,23 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                     country to see eligible SKUs.
                   </p>
                 ) : null}
+                {availableVariants.length > 0 ? (
+                  <div
+                    role="note"
+                    className="flex gap-2.5 rounded-xl border border-amber-400/25 bg-amber-400/5 p-3 text-xs leading-relaxed text-amber-100/90"
+                  >
+                    <WarningCircle
+                      size={18}
+                      weight="fill"
+                      className="mt-0.5 shrink-0 text-amber-300"
+                    />
+                    <p>
+                      <strong>Dynamic pricing:</strong> Displayed prices may change
+                      with live supplier prices and exchange rates. The price
+                      confirmed at checkout is final.
+                    </p>
+                  </div>
+                ) : null}
               </div>
             </FadeUp>
 
@@ -553,7 +571,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                       Choose payment method
                     </p>
                     <p className="mt-0.5 text-xs text-text-muted">
-                      Prices are locked and verified by the server.
+                      A fresh final quote is generated and verified by the server.
                     </p>
                   </div>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
