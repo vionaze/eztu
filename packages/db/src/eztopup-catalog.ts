@@ -178,6 +178,15 @@ const PRODUCTS: Record<string, ProductDefinition> = {
     requiresServerId: false,
     allowMissingSupplierCost: true,
   },
+  BNGC: {
+    key: "binance-gift-card",
+    name: "Binance Gift Card",
+    image: "/binance-gift-card.webp",
+    categorySlug: "game-vouchers",
+    fulfillmentType: "VOUCHER",
+    requiresServerId: false,
+    allowMissingSupplierCost: true,
+  },
 };
 
 const PRODUCT_CODE_PREFIXES = Object.keys(PRODUCTS).sort(

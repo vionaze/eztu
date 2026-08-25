@@ -292,6 +292,56 @@ test("parses Mexico Riot gift card with duplicated legacy margin headers", () =>
   assert.equal(result.items[0]?.cryptoMarkupBps, 700);
 });
 
+test("parses Binance gift card SKU with live supplier cost and exact margins", () => {
+  const rows = [
+    [
+      "Country",
+      "Category Code",
+      "Category Name",
+      "Variant",
+      "Group Product Code",
+      "Product Code",
+      "Product Name",
+      "SLA In Mins",
+      "Margin non crypto",
+      "margin Crypto",
+    ],
+    [
+      "Malaysia",
+      "BNGC",
+      "Binance Gift Card",
+      "VOUCHER",
+      "BNGCBTC20",
+      "BNGCBTC20-S16-my",
+      "Binance BTC Gift Card 20 USD",
+      "INSTANT",
+      0.1086,
+      0.1386,
+    ],
+  ];
+
+  const result = parseCatalogSheetRows("binance gift card", rows);
+
+  assert.equal(result.items.length, 1);
+  assert.deepEqual(result.items[0], {
+    productKey: "binance-gift-card",
+    productName: "Binance Gift Card",
+    productImage: "/binance-gift-card.webp",
+    categorySlug: "game-vouchers",
+    fulfillmentType: "VOUCHER",
+    requiresServerId: false,
+    globalAvailability: false,
+    unavailableMarketCodes: [],
+    countryCode: "my",
+    supplierSku: "BNGCBTC20-S16-my",
+    variantName: "Binance BTC Gift Card 20 USD",
+    supplierCostIDR: null,
+    supplierStatus: "available",
+    nonCryptoMarkupBps: 1_086,
+    cryptoMarkupBps: 1_386,
+  });
+});
+
 test("keeps Riot rows without workbook margins inactive", () => {
   const rows = [
     [
