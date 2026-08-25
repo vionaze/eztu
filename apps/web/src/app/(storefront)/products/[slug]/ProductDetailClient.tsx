@@ -412,17 +412,17 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
           </div>
         </FadeUp>
 
-        {/* Main Content — compact image on mobile, asymmetric on desktop */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-5 md:gap-12">
+        {/* Main Content — compact media column, wider purchase controls */}
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-[minmax(220px,320px)_minmax(0,1fr)] md:items-start md:gap-6 xl:grid-cols-[minmax(280px,380px)_minmax(0,1fr)] xl:gap-8">
           {/* Left — Product Image */}
-          <FadeUp className="md:col-span-3">
-            <div className="relative mx-auto w-full max-w-[180px] sm:max-w-[240px] md:max-w-none aspect-square md:aspect-[3/4] rounded-xl md:rounded-2xl overflow-hidden border border-white/[0.08]">
+          <FadeUp className="md:self-start">
+            <div className="relative mx-auto aspect-[4/5] w-full max-w-[180px] overflow-hidden rounded-xl border border-white/[0.08] sm:max-w-[240px] md:max-w-[320px] md:rounded-2xl xl:max-w-[380px]">
               <Image
                 src={product.image}
                 alt={product.name}
                 fill
                 className="object-cover"
-                sizes="(max-width: 640px) 180px, (max-width: 768px) 240px, 60vw"
+                sizes="(max-width: 640px) 180px, (max-width: 768px) 240px, (max-width: 1280px) 320px, 380px"
                 priority
               />
               {/* Gradient overlay */}
@@ -438,7 +438,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
           </FadeUp>
 
           {/* Right — Product Details */}
-          <div className="md:col-span-2 space-y-5 md:space-y-6">
+          <div className="min-w-0 space-y-4 md:space-y-5">
             <FadeUp delay={0.1}>
               <div className="space-y-2 md:space-y-3 text-center md:text-left">
                 <Badge variant="muted">
@@ -463,7 +463,9 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                 <div
                   className={cn(
                     "grid gap-2",
-                    availableVariants.length === 1 ? "grid-cols-1" : "grid-cols-2"
+                    availableVariants.length === 1
+                      ? "grid-cols-1"
+                      : "grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
                   )}
                 >
                   {availableVariants.map((v) => (
@@ -479,7 +481,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                         });
                       }}
                       className={cn(
-                        "relative p-3 rounded-xl border text-left transition-all cursor-pointer",
+                        "relative min-w-0 cursor-pointer rounded-lg border p-2.5 text-left transition-all",
                         "hover:border-accent/40",
                         effectiveSelectedVariant === v.id
                           ? "border-accent bg-accent/5 shadow-[var(--shadow-glow)]"
@@ -489,17 +491,17 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                       {effectiveSelectedVariant === v.id && (
                         <motion.div
                           layoutId="variant-check"
-                          className="absolute top-2 right-2 w-5 h-5 rounded-full bg-accent flex items-center justify-center"
+                          className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent"
                           transition={{ type: "spring", stiffness: 300, damping: 25 }}
                         >
-                          <Check size={12} weight="bold" className="text-bg-primary" />
+                          <Check size={10} weight="bold" className="text-bg-primary" />
                         </motion.div>
                       )}
-                      <p className="text-sm font-medium text-text-primary pr-6">
+                      <p className="line-clamp-2 min-h-[2.125rem] pr-5 text-xs font-medium leading-snug text-text-primary">
                         {v.name}
                       </p>
-                      <p className="text-[11px] text-text-muted mt-1.5">Price</p>
-                      <p className="text-sm font-semibold text-accent font-[family-name:var(--font-geist-mono)]">
+                      <p className="mt-1 text-[13px] font-semibold leading-tight text-accent font-[family-name:var(--font-geist-mono)]">
+                        <span className="sr-only">Price: </span>
                         {pakasirDisplayPrices[v.id]
                           ? formatLocalPrice(
                               pakasirDisplayPrices[v.id].priceIDR,
@@ -507,7 +509,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                             )
                           : formatLocalPrice(v.priceIDR, v.priceUSD)}
                       </p>
-                      <p className="mt-1 text-[10px] leading-tight text-amber-300">
+                      <p className="mt-1 text-[9px] leading-[1.15] text-amber-300">
                         Dynamic price · final price follows Total Price below
                       </p>
                     </button>
