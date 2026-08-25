@@ -36,6 +36,18 @@ test("global products expose their supplier variants in every visitor market", (
   assert.equal(isProductAvailableInMarket(globalProduct, "de"), true);
 });
 
+test("the Global storefront hides regional products and exposes global products", () => {
+  const regionalProduct = { globalAvailability: false, variants };
+  const globalProduct = {
+    globalAvailability: true,
+    variants: [{ id: "global-id-sku", countryCode: "id" }],
+  };
+
+  assert.deepEqual(getProductVariantsForMarket(regionalProduct, "global"), []);
+  assert.equal(isProductAvailableInMarket(regionalProduct, "global"), false);
+  assert.equal(isProductAvailableInMarket(globalProduct, "global"), true);
+});
+
 test("Roblox-style global products remain unavailable in excluded markets", () => {
   const globalExceptVietnam = {
     globalAvailability: true,

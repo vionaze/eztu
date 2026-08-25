@@ -12,6 +12,7 @@ import {
   Country,
   DEFAULT_COUNTRY,
   findCountryByRegion,
+  resolveCountryByRegion,
 } from "@/lib/currencies";
 
 interface CurrencyContextType {
@@ -21,7 +22,9 @@ interface CurrencyContextType {
 }
 
 const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
-const COUNTRY_STORAGE_KEY = "kupon_country";
+// Versioned so visitors previously defaulted to Indonesia are detected again
+// and correctly moved to Global when their region is unsupported.
+const COUNTRY_STORAGE_KEY = "kupon_country_v2";
 const COUNTRY_CHANGE_EVENT = "kupon-country-change";
 
 function countryFromCode(code: string | null) {
@@ -73,8 +76,9 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
       })
       .then((data) => {
         if (controller.signal.aborted) return;
-        const detected =
-          findCountryByRegion(data?.countryCode) || localeCountry || DEFAULT_COUNTRY;
+        const detected = data?.countryCode
+          ? resolveCountryByRegion(data.countryCode)
+          : localeCountry || DEFAULT_COUNTRY;
         localStorage.setItem(COUNTRY_STORAGE_KEY, detected.code);
         window.dispatchEvent(new Event(COUNTRY_CHANGE_EVENT));
       })

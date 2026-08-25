@@ -88,43 +88,45 @@ export default function CountrySelector({
             transition={{ type: "spring", stiffness: 360, damping: 28 }}
             className={cn(
               // High z so it floats above header / mobile chrome
-              "absolute right-0 top-full mt-2 w-56 p-1.5 rounded-2xl",
+              "absolute right-0 top-full mt-2 w-56 overflow-hidden rounded-2xl",
               "bg-bg-elevated border border-border shadow-[var(--shadow-glow)]",
-              "z-[80] max-h-[min(70vh,320px)] overflow-y-auto overscroll-contain"
+              "z-[80]"
             )}
           >
-            <div className="space-y-1">
-              {COUNTRIES.map((c) => (
-                <button
-                  key={c.code}
-                  type="button"
-                  role="option"
-                  aria-selected={country.code === c.code}
-                  onClick={() => {
-                    setCountry(c);
-                    setIsOpen(false);
-                  }}
-                  className={cn(
-                    "w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm transition-all text-left",
-                    country.code === c.code
-                      ? "bg-accent/10 text-accent font-medium"
-                      : "text-text-secondary hover:bg-white/5 hover:text-text-primary"
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-lg leading-none">{c.flag}</span>
-                    <span>
-                      {c.name}
-                      <span className="text-text-muted ml-1.5 text-xs">
-                        {c.currency}
+            <div className="max-h-[min(70vh,320px)] overflow-y-auto overscroll-contain p-1.5 pr-2 [scrollbar-gutter:stable]">
+              <div className="space-y-1">
+                {COUNTRIES.map((c) => (
+                  <button
+                    key={c.code}
+                    type="button"
+                    role="option"
+                    aria-selected={country.code === c.code}
+                    onClick={() => {
+                      setCountry(c);
+                      setIsOpen(false);
+                    }}
+                    className={cn(
+                      "w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm transition-all text-left",
+                      country.code === c.code
+                        ? "bg-accent/10 text-accent font-medium"
+                        : "text-text-secondary hover:bg-white/5 hover:text-text-primary"
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-lg leading-none">{c.flag}</span>
+                      <span>
+                        {c.name}
+                        <span className="text-text-muted ml-1.5 text-xs">
+                          {c.currency}
+                        </span>
                       </span>
-                    </span>
-                  </div>
-                  {country.code === c.code ? (
-                    <Check size={16} weight="bold" />
-                  ) : null}
-                </button>
-              ))}
+                    </div>
+                    {country.code === c.code ? (
+                      <Check size={16} weight="bold" />
+                    ) : null}
+                  </button>
+                ))}
+              </div>
             </div>
           </motion.div>
         ) : null}

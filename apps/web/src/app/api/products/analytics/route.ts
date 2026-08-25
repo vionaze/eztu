@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
       variantId,
       eventType,
       visitorHash,
-      countryCode: text(body?.countryCode, 2).toLowerCase() || null,
+      countryCode: text(body?.countryCode, 12).toLowerCase() || null,
       paymentMethod: text(body?.paymentMethod, 20) || null,
       reason: text(body?.reason, 160) || null,
     },

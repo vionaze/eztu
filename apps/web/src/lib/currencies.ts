@@ -1,4 +1,5 @@
 export type CountryCode =
+  | "GLOBAL"
   | "BR"
   | "DE"
   | "GB"
@@ -23,7 +24,18 @@ export interface Country {
   flag: string;
 }
 
+export const GLOBAL_COUNTRY: Country = {
+  code: "GLOBAL",
+  supplierCode: "global",
+  name: "Global",
+  currency: "USD",
+  symbol: "$",
+  rateToUSD: 1,
+  flag: "🌐",
+};
+
 export const COUNTRIES: Country[] = [
+  GLOBAL_COUNTRY,
   { code: "ID", supplierCode: "id", name: "Indonesia", currency: "IDR", symbol: "Rp", rateToUSD: 16_000, flag: "🇮🇩" },
   { code: "SG", supplierCode: "sg", name: "Singapore", currency: "SGD", symbol: "S$", rateToUSD: 1.35, flag: "🇸🇬" },
   { code: "MY", supplierCode: "my", name: "Malaysia", currency: "MYR", symbol: "RM", rateToUSD: 4.45, flag: "🇲🇾" },
@@ -38,7 +50,7 @@ export const COUNTRIES: Country[] = [
   { code: "SA", supplierCode: "sa", name: "Saudi Arabia", currency: "SAR", symbol: "ر.س", rateToUSD: 3.75, flag: "🇸🇦" },
 ];
 
-export const DEFAULT_COUNTRY = COUNTRIES.find((country) => country.code === "ID")!;
+export const DEFAULT_COUNTRY = GLOBAL_COUNTRY;
 
 export function findCountryBySupplierCode(code: string | null | undefined) {
   const normalized = code?.trim().toLowerCase();
@@ -48,4 +60,8 @@ export function findCountryBySupplierCode(code: string | null | undefined) {
 export function findCountryByRegion(code: string | null | undefined) {
   const normalized = code?.trim().toUpperCase();
   return COUNTRIES.find((country) => country.code === normalized) || null;
+}
+
+export function resolveCountryByRegion(code: string | null | undefined) {
+  return findCountryByRegion(code) || GLOBAL_COUNTRY;
 }
