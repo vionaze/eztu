@@ -98,6 +98,17 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
     () => getProductVariantsForMarket(product, country.supplierCode),
     [product, country.supplierCode],
   );
+  const visibleRelatedProducts = useMemo(
+    () =>
+      relatedProducts.filter(
+        (relatedProduct) =>
+          getProductVariantsForMarket(
+            relatedProduct,
+            country.supplierCode,
+          ).length > 0,
+      ),
+    [relatedProducts, country.supplierCode],
+  );
   const effectiveSelectedVariant = availableVariants.some(
     (candidate) => candidate.id === selectedVariant,
   )
@@ -862,17 +873,17 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
         </div>
 
         {/* Related Products */}
-        {relatedProducts.length > 0 && (
-          <section className="mt-20">
+        {visibleRelatedProducts.length > 0 && (
+          <section className="mt-14 md:mt-16">
             <FadeUp>
-              <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-text-primary mb-8">
+              <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-text-primary mb-6">
                 Related Products
               </h2>
             </FadeUp>
-            <StaggerReveal className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-5">
-              {relatedProducts.map((p) => (
-                <StaggerItem key={p.id}>
-                  <ProductCard product={p} />
+            <StaggerReveal className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 md:gap-4">
+              {visibleRelatedProducts.map((p) => (
+                <StaggerItem key={p.id} className="min-w-0 w-full">
+                  <ProductCard product={p} size="compact" />
                 </StaggerItem>
               ))}
             </StaggerReveal>

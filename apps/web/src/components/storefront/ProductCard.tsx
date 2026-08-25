@@ -10,7 +10,7 @@ import { getProductVariantsForMarket } from "@/lib/product-availability";
 
 interface ProductCardProps {
   product: Product;
-  size?: "default" | "large";
+  size?: "default" | "large" | "compact";
 }
 
 export default function ProductCard({ product, size = "default" }: ProductCardProps) {
@@ -49,6 +49,8 @@ export default function ProductCard({ product, size = "default" }: ProductCardPr
         className={`relative overflow-hidden ${
           size === "large"
             ? "aspect-[5/4] sm:aspect-[4/5] md:aspect-[3/4]"
+            : size === "compact"
+              ? "aspect-[5/4] sm:aspect-square"
             : "aspect-square sm:aspect-[4/5]"
         }`}
       >
@@ -57,7 +59,13 @@ export default function ProductCard({ product, size = "default" }: ProductCardPr
           alt={product.name}
           fill
           className="object-cover transition-transform duration-500 ease-[var(--ease-spring)] group-hover:scale-105"
-          sizes={size === "large" ? "(max-width: 768px) 100vw, 50vw" : "(max-width: 768px) 45vw, 25vw"}
+          sizes={
+            size === "large"
+              ? "(max-width: 768px) 100vw, 50vw"
+              : size === "compact"
+                ? "(max-width: 640px) 50vw, (max-width: 1280px) 25vw, 20vw"
+                : "(max-width: 768px) 45vw, 25vw"
+          }
         />
         {/* Gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-bg-primary/90 via-bg-primary/20 to-transparent" />

@@ -12,33 +12,39 @@ import { isProductAvailableInMarket } from "@/lib/product-availability";
 
 const heroCards = [
   {
-    name: "Google Play",
-    price: "$6.45",
-    image: "/google-play.webp",
-    className: "top-[5%] right-[10%] w-[180px]",
+    name: "Binance Gift Card",
+    productSlugs: ["binance-gift-card"],
+    image: "/binance-gift-card.webp",
+    className: "top-[7%] left-[8%] w-[124px] xl:w-[136px]",
     animation: { y: [0, -12, 0], duration: 4, delay: 0 },
   },
   {
     name: "Roblox",
     productSlugs: ["roblox-gift-card", "roblox"],
-    price: "$6.45",
     image: "/roblox.png",
-    className: "top-[25%] left-[5%] w-[160px]",
+    className: "top-[3%] right-[8%] w-[122px] xl:w-[134px]",
     animation: { y: [0, 10, 0], duration: 5, delay: 0.5 },
   },
   {
-    name: "Riot Games",
-    price: "$9.68",
-    image: "/riotgames.png",
-    className: "bottom-[15%] right-[5%] w-[170px]",
+    name: "PlayStation Store",
+    productSlugs: ["playstation-store"],
+    image: "/ps.png",
+    className: "top-[35%] left-[35%] w-[128px] xl:w-[140px]",
     animation: { y: [0, -8, 0], duration: 4.5, delay: 1 },
   },
   {
-    name: "Playstation Store",
-    price: "$6.45",
-    image: "/ps.png",
-    className: "bottom-[30%] left-[20%] w-[150px]",
+    name: "Valorant",
+    productSlugs: ["valorant"],
+    image: "/valorant.webp",
+    className: "bottom-[3%] left-[8%] w-[122px] xl:w-[134px]",
     animation: { y: [0, 14, 0], duration: 5.5, delay: 0.8 },
+  },
+  {
+    name: "Mobile Legends",
+    productSlugs: ["mobile-legends", "mobile-legends-global"],
+    image: "/mlbb.webp",
+    className: "bottom-[7%] right-[7%] w-[124px] xl:w-[136px]",
+    animation: { y: [0, -10, 0], duration: 4.8, delay: 0.35 },
   },
 ];
 
@@ -46,12 +52,11 @@ export default function HeroSection({ products }: { products: Product[] }) {
   const router = useRouter();
   const { country } = useCurrency();
   const visibleHeroCards = heroCards.filter((card) => {
-    const productSlugs = "productSlugs" in card ? card.productSlugs : undefined;
-    if (!productSlugs) return true;
-    const product = products.find((item) => productSlugs.includes(item.slug));
-    return product
-      ? isProductAvailableInMarket(product, country.supplierCode)
-      : false;
+    return products.some(
+      (product) =>
+        card.productSlugs.includes(product.slug) &&
+        isProductAvailableInMarket(product, country.supplierCode),
+    );
   });
 
   const scrollToFaq = () => {
@@ -64,7 +69,7 @@ export default function HeroSection({ products }: { products: Product[] }) {
   };
 
   return (
-    <section className="relative min-h-[100dvh] flex items-center overflow-hidden">
+    <section className="relative min-h-[640px] md:min-h-[680px] flex items-center overflow-hidden">
       {/* Background layers — heavy blurs only on md+ (mobile GPU killer) */}
       <div className="absolute inset-0">
         {/* Gradient base */}
@@ -86,10 +91,10 @@ export default function HeroSection({ products }: { products: Product[] }) {
       </div>
 
       {/* Content */}
-      <div className="relative max-w-[1400px] mx-auto px-4 md:px-8 w-full pt-32 pb-20 md:pt-0 md:pb-0">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-8 items-center">
+      <div className="relative max-w-[1400px] mx-auto px-4 md:px-8 w-full pt-28 pb-16 md:py-20">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
           {/* Left — Text */}
-          <div className="space-y-6 md:space-y-8">
+          <div className="space-y-5 md:space-y-6">
             <FadeUp>
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent/10 border border-accent/20">
                 <Lightning size={14} weight="fill" className="text-accent" />
@@ -138,7 +143,7 @@ export default function HeroSection({ products }: { products: Product[] }) {
 
             {/* Stats */}
             <FadeUp delay={0.4}>
-              <div className="flex items-center gap-8 pt-4">
+              <div className="flex items-center gap-6 pt-2">
                 <div>
                   <p className="text-2xl font-bold text-text-primary font-[family-name:var(--font-geist-mono)]">
                     50K+
@@ -165,7 +170,7 @@ export default function HeroSection({ products }: { products: Product[] }) {
 
           {/* Right — Visual (floating cards) */}
           <div className="relative hidden md:block">
-            <div className="relative w-full aspect-square max-w-[500px] mx-auto">
+            <div className="relative w-full aspect-square max-w-[420px] mx-auto">
               {/* Glow background */}
               <div className="absolute inset-0 bg-accent/[0.06] rounded-full blur-[80px]" />
 
@@ -197,7 +202,7 @@ export default function HeroSection({ products }: { products: Product[] }) {
                       {card.name}
                     </p>
                     <p className="text-[10px] text-accent font-[family-name:var(--font-geist-mono)]">
-                      {card.price}
+                      Available now
                     </p>
                   </div>
                 </motion.div>

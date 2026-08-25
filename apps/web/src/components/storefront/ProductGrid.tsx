@@ -5,26 +5,31 @@ import type { Product } from "@/types/product";
 import ProductCard from "./ProductCard";
 import { StaggerReveal, StaggerItem } from "@/components/motion/StaggerReveal";
 import { ArrowRight } from "@phosphor-icons/react";
+import { useCurrency } from "@/context/CurrencyContext";
+import { isProductAvailableInMarket } from "@/lib/product-availability";
 
 interface ProductGridProps {
   title: string;
   products: Product[];
   viewAllHref?: string;
-  variant?: "asymmetric" | "uniform";
 }
 
 export default function ProductGrid({
   title,
   products,
   viewAllHref,
-  variant = "asymmetric",
 }: ProductGridProps) {
-  if (products.length === 0) return null;
+  const { country } = useCurrency();
+  const visibleProducts = products.filter((product) =>
+    isProductAvailableInMarket(product, country.supplierCode),
+  );
+
+  if (visibleProducts.length === 0) return null;
 
   return (
-    <section className="py-12 md:py-16">
+    <section className="py-10 md:py-12">
       {/* Section Header */}
-      <div className="flex items-end justify-between mb-8">
+      <div className="flex items-end justify-between mb-6">
         <div>
           <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-text-primary">
             {title}
@@ -45,29 +50,10 @@ export default function ProductGrid({
       </div>
 
       {/* Grid */}
-      <StaggerReveal
-        className={
-          variant === "asymmetric"
-            ? "grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-5"
-            : "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5"
-        }
-      >
-        {products.map((product, i) => (
-          <StaggerItem
-            key={product.id}
-            className={
-              // Keep first card large on desktop only — mobile stays equal 2-col cards
-              variant === "asymmetric" && i === 0
-                ? "col-span-1 md:col-span-2 md:row-span-2"
-                : ""
-            }
-          >
-            <ProductCard
-              product={product}
-              size={
-                variant === "asymmetric" && i === 0 ? "large" : "default"
-              }
-            />
+      <StaggerReveal className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 md:gap-4">
+        {visibleProducts.map((product) => (
+          <StaggerItem key={product.id} className="min-w-0 w-full">
+            <ProductCard product={product} size="compact" />
           </StaggerItem>
         ))}
       </StaggerReveal>

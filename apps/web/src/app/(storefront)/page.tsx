@@ -15,7 +15,7 @@ export default async function HomePage() {
 
   return (
     <>
-      {/* Hero — Asymmetric split with floating cards */}
+      {/* Hero */}
       <HeroSection products={products} />
 
       {/* Trust/Features Bar — overlapping hero bottom */}
@@ -23,12 +23,11 @@ export default async function HomePage() {
 
       {/* Main content area */}
       <div className="max-w-[1400px] mx-auto px-4 md:px-8">
-        {/* Popular Products — asymmetric grid */}
+        {/* Popular Products */}
         <ProductGrid
           title="Popular Products"
           products={popular}
           viewAllHref="/products"
-          variant="asymmetric"
         />
 
         {/* Vouchers Carousel */}
