@@ -1,3 +1,4 @@
+import { notifyTelegramShopOrder } from "@/lib/telegram-shop-api";
 import { Prisma, prisma } from "@kupon/db";
 import { sendDiscordFulfillmentNotification } from "@/lib/discord";
 import { notifySecurityEvent } from "@/lib/fraud";
@@ -326,6 +327,7 @@ export async function applySupplierOrderSnapshot(
       };
 
   if (!wasFulfilled) {
+    await notifyTelegramShopOrder(order.id);
     await sendDiscordFulfillmentNotification({
       orderId: order.id,
       orderNumber: order.orderNumber,

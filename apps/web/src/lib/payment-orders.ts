@@ -1,3 +1,4 @@
+import { notifyTelegramShopOrder } from "@/lib/telegram-shop-api";
 import { prisma, type OrderStatus } from "@kupon/db";
 import type { NormalizedPaymentStatus, PaymentWebhookEvent } from "@kupon/payments";
 import { sendDiscordOrderNotification } from "@/lib/discord";
@@ -388,6 +389,7 @@ export async function applyPaymentEventToOrder(
   }
 
   if (newStatus !== order.status) {
+    await notifyTelegramShopOrder(order.id);
     if (firstItem) {
       const payload = {
         orderId: order.id,

@@ -170,6 +170,9 @@ model Order {
 
   status OrderStatus @default(PENDING)
 
+  /// Private Telegram chat that owns this bot order; null for website orders.
+  telegramChatId String?
+
   // Payment provider fields
   paymentProvider           String?
   paymentProviderPaymentId  String?   @unique
@@ -186,6 +189,18 @@ model Order {
   paymentReviewNote         String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+
+  @@index([telegramChatId, createdAt])
+}
+
+/// Durable private-chat flow and short processing lease for webhook retries.
+model TelegramShopSession {
+  chatId String @id
+  state Json @default("{}")
+  lastUpdateId Int @default(-1)
+  lockToken String?
+  lockedUntil DateTime?
+  updatedAt DateTime @updatedAt
 }
 
 /// Provider webhook inbox. The provider/event pair is unique so retries are safe.
