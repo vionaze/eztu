@@ -89,6 +89,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
     Record<string, PakasirDisplayPrice>
   >({});
   const trackedViewKey = useRef("");
+  const paymentSectionRef = useRef<HTMLDivElement>(null);
 
   // From DB: TOP_UP products need account fields; VOUCHER skips them
   const requiresGameAccount = product.fulfillmentType === "TOP_UP";
@@ -495,6 +496,14 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                       key={v.id}
                       onClick={() => {
                         setSelectedVariant(v.id);
+                        if (window.matchMedia("(max-width: 767px)").matches) {
+                          requestAnimationFrame(() => {
+                            paymentSectionRef.current?.scrollIntoView({
+                              behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
+                              block: "start",
+                            });
+                          });
+                        }
                         trackProductEvent({
                           productId: product.id,
                           variantId: v.id,
@@ -658,7 +667,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
 
             {requiresPaymentChoice ? (
               <FadeUp delay={0.33}>
-                <div className="space-y-3">
+                <div ref={paymentSectionRef} className="scroll-mt-24 space-y-3">
                   <div>
                     <p className="text-sm font-medium text-text-secondary">
                       Choose payment method
