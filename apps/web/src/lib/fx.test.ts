@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createPricingQuote, signPricingQuote, verifyPricingQuote } from "./fx.ts";
 
+import { getCryptoMinimumQuantity, MAX_SELF_SERVICE_QUANTITY } from "./checkout-limits.ts";
+
 const secret = "test-secret-with-at-least-thirty-two-characters";
 const now = new Date("2026-07-27T12:00:00.000Z");
 
@@ -98,4 +100,15 @@ test("expired pricing quote is rejected", () => {
       secret
     )
   );
+});
+
+
+test("crypto quantity reaches the IDR and live USD minimums", () => {
+  assert.equal(getCryptoMinimumQuantity(5_000, 18_000), 9);
+  assert.equal(getCryptoMinimumQuantity(5_000, 20_000), 10);
+  assert.equal(getCryptoMinimumQuantity(50_000, 18_000), 1);
+});
+
+test("crypto minimum exceeding self-service capacity is detectable", () => {
+  assert.ok(getCryptoMinimumQuantity(1_000, 18_000) > MAX_SELF_SERVICE_QUANTITY);
 });

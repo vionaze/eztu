@@ -14,7 +14,7 @@ import {
 } from "@kupon/payments";
 import { sendOrderNotification } from "@/lib/telegram";
 import { writeAppLog } from "@/lib/app-log";
-import { MAX_SELF_SERVICE_QUANTITY } from "@/lib/checkout-limits";
+import { getCryptoMinimumQuantity, CRYPTO_MINIMUM_IDR, CRYPTO_MINIMUM_USD_CENTS, MAX_SELF_SERVICE_QUANTITY } from "@/lib/checkout-limits";
 import { resolvePaymentExpiresAt } from "@/lib/payment-expiry";
 import {
   evaluateCheckoutBodyTampering,
@@ -300,9 +300,18 @@ export async function POST(request: NextRequest) {
       const isExpired =
         error instanceof Error && error.message.includes("expired");
       const rate = await getUsdIdrRate();
+      const replacementQuantity = paymentMethod === "crypto"
+        ? Math.max(quantity, getCryptoMinimumQuantity(freshPricing.unitPriceIDR, rate.usdIdrRate))
+        : quantity;
+      if (replacementQuantity > MAX_SELF_SERVICE_QUANTITY) {
+        return NextResponse.json(
+          { error: "This SKU needs more than 20 units to reach the crypto minimum. Choose Pakasir or contact sales.", code: "CRYPTO_MINIMUM_EXCEEDS_LIMIT" },
+          { status: 400 },
+        );
+      }
       const replacementQuote = createPricingQuote({
         variantId: variant.id,
-        quantity,
+        quantity: replacementQuantity,
         paymentMethod,
         supplierCostIDR: freshPricing.supplierCostIDR,
         supplierCountryCode: freshPricing.countryCode,
@@ -317,6 +326,7 @@ export async function POST(request: NextRequest) {
             : "The supplier price changed. Please confirm the refreshed price.",
           code: isExpired ? "QUOTE_EXPIRED" : "PRICE_CHANGED",
           quote: {
+            quantity: replacementQuote.quantity,
             quoteToken: signPricingQuote(replacementQuote),
             paymentMethod,
             unitPriceIDR: replacementQuote.unitPriceIDR,
@@ -331,6 +341,16 @@ export async function POST(request: NextRequest) {
           },
         },
         { status: 409 }
+      );
+    }
+
+    if (
+      paymentMethod === "crypto" && quote.totalUSDCents > 0 &&
+      (quote.totalIDR < CRYPTO_MINIMUM_IDR || quote.totalUSDCents < CRYPTO_MINIMUM_USD_CENTS)
+    ) {
+      return NextResponse.json(
+        { error: "Crypto requires at least Rp45,000 and $2.50. Refresh the price to adjust quantity before paying.", code: "CRYPTO_MINIMUM_NOT_MET" },
+        { status: 400 },
       );
     }
 

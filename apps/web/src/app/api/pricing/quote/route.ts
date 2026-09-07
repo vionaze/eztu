@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@kupon/db";
-import { MAX_SELF_SERVICE_QUANTITY } from "@/lib/checkout-limits";
+import { getCryptoMinimumQuantity, MAX_SELF_SERVICE_QUANTITY } from "@/lib/checkout-limits";
 import {
   createPricingQuote,
   getUsdIdrRate,
@@ -65,9 +65,18 @@ export async function GET(request: NextRequest) {
 
     const freshPricing = await getFreshVariantPricing(variant, paymentMethod);
     const rate = await getUsdIdrRate();
+    const checkoutQuantity = paymentMethod === "crypto"
+      ? Math.max(quantity, getCryptoMinimumQuantity(freshPricing.unitPriceIDR, rate.usdIdrRate))
+      : quantity;
+    if (checkoutQuantity > MAX_SELF_SERVICE_QUANTITY) {
+      return NextResponse.json(
+        { error: "This SKU needs more than 20 units to reach the crypto minimum. Choose Pakasir or contact sales.", code: "CRYPTO_MINIMUM_EXCEEDS_LIMIT" },
+        { status: 400 },
+      );
+    }
     const quote = createPricingQuote({
       variantId: variant.id,
-      quantity,
+      quantity: checkoutQuantity,
       paymentMethod,
       supplierCostIDR: freshPricing.supplierCostIDR,
       supplierCountryCode: freshPricing.countryCode,
@@ -78,6 +87,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(
       {
+        quantity: quote.quantity,
         quoteToken: signPricingQuote(quote),
         paymentMethod,
         unitPriceIDR: quote.unitPriceIDR,

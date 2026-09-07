@@ -9,6 +9,7 @@ import type { Product } from "@/types/product";
 import { formatPrice, cn } from "@/lib/utils";
 import {
   BULK_PURCHASE_THRESHOLD,
+  getCryptoMinimumQuantity,
   MAX_SELF_SERVICE_QUANTITY,
   SALES_EMAIL,
 } from "@/lib/checkout-limits";
@@ -41,6 +42,7 @@ interface Props {
 }
 
 type LiveQuote = {
+  quantity: number;
   quoteToken: string;
   paymentMethod: PaymentMethod;
   unitPriceIDR: number;
@@ -132,8 +134,12 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
     setShowBulkModal(true);
   };
 
+  const minimumQuantity = paymentMethod === "crypto" && liveQuote
+    ? getCryptoMinimumQuantity(liveQuote.unitPriceIDR, liveQuote.usdIdrRate)
+    : 0;
+
   const decreaseQuantity = () => {
-    setQuantity((current) => Math.max(0, current - 1));
+    setQuantity((current) => Math.max(minimumQuantity, current - 1));
   };
 
   const increaseQuantity = () => {
@@ -183,6 +189,8 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Unable to load live price");
         const quote = data as LiveQuote;
+        if (controller.signal.aborted) return;
+        setQuantity(quote.quantity);
         setLiveQuote(quote);
         if (quote.paymentMethod === "pakasir") {
           setPakasirDisplayPrices((current) => ({
@@ -354,6 +362,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
           reason: data.code || data.error || `HTTP_${res.status}`,
         });
         if (res.status === 409 && data.quote) {
+          setQuantity(data.quote.quantity);
           setLiveQuote(data.quote as LiveQuote);
           alert(data.error || "The price changed. Please confirm the refreshed total.");
           setIsCheckingOut(false);
@@ -394,12 +403,14 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
       paymentMethod === "crypto"
   );
   const requiresPaymentChoice = Boolean(
-    variant && liveQuote && liveQuote.totalUSDCents > 0
+    variant && (!liveQuote || liveQuote.totalUSDCents > 0)
   );
   const checkoutDisabled =
     isCheckingOut ||
     isQuoteLoading ||
     !liveQuote ||
+    liveQuote.quantity !== quantity ||
+    liveQuote.paymentMethod !== (paymentMethod || "pakasir") ||
     Boolean(quoteError) ||
     (requiresPaymentChoice && !paymentMethod) ||
     (isSignedIn ? !canCheckout : !canStartLogin);
@@ -550,7 +561,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                   <button
                     type="button"
                     onClick={decreaseQuantity}
-                    disabled={quantity === 0}
+                    disabled={isQuoteLoading || quantity <= minimumQuantity}
                     aria-label="Decrease quantity"
                     className="flex h-11 w-11 items-center justify-center rounded-xl border border-border text-text-secondary transition-all hover:border-accent/40 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-35"
                   >
@@ -575,6 +586,14 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                 </div>
               </div>
             </FadeUp>
+
+            {paymentMethod === "crypto" && minimumQuantity > 1 && (
+              <p className="text-sm text-amber-200">
+                Crypto minimum: Rp45,000 and $2.50 at the current rate. Quantity is
+                automatically increased to at least {minimumQuantity} units.
+                Review the total below before paying.
+              </p>
+            )}
 
             {/* MLBB / direct top-up — User ID + Zone required before pay */}
             {requiresGameAccount && (
