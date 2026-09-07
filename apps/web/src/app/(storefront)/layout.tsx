@@ -1,7 +1,7 @@
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import CookieConsent from "@/components/layout/CookieConsent";
-import CrispChat from "@/components/layout/CrispChat";
+import ScrollToTop from "@/components/layout/ScrollToTop";
 
 export default function StorefrontLayout({
   children,
@@ -14,7 +14,7 @@ export default function StorefrontLayout({
       <main className="flex-1">{children}</main>
       <Footer />
       <CookieConsent />
-      <CrispChat />
+      <ScrollToTop />
     </>
   );
 }
