@@ -32,19 +32,19 @@ export async function showShopOrder(chatId: string, orderId: string) {
     where: { id: orderId, telegramChatId: chatId },
     include: { items: { include: { product: true, variant: true } }, supplierOrder: true },
   });
-  if (!order) return shopMessage(chatId, "Pesanan tidak ditemukan. Ketik /orders untuk pesananmu.");
+  if (!order) return shopMessage(chatId, "Order not found. Type /orders to view your orders.");
   const item = order.items[0];
   const status: Record<string, string> = {
-    PENDING: "Menunggu pembayaran", PAID: "Pembayaran diterima", PROCESSING: "Sedang diproses",
-    COMPLETED: "Selesai", FAILED: "Gagal — hubungi support", EXPIRED: "Kedaluwarsa",
-    UNDERPAID: "Pembayaran kurang — hubungi support", PAYMENT_REVIEW: "Pembayaran sedang diperiksa",
-    REFUNDED: "Dikembalikan", DISPUTED: "Dalam sengketa",
+    PENDING: "Awaiting payment", PAID: "Payment received", PROCESSING: "Processing",
+    COMPLETED: "Completed", FAILED: "Failed — contact support", EXPIRED: "Expired",
+    UNDERPAID: "Underpaid — contact support", PAYMENT_REVIEW: "Payment under review",
+    REFUNDED: "Refunded", DISPUTED: "Disputed",
   };
   const expired = order.status === "PENDING" && order.expiresAt && order.expiresAt <= new Date();
   const buttons: ShopButton[][] = [];
-  if (order.status === "PENDING" && !expired && order.paymentUrl) buttons.push([{ text: "Buka pembayaran", url: order.paymentUrl }]);
-  buttons.push([{ text: "Cek status", callback_data: `status:${order.id}` }]);
-  await shopMessage(chatId, `${order.orderNumber}\n${item?.product.name || ""} — ${item?.variant.name || ""}\nJumlah: ${item?.quantity || 1}\nTotal: Rp${order.totalIDR.toLocaleString("id-ID")} / $${(order.totalUSDCents / 100).toFixed(2)}\nStatus: ${expired ? "Waktu pembayaran habis" : status[order.status] || order.status}\n${order.gameId !== "voucher" ? `ID tujuan: ${order.gameId}${order.serverId ? ` (${order.serverId})` : ""}\n` : ""}Bantuan: /support`, buttons);
+  if (order.status === "PENDING" && !expired && order.paymentUrl) buttons.push([{ text: "Open payment", url: order.paymentUrl }]);
+  buttons.push([{ text: "Check status", callback_data: `status:${order.id}` }]);
+  await shopMessage(chatId, `${order.orderNumber}\n${item?.product.name || ""} — ${item?.variant.name || ""}\nQuantity: ${item?.quantity || 1}\nTotal: Rp${order.totalIDR.toLocaleString("id-ID")} / $${(order.totalUSDCents / 100).toFixed(2)}\nStatus: ${expired ? "Payment window expired" : status[order.status] || order.status}\n${order.gameId !== "voucher" ? `Recipient ID: ${order.gameId}${order.serverId ? ` (${order.serverId})` : ""}\n` : ""}Support: /support`, buttons);
   if (order.status === "COMPLETED" && order.supplierOrder?.status === "FULFILLED" && order.supplierOrder.voucherCode) {
     const delivery = `Voucher ${order.orderNumber}:\n${order.supplierOrder.voucherCode}${order.supplierOrder.voucherPin ? `\nPIN: ${order.supplierOrder.voucherPin}` : ""}`;
     for (let offset = 0; offset < delivery.length; offset += 3500) {

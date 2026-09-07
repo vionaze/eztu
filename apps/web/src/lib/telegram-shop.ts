@@ -27,25 +27,25 @@ async function choose(chatId: string, state: ShopState, title: string, choices: 
   const rows = choices.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map((choice, i) =>
     [button(choice.label.slice(0, 100), `pick:${state.nonce}:${page * PAGE_SIZE + i}`)]);
   const navigation = [];
-  if (page > 0) navigation.push(button("← Sebelumnya", `page:${state.nonce}:${page - 1}`));
-  if (page + 1 < pages) navigation.push(button("Berikutnya →", `page:${state.nonce}:${page + 1}`));
+  if (page > 0) navigation.push(button("← Previous", `page:${state.nonce}:${page - 1}`));
+  if (page + 1 < pages) navigation.push(button("Next →", `page:${state.nonce}:${page + 1}`));
   if (navigation.length) rows.push(navigation);
   await save(chatId, state);
-  await shopMessage(chatId, `${title}${pages > 1 ? ` (${page + 1}/${pages})` : ""}\n${choices.length ? "Pilih lewat tombol di bawah." : "Belum ada pilihan tersedia. Ketik /shop untuk mulai lagi."}`, rows);
+  await shopMessage(chatId, `${title}${pages > 1 ? ` (${page + 1}/${pages})` : ""}\n${choices.length ? "Choose an option below." : "No options are available. Type /shop to start again."}`, rows);
 }
 
 async function catalog(chatId: string, state: ShopState, page = 0) {
   if (state.stage === "country") {
     const variants = await prisma.productVariant.findMany({ where: { published: true, product: { published: true } }, distinct: ["countryCode"], select: { countryCode: true }, orderBy: { countryCode: "asc" } });
-    const names = new Intl.DisplayNames(["id"], { type: "region" });
-    return choose(chatId, state, "Selamat datang di EZTopUp. Pilih negara akun/region produk:", variants.map(v => ({ id: v.countryCode, label: `${v.countryCode.toUpperCase()} — ${/^[a-z]{2}$/i.test(v.countryCode) ? names.of(v.countryCode.toUpperCase()) : v.countryCode}` })), page);
+    const names = new Intl.DisplayNames(["en"], { type: "region" });
+    return choose(chatId, state, "Welcome to EZTopUp. Select your account country/product region:", variants.map(v => ({ id: v.countryCode, label: `${v.countryCode.toUpperCase()} — ${/^[a-z]{2}$/i.test(v.countryCode) ? names.of(v.countryCode.toUpperCase()) : v.countryCode}` })), page);
   }
   if (state.stage === "product") {
     const products = await prisma.product.findMany({
       where: { published: true, OR: [{ globalAvailability: true }, { variants: { some: { published: true, countryCode: state.market } } }] },
       orderBy: { name: "asc" },
     });
-    return choose(chatId, state, "Pilih game atau voucher:", products.filter(p => !isProductExcludedFromMarket(p, state.market)).map(p => ({ id: p.id, label: p.name })), page);
+    return choose(chatId, state, "Select a game or voucher:", products.filter(p => !isProductExcludedFromMarket(p, state.market)).map(p => ({ id: p.id, label: p.name })), page);
   }
   const product = await prisma.product.findFirst({ where: { id: state.productId, published: true } });
   if (!product || isProductExcludedFromMarket(product, state.market)) throw new Error("Product unavailable");
@@ -53,7 +53,7 @@ async function catalog(chatId: string, state: ShopState, page = 0) {
     where: { productId: product.id, published: true, ...(product.globalAvailability ? {} : { countryCode: state.market }) },
     orderBy: [{ priceIDR: "asc" }, { id: "asc" }],
   });
-  return choose(chatId, state, `${product.name} — pilih nominal. Harga final dicek sebelum bayar:`, variants.map(v => ({ id: v.id, label: `${v.name} · ${money(v.priceIDR)}` })), page);
+  return choose(chatId, state, `${product.name} — select a package. Final pricing is verified before payment:`, variants.map(v => ({ id: v.id, label: `${v.name} · ${money(v.priceIDR)}` })), page);
 }
 
 async function selectedVariant(state: ShopState) {
@@ -73,7 +73,7 @@ async function methods(chatId: string, state: ShopState) {
   await save(chatId, state);
   const rows = [[button("Crypto · Cryptomus", `pay:${state.nonce}:crypto`)]];
   if (isPakasirCheckoutEnabled()) rows.unshift([button("QRIS / VA · Pakasir", `pay:${state.nonce}:pakasir`)]);
-  await shopMessage(chatId, "Pilih pembayaran. Harga dan ketersediaan supplier akan dicek. Untuk crypto, jumlah otomatis dinaikkan sampai minimal Rp45.000 dan $2.50.", rows);
+  await shopMessage(chatId, "Select a payment method. Supplier pricing and availability will be checked. For crypto, the quantity is automatically increased to reach at least IDR 45,000 and $2.50.", rows);
 }
 
 async function showQuote(chatId: string, state: ShopState, paymentMethod: "crypto" | "pakasir") {
@@ -83,7 +83,7 @@ async function showQuote(chatId: string, state: ShopState, paymentMethod: "crypt
   const rate = await getUsdIdrRate();
   const quantity = Math.max(state.quantity || 1, paymentMethod === "crypto" ? getCryptoMinimumQuantity(fresh.unitPriceIDR, rate.usdIdrRate) : 1);
   if (quantity > MAX_SELF_SERVICE_QUANTITY) {
-    await shopMessage(chatId, "SKU ini perlu lebih dari 20 unit untuk minimum crypto. Pilih Pakasir atau hubungi /support.");
+    await shopMessage(chatId, "This SKU requires more than 20 units to meet the crypto minimum. Choose Pakasir or contact /support.");
     return methods(chatId, state);
   }
   const quote = createPricingQuote({ variantId: variant.id, quantity, paymentMethod,
@@ -96,9 +96,9 @@ async function showQuote(chatId: string, state: ShopState, paymentMethod: "crypt
   // Store payment method in the server-signed quote, not in callback input.
   await save(chatId, state);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://eztopup.io";
-  await shopMessage(chatId, `${variant.product.name}\n${variant.name}\nRegion: ${state.market?.toUpperCase()}\n${variant.product.fulfillmentType === "TOP_UP" ? `ID: ${state.gameId}${state.serverId ? ` (${state.serverId})` : ""}\n` : ""}Email: ${state.email}\nJumlah: ${quantity}\nHarga satuan: ${money(quote.unitPriceIDR)}\nTotal: ${money(quote.totalIDR)} / $${(quote.totalUSDCents / 100).toFixed(2)}\nPembayaran: ${paymentMethod === "crypto" ? "Cryptomus (biaya jaringan terpisah)" : "Pakasir QRIS / VA"}\nBerlaku sampai ${new Date(quote.expiresAt).toLocaleTimeString("id-ID", { timeZone: "Asia/Jakarta" })} WIB.\nPeriksa ID dan jumlah sebelum konfirmasi. Dengan melanjutkan kamu menyetujui ketentuan toko: ${appUrl}/terms`, [
-    [button("Konfirmasi & buat pembayaran", `confirm:${state.orderId}`)],
-    [button("Ganti pembayaran", `methods:${state.orderId}`)],
+  await shopMessage(chatId, `${variant.product.name}\n${variant.name}\nRegion: ${state.market?.toUpperCase()}\n${variant.product.fulfillmentType === "TOP_UP" ? `ID: ${state.gameId}${state.serverId ? ` (${state.serverId})` : ""}\n` : ""}Email: ${state.email}\nQuantity: ${quantity}\nUnit price: ${money(quote.unitPriceIDR)}\nTotal: ${money(quote.totalIDR)} / $${(quote.totalUSDCents / 100).toFixed(2)}\nPayment: ${paymentMethod === "crypto" ? "Cryptomus (network fees are separate)" : "Pakasir QRIS / VA"}\nValid until ${new Date(quote.expiresAt).toLocaleTimeString("en-GB", { timeZone: "Asia/Jakarta" })} (UTC+7).\nCheck the account ID and quantity before confirming. By continuing, you agree to our terms: ${appUrl}/terms`, [
+    [button("Confirm & pay", `confirm:${state.orderId}`)],
+    [button("Change payment method", `methods:${state.orderId}`)],
   ]);
 }
 
@@ -113,12 +113,12 @@ async function processUpdate(chatId: string, update: TelegramUpdate) {
   // Existing local_* identities are supported by EZTopUp. Never link by an unverified email.
   const user = await prisma.user.upsert({ where: { clerkId: `local_telegram_${chatId}` }, update: {}, create: { clerkId: `local_telegram_${chatId}`, name: `Telegram ${chatId}` } });
   if (user.bannedAt || await findActiveAccessBlock({ userId: user.id, clerkUserId: user.clerkId })) {
-    return shopMessage(chatId, "Akun tidak dapat bertransaksi. Hubungi sales@eztopup.io.");
+    return shopMessage(chatId, "This account cannot place orders. Contact sales@eztopup.io.");
   }
-  if (text === "/support" || text === "/help") return shopMessage(chatId, "Bantuan: sales@eztopup.io\n/shop — katalog\n/orders — pesanan dan voucher\n/cancel — batalkan pilihan (invoice yang sudah dibuat tidak dibatalkan)");
+  if (text === "/support" || text === "/help") return shopMessage(chatId, "Support: sales@eztopup.io\n/shop — catalog\n/orders — orders and vouchers\n/cancel — reset your selection (existing invoices are not cancelled)");
   if (text === "/orders" || text === "/start orders") {
     const orders = await prisma.order.findMany({ where: { telegramChatId: chatId }, orderBy: { createdAt: "desc" }, take: 5 });
-    return shopMessage(chatId, orders.length ? "Lima pesanan terakhir. Pilih untuk melihat status/voucher:" : "Belum ada pesanan. Ketik /shop.", orders.map(o => [button(`${o.orderNumber} · ${o.status}`, `status:${o.id}`)]));
+    return shopMessage(chatId, orders.length ? "Your last five orders. Select one to view its status or voucher:" : "No orders yet. Type /shop to get started.", orders.map(o => [button(`${o.orderNumber} · ${o.status}`, `status:${o.id}`)]));
   }
   if (data.startsWith("status:")) return showShopOrder(chatId, data.slice(7));
   if (text === "/start" || text === "/shop" || text === "/cancel" || !state.stage) {
@@ -146,30 +146,30 @@ async function processUpdate(chatId: string, update: TelegramUpdate) {
     state.gameId = "voucher"; state.serverId = ""; state.quantity = 1;
     state.stage = variant.product.fulfillmentType === "TOP_UP" ? "gameId" : "email";
     await save(chatId, state);
-    return shopMessage(chatId, state.stage === "gameId" ? `Kirim ${variant.product.gameIdLabel || "User ID"} tujuan:` : "Kirim email penerima voucher:");
+    return shopMessage(chatId, state.stage === "gameId" ? `Enter the recipient’s ${variant.product.gameIdLabel || "User ID"}:` : "Enter the voucher recipient’s email address:");
   }
   if (text && state.stage === "gameId") {
-    if (!/^[A-Za-z0-9_.@+ -]{1,100}$/.test(text) || text === "voucher") return shopMessage(chatId, "ID tidak valid. Kirim ID akun tujuan (maksimal 100 karakter).");
+    if (!/^[A-Za-z0-9_.@+ -]{1,100}$/.test(text) || text === "voucher") return shopMessage(chatId, "Invalid ID. Enter the recipient’s account ID (up to 100 characters).");
     const variant = await selectedVariant(state);
     state.gameId = text;
     state.stage = variant.product.requiresServerId ? "serverId" : "email";
     await save(chatId, state);
-    return shopMessage(chatId, state.stage === "serverId" ? `Kirim ${variant.product.serverIdLabel || "Server ID"}:` : "Kirim email penerima pesanan:");
+    return shopMessage(chatId, state.stage === "serverId" ? `Enter the ${variant.product.serverIdLabel || "Server ID"}:` : "Enter the order recipient’s email address:");
   }
   if (text && state.stage === "serverId") {
-    if (!/^[A-Za-z0-9_. -]{1,100}$/.test(text)) return shopMessage(chatId, "Server ID tidak valid. Kirim ulang.");
+    if (!/^[A-Za-z0-9_. -]{1,100}$/.test(text)) return shopMessage(chatId, "Invalid Server ID. Please try again.");
     state.serverId = text; state.stage = "email";
     await save(chatId, state);
-    return shopMessage(chatId, "Kirim email penerima pesanan:");
+    return shopMessage(chatId, "Enter the order recipient’s email address:");
   }
   if (text && state.stage === "email") {
-    if (text.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)) return shopMessage(chatId, "Email tidak valid. Kirim ulang.");
+    if (text.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)) return shopMessage(chatId, "Invalid email address. Please try again.");
     state.email = text.toLowerCase(); state.stage = "quantity";
     await save(chatId, state);
-    return shopMessage(chatId, `Kirim jumlah pembelian (1–${MAX_SELF_SERVICE_QUANTITY}):`);
+    return shopMessage(chatId, `Enter the quantity (1–${MAX_SELF_SERVICE_QUANTITY}):`);
   }
   if (text && state.stage === "quantity") {
-    if (!/^\d+$/.test(text) || Number(text) < 1 || Number(text) > MAX_SELF_SERVICE_QUANTITY) return shopMessage(chatId, "Jumlah harus 1–20.");
+    if (!/^\d+$/.test(text) || Number(text) < 1 || Number(text) > MAX_SELF_SERVICE_QUANTITY) return shopMessage(chatId, "Quantity must be between 1 and 20.");
     state.quantity = Number(text);
     return methods(chatId, state);
   }
@@ -179,7 +179,7 @@ async function processUpdate(chatId: string, update: TelegramUpdate) {
   }
   if (state.stage === "confirm" && data === `methods:${state.orderId}`) return methods(chatId, state);
   if (state.stage === "confirm" && data === `confirm:${state.orderId}` && state.quoteToken && state.orderId) {
-    if (await findActiveAccessBlock({ email: state.email, userId: user.id })) return shopMessage(chatId, "Pesanan tidak dapat diproses. Hubungi /support.");
+    if (await findActiveAccessBlock({ email: state.email, userId: user.id })) return shopMessage(chatId, "This order cannot be processed. Contact /support.");
     const existing = await prisma.order.findFirst({ where: { id: state.orderId, telegramChatId: chatId } });
     if (existing?.paymentUrl || (existing && existing.status !== "PENDING")) return showShopOrder(chatId, existing.id);
     const variant = await selectedVariant(state);
@@ -195,7 +195,7 @@ async function processUpdate(chatId: string, update: TelegramUpdate) {
         paymentMethod: method, supplierCostIDR: fresh.supplierCostIDR, supplierCountryCode: fresh.countryCode,
         pricingMarkupBps: fresh.markupBps, unitPriceIDR: fresh.unitPriceIDR });
     } catch {
-      await shopMessage(chatId, "Harga berubah atau quote kedaluwarsa. Periksa total terbaru lalu konfirmasi lagi.");
+      await shopMessage(chatId, "The price has changed or the quote has expired. Review the updated total and confirm again.");
       return showQuote(chatId, state, method);
     }
     const result = await createCheckoutOrder({ userId: user.id, telegramChatId: chatId, orderId: state.orderId,
@@ -204,7 +204,7 @@ async function processUpdate(chatId: string, update: TelegramUpdate) {
       quote, freshPricing: fresh, variant });
     return showShopOrder(chatId, result.orderId);
   }
-  return shopMessage(chatId, "Gunakan tombol pada pesan terbaru, atau /shop untuk mulai lagi.");
+  return shopMessage(chatId, "Use the buttons in the latest message, or type /shop to start again.");
 }
 
 export async function handleTelegramShopUpdate(update: TelegramUpdate) {
@@ -225,7 +225,7 @@ export async function handleTelegramShopUpdate(update: TelegramUpdate) {
     } catch (error) {
       // Keep technical/supplier details out of customer messages.
       console.error("[Telegram Shop] Update failed", update.update_id, error instanceof Error ? error.name : "Error");
-      await shopMessage(chatId, "Permintaan belum berhasil. Harga/stok atau layanan pembayaran mungkin sedang tidak tersedia. Coba tombol terbaru lagi, /orders untuk cek pesanan, atau /shop untuk pilih SKU lain.");
+      await shopMessage(chatId, "Your request could not be completed. Pricing, stock, or payment services may be unavailable. Try the latest buttons again, use /orders to check your orders, or /shop to choose another SKU.");
     }
     await prisma.telegramShopSession.update({ where: { chatId }, data: { lastUpdateId: update.update_id } });
   } finally {
