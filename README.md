@@ -84,7 +84,7 @@ pm2 logs eztu --lines 40
 | Admin | https://eztopup.io/admin/dashboard |
 | Categories | https://eztopup.io/admin/categories |
 | Cron blog (if used) | needs `CRON_SECRET` + crontab Bearer header |
-| Supplier price cron | call `/api/cron/product-prices` every 6 hours with `PRODUCT_PRICE_CRON_SECRET` (or `CRON_SECRET`) |
+| Supplier price cron | run `bash scripts/install-supplier-sync-cron.sh` as deploy to install hourly CLI sync with an overlap lock |
 
 ### If permission errors
 
