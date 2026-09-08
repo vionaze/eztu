@@ -5,6 +5,7 @@
  * Returns the payment URL for client-side redirect.
  */
 
+import { PurchaseCooldownError } from "@/lib/purchase-cooldown";
 import { NextRequest, NextResponse } from "next/server";
 import { isPakasirCheckoutEnabled } from "@kupon/payments";
 import { prisma } from "@kupon/db";
@@ -399,6 +400,9 @@ export async function POST(request: NextRequest) {
       variantId, quantity, paymentMethod, quote, freshPricing, variant,
     }));
   } catch (error) {
+    if (error instanceof PurchaseCooldownError) {
+      return NextResponse.json({ error: error.message, code: "PURCHASE_COOLDOWN", retryAt: error.retryAt.toISOString() }, { status: 429 });
+    }
     console.error("[Payment Create]", error);
     return NextResponse.json(
       { error: getPaymentErrorMessage(error) },

@@ -1,4 +1,5 @@
 import "server-only";
+import { enforcePurchaseCooldown } from "@/lib/purchase-cooldown";
 import { randomUUID } from "node:crypto";
 import { prisma } from "@kupon/db";
 import { createPakasirPaymentUrl, createPaymentInvoice, isPakasirCheckoutEnabled } from "@kupon/payments";
@@ -41,6 +42,7 @@ export async function createCheckoutOrder(params: {
 }) {
   const { userId, email, gameId, serverId, productId, variantId, quantity,
     paymentMethod, quote, freshPricing, variant, orderId } = params;
+  await enforcePurchaseCooldown(userId);
   const telegramChatId = params.telegramChatId || null;
   const totalIDR = quote.totalIDR;
   const totalUSDCents = quote.totalUSDCents;

@@ -58,3 +58,5 @@ export const prisma =
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.kuponPrisma = prisma;
 }
+
+export { reconcileSupplierReplacements } from "./supplier-replacements.ts";

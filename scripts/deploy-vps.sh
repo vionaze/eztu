@@ -24,6 +24,7 @@ pnpm prisma:generate
 
 echo "==> [4/7] import EZ All Products catalog"
 pnpm products:import:eztopup
+pnpm products:sync:supplier --apply
 
 echo "==> [5/7] build web"
 pnpm build

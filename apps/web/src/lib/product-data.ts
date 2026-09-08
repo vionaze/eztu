@@ -33,7 +33,7 @@ function toProduct(product: ProductWithRelations, usdIdrRate: number | null): Pr
           image: product.category.image || undefined,
         }
       : undefined,
-    variants: product.variants.map((variant) => ({
+    variants: product.variants.filter((v, i, rows) => !v.supplierSku || rows.findIndex(other => other.supplierSku === v.supplierSku && other.countryCode === v.countryCode) === i).map((variant) => ({
       id: variant.id,
       name: variant.name,
       priceIDR: variant.priceIDR,
@@ -71,7 +71,7 @@ export async function getPublishedProducts() {
     include: {
       category: true,
       variants: {
-        where: { published: true },
+        where: { published: true, OR: [{ supplierStatus: null }, { supplierStatus: "available" }] },
         orderBy: [{ priceIDR: "asc" }, { name: "asc" }],
       },
     },
@@ -94,7 +94,7 @@ export async function getStorefrontProductBySlug(slug: string) {
       include: {
         category: true,
         variants: {
-          where: { published: true },
+          where: { published: true, OR: [{ supplierStatus: null }, { supplierStatus: "available" }] },
           orderBy: [{ priceIDR: "asc" }, { name: "asc" }],
         },
       },

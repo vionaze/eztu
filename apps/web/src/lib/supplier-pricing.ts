@@ -1,5 +1,5 @@
 import "server-only";
-import { prisma } from "@kupon/db";
+import { prisma, reconcileSupplierReplacements } from "@kupon/db";
 import {
   getSupplierProduct,
   getSupplierProducts,
@@ -49,7 +49,7 @@ async function persistSupplierProduct(
     where: { id: variant.id },
     data: {
       supplierCostIDR: supplierProduct.price,
-      supplierStatus: supplierProduct.status,
+      supplierStatus: supplierProduct.status.trim().toLowerCase(),
       supplierPriceUpdatedAt: verifiedAt,
       priceIDR: nonCryptoPriceIDR,
     },
@@ -75,6 +75,20 @@ export async function getFreshVariantPricing(
   const verifiedAt = new Date();
   await persistSupplierProduct(variant, supplierProduct, verifiedAt);
 
+  const original = await prisma.productVariant.findUniqueOrThrow({ where: { id: variant.id } });
+  if (!original.replacementForId) {
+    if (isSupplierPurchasable(supplierProduct.status)) {
+      await prisma.productVariant.updateMany({ where: { replacementForId: original.id }, data: { published: false } });
+    } else {
+      try {
+        await reconcileSupplierReplacements(prisma, [original], await getSupplierProducts(variant.countryCode));
+      } catch {
+        // The unavailable status is already persisted. A catalog outage must
+        // not keep this SKU visible or turn the stock error into an FX error.
+        console.error("[Supplier replacement] Lookup failed", variant.id);
+      }
+    }
+  }
   if (!isSupplierPurchasable(supplierProduct.status)) {
     throw new SupplierPriceUnavailableError(
       "This SKU is temporarily unavailable from the supplier.",
@@ -87,7 +101,7 @@ export async function getFreshVariantPricing(
     supplierSku,
     countryCode: variant.countryCode,
     supplierCostIDR: supplierProduct.price,
-    supplierStatus: supplierProduct.status,
+    supplierStatus: supplierProduct.status.trim().toLowerCase(),
     unitPriceIDR: calculatePriceWithMarkupBps(supplierProduct.price, markupBps),
     markupBps,
     verifiedAt,
@@ -98,11 +112,13 @@ export async function refreshAllSupplierPrices() {
   const variants = await prisma.productVariant.findMany({
     where: {
       published: true,
+      replacementForId: null,
       supplierSku: { not: null },
       product: { published: true },
     },
     select: {
       id: true,
+      name: true, productId: true, priceIDR: true, priceUSD: true,
       supplierSku: true,
       countryCode: true,
       nonCryptoMarkupBps: true,
@@ -141,6 +157,7 @@ export async function refreshAllSupplierPrices() {
         ? productByCode.get(variant.supplierSku)
         : null;
       if (!supplierProduct) {
+        await prisma.productVariant.update({ where: { id: variant.id }, data: { supplierStatus: "missing", supplierPriceUpdatedAt: verifiedAt } });
         summary.missing += 1;
         continue;
       }
@@ -148,6 +165,7 @@ export async function refreshAllSupplierPrices() {
       if (isSupplierPurchasable(supplierProduct.status)) summary.updated += 1;
       else summary.unavailable += 1;
     }
+    await reconcileSupplierReplacements(prisma, countryVariants, supplierProducts);
   }
 
   return summary;

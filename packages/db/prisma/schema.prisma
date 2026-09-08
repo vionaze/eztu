@@ -106,6 +106,8 @@ model ProductVariant {
   supplierSku     String?
   /// ISO 3166-1 alpha-2 supplier market code, lower-case (id, sg, my, ...)
   countryCode     String      @default("id")
+  /// Temporary alternative for an unavailable original variant.
+  replacementForId String?
   supplierStatus String?
   supplierPriceUpdatedAt DateTime?
   /// Per-SKU checkout markup imported from EZ All Products; 1000 = 10%.
@@ -120,6 +122,7 @@ model ProductVariant {
 
   @@index([productId, countryCode])
   @@index([supplierSku, countryCode])
+  @@index([replacementForId])
 }
 
 // ============================================================

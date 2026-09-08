@@ -78,6 +78,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
   const [checkoutStartedAt] = useState(() => Date.now());
   const [quantity, setQuantity] = useState(1);
   const [showBulkModal, setShowBulkModal] = useState(false);
+  const [cooldownUntil, setCooldownUntil] = useState<string | null>(null);
 
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [liveQuote, setLiveQuote] = useState<LiveQuote | null>(null);
@@ -188,7 +189,10 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
     )
       .then(async (response) => {
         const data = await response.json();
-        if (!response.ok) throw new Error(data.error || "Unable to load live price");
+        if (!response.ok) {
+          if (data.code === "SUPPLIER_SKU_UNAVAILABLE") router.refresh();
+          throw new Error(data.error || "Unable to load live price");
+        }
         const quote = data as LiveQuote;
         if (controller.signal.aborted) return;
         setQuantity(quote.quantity);
@@ -225,7 +229,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
         if (!controller.signal.aborted) setIsQuoteLoading(false);
       });
     return () => controller.abort();
-  }, [variant, quantity, paymentMethod, product.id, country.supplierCode]);
+  }, [variant, quantity, paymentMethod, product.id, country.supplierCode, router]);
 
   useEffect(() => {
     if (
@@ -362,6 +366,11 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
           paymentMethod,
           reason: data.code || data.error || `HTTP_${res.status}`,
         });
+        if (data.code === "PURCHASE_COOLDOWN" && data.retryAt) {
+          setCooldownUntil(data.retryAt);
+          setIsCheckingOut(false);
+          return;
+        }
         if (res.status === 409 && data.quote) {
           setQuantity(data.quote.quantity);
           setLiveQuote(data.quote as LiveQuote);
@@ -918,6 +927,20 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
           </section>
         )}
       </div>
+
+      {cooldownUntil && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="purchase-cooldown-title">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-bg-elevated p-5 shadow-[var(--shadow-glow)]">
+            <div className="mb-4 flex items-center justify-between gap-4">
+              <h2 id="purchase-cooldown-title" className="text-lg font-semibold text-text-primary">Purchase cooldown</h2>
+              <button type="button" onClick={() => setCooldownUntil(null)} aria-label="Close purchase cooldown" className="flex h-9 w-9 items-center justify-center rounded-xl border border-border text-text-secondary hover:text-accent"><X size={16} weight="bold" /></button>
+            </div>
+            <p className="text-sm leading-relaxed text-text-secondary">After a successful purchase of 15 or more units, your account must wait 8 hours before placing another order.</p>
+            <p className="mt-3 text-sm text-accent">You can buy again at {new Date(cooldownUntil).toLocaleString()}.</p>
+            <button type="button" onClick={() => setCooldownUntil(null)} className="mt-5 h-11 w-full rounded-xl bg-accent text-sm font-semibold text-bg-primary">Got it</button>
+          </div>
+        </div>
+      )}
 
       {showBulkModal && (
         <div

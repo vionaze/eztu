@@ -1,4 +1,5 @@
 import "server-only";
+import { PurchaseCooldownError, enforcePurchaseCooldown } from "@/lib/purchase-cooldown";
 import { randomBytes, randomUUID } from "node:crypto";
 import { prisma, type Prisma } from "@kupon/db";
 import { isPakasirCheckoutEnabled } from "@kupon/payments";
@@ -50,10 +51,10 @@ async function catalog(chatId: string, state: ShopState, page = 0) {
   const product = await prisma.product.findFirst({ where: { id: state.productId, published: true } });
   if (!product || isProductExcludedFromMarket(product, state.market)) throw new Error("Product unavailable");
   const variants = await prisma.productVariant.findMany({
-    where: { productId: product.id, published: true, ...(product.globalAvailability ? {} : { countryCode: state.market }) },
+    where: { productId: product.id, published: true, OR: [{ supplierStatus: null }, { supplierStatus: "available" }], ...(product.globalAvailability ? {} : { countryCode: state.market }) },
     orderBy: [{ priceIDR: "asc" }, { id: "asc" }],
   });
-  return choose(chatId, state, `${product.name} — select a package. Final pricing is verified before payment:`, variants.map(v => ({ id: v.id, label: `${v.name} · ${money(v.priceIDR)}` })), page);
+  return choose(chatId, state, `${product.name} — select a package. Final pricing is verified before payment:`, variants.filter((v, i, rows) => !v.supplierSku || rows.findIndex(other => other.supplierSku === v.supplierSku && other.countryCode === v.countryCode) === i).map(v => ({ id: v.id, label: `${v.name} · ${money(v.priceIDR)}` })), page);
 }
 
 async function selectedVariant(state: ShopState) {
@@ -179,6 +180,7 @@ async function processUpdate(chatId: string, update: TelegramUpdate) {
   }
   if (state.stage === "confirm" && data === `methods:${state.orderId}`) return methods(chatId, state);
   if (state.stage === "confirm" && data === `confirm:${state.orderId}` && state.quoteToken && state.orderId) {
+    await enforcePurchaseCooldown(user.id);
     if (await findActiveAccessBlock({ email: state.email, userId: user.id })) return shopMessage(chatId, "This order cannot be processed. Contact /support.");
     const existing = await prisma.order.findFirst({ where: { id: state.orderId, telegramChatId: chatId } });
     if (existing?.paymentUrl || (existing && existing.status !== "PENDING")) return showShopOrder(chatId, existing.id);
@@ -225,7 +227,9 @@ export async function handleTelegramShopUpdate(update: TelegramUpdate) {
     } catch (error) {
       // Keep technical/supplier details out of customer messages.
       console.error("[Telegram Shop] Update failed", update.update_id, error instanceof Error ? error.name : "Error");
-      await shopMessage(chatId, "Your request could not be completed. Pricing, stock, or payment services may be unavailable. Try the latest buttons again, use /orders to check your orders, or /shop to choose another SKU.");
+      if (error instanceof PurchaseCooldownError) {
+        await shopMessage(chatId, `${error.message} You can buy again at ${error.retryAt.toUTCString()}.`);
+      } else await shopMessage(chatId, "Your request could not be completed. Pricing, stock, or payment services may be unavailable. Try the latest buttons again, use /orders to check your orders, or /shop to choose another SKU.");
     }
     await prisma.telegramShopSession.update({ where: { chatId }, data: { lastUpdateId: update.update_id } });
   } finally {

@@ -3,6 +3,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config as loadEnv } from "dotenv";
 import { calculateSellPriceIDR } from "./eztopup-catalog.ts";
+import { reconcileSupplierReplacements } from "./supplier-replacements.ts";
 import { fetchCountryCatalog } from "./supplier-catalog.ts";
 
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -24,11 +25,12 @@ async function main() {
   const variants = await prisma.productVariant.findMany({
     where: {
       published: true,
+      replacementForId: null,
       supplierSku: { not: null },
       product: { published: true },
     },
     select: {
-      id: true,
+      id: true, productId: true, priceIDR: true, priceUSD: true, cryptoMarkupBps: true,
       supplierSku: true,
       countryCode: true,
       nonCryptoMarkupBps: true,
@@ -49,6 +51,7 @@ async function main() {
         ? byCode.get(variant.supplierSku)
         : null;
       if (!supplierProduct) {
+        if (shouldApply) await prisma.productVariant.update({ where: { id: variant.id }, data: { supplierStatus: "missing", supplierPriceUpdatedAt: new Date() } });
         missing += 1;
         console.log(
           `[MISSING] ${countryCode} ${variant.supplierSku} ${variant.product.name} / ${variant.name}`,
@@ -74,6 +77,7 @@ async function main() {
       }
       updated += 1;
     }
+    if (shouldApply) await reconcileSupplierReplacements(prisma, variants.filter(row => row.countryCode === countryCode), catalog);
   }
 
   console.log(
