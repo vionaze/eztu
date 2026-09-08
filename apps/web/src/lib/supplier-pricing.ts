@@ -81,7 +81,7 @@ export async function getFreshVariantPricing(
       await prisma.productVariant.updateMany({ where: { replacementForId: original.id }, data: { published: false } });
     } else {
       try {
-        await reconcileSupplierReplacements(prisma, [original], await getSupplierProducts(variant.countryCode));
+        if (supplierProduct.category_code) await reconcileSupplierReplacements(prisma, [original], await getSupplierProducts(variant.countryCode, supplierProduct.category_code));
       } catch {
         // The unavailable status is already persisted. A catalog outage must
         // not keep this SKU visible or turn the stock error into an FX error.

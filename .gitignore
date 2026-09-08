@@ -56,3 +56,6 @@ next-env.d.ts
 .supplier-crontab-backup-*
 .supplier-sync.lock
 supplier-sync.log
+
+.supplier-balance.lock
+supplier-balance.log

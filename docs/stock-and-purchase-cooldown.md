@@ -24,3 +24,17 @@ The deploy applies migration `20260908010000_supplier_replacements`, generates P
 Supplier credentials are absent in the local workspace; the actual replacement SKU and price must be established by the live server sync. Local checks use supplier fixtures and do not place real orders.
 
 The installer preserves unrelated crontab entries, backs up the previous crontab with owner-only permissions, and replaces older supplier sync entries for the current user. It runs at minute 00 each hour with the current Node/pnpm PATH and a nonblocking flock. Output goes to `supplier-sync.log`. This lock prevents overlap between these scheduled CLI jobs only; avoid running a second supplier scheduler under another user or externally. Installation is a VPS action; pushing code does not activate the schedule. The current API strategy still downloads country catalogs and filters them to store SKUs; this schedule change does not introduce per-SKU requests or a global API rate limiter.
+
+## Deposit balance reports
+
+The same cron installer also installs a report every six hours (00:00, 06:00, 12:00, 18:00 in the server timezone). It calls the supplier's authenticated `GET /api/balance` and sends `data.balance` to `DISCORD_FRAUD_WEBHOOK_URL`. Set that webhook to the intended Discord #fraud-report channel; there is no fallback to the sales channel. The report uses `SUPPLIER_BALANCE_CURRENCY=IDR` by default; change it only if the supplier account settles in another currency. No additional API key is needed.
+
+Run the report once after deployment:
+
+```sh
+node --env-file=apps/web/.env scripts/report-supplier-balance.mjs
+```
+
+Re-run `bash scripts/install-supplier-sync-cron.sh` to install the balance schedule while retaining hourly stock sync. The installer preserves unrelated cron entries. Report errors are logged in `supplier-balance.log` and exit nonzero; an invalid/missing API balance is never reported as zero. Local tests mock supplier and Discord; live delivery must be verified on the VPS.
+
+API reference: https://documenter.getpostman.com/view/31010436/2sBYAuRqce — Get Balance and Get Products. Get Products supports either product_code or category_code plus country_code. Live unavailable-SKU replacement lookup now uses category_code when present. Scheduled stock synchronization still uses country catalogs; it has not been converted to category polling.

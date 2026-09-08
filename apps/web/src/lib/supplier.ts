@@ -384,12 +384,13 @@ export async function getSupplierProduct(params: {
   return product;
 }
 
-export async function getSupplierProducts(countryCode: string) {
+export async function getSupplierProducts(countryCode: string, categoryCode?: string) {
   const search = new URLSearchParams({
     country_code: countryCode.trim().toLowerCase(),
   });
+  if (categoryCode) search.set("category_code", categoryCode);
   const result = await requestSupplier<SupplierProductsData>(
-    `/api/all-products?${search.toString()}`,
+    `${categoryCode ? "/api/product" : "/api/all-products"}?${search.toString()}`,
   );
   if (result.code !== "SUCCESS") {
     throw new SupplierApiError(`Supplier catalog refresh failed: ${result.code}`, {

@@ -9,9 +9,9 @@ fi
 command -v crontab >/dev/null
 FLOCK_BIN="$(command -v flock)"
 PNPM_BIN="$(command -v pnpm)"
-command -v node >/dev/null
+NODE_BIN="$(command -v node)"
 # Cron interprets percent signs even inside shell quotes.
-case "$ROOT$PATH$PNPM_BIN$FLOCK_BIN" in
+case "$ROOT$PATH$PNPM_BIN$FLOCK_BIN$NODE_BIN" in
   *%*|*$'\n'*) echo "Unsupported newline or percent sign in runtime paths." >&2; exit 1 ;;
 esac
 umask 077
@@ -29,10 +29,13 @@ fi
 BACKUP="$ROOT/.supplier-crontab-backup-$(date +%Y%m%d%H%M%S)"
 cp "$PREVIOUS" "$BACKUP"
 # Replace this job and older supplier-sync entries, preserving unrelated jobs.
-awk '!/eztopup-hourly-supplier-sync/ && !/\/api\/cron\/product-prices/ && !/products:sync:supplier/ && !/sync-supplier-products\.ts/' "$PREVIOUS" >"$UPDATED"
+awk '!/eztopup-hourly-supplier-sync/ && !/\/api\/cron\/product-prices/ && !/products:sync:supplier/ && !/sync-supplier-products\.ts/ && !/eztopup-supplier-balance-report/ && !/report-supplier-balance\.mjs/' "$PREVIOUS" >"$UPDATED"
 printf '0 * * * * PATH=%q %q -n %q %q --dir %q products:sync:supplier --apply >> %q 2>&1 # eztopup-hourly-supplier-sync\n' \
   "$PATH" "$FLOCK_BIN" "$ROOT/.supplier-sync.lock" "$PNPM_BIN" "$ROOT" "$ROOT/supplier-sync.log" >>"$UPDATED"
+printf '0 */6 * * * PATH=%q %q -n %q %q %q %q >> %q 2>&1 # eztopup-supplier-balance-report\n' \
+  "$PATH" "$FLOCK_BIN" "$ROOT/.supplier-balance.lock" "$NODE_BIN" "--env-file=$ROOT/apps/web/.env" "$ROOT/scripts/report-supplier-balance.mjs" "$ROOT/supplier-balance.log" >>"$UPDATED"
 crontab "$UPDATED"
 echo "Supplier sync scheduled hourly at minute 00 (server timezone)."
+echo "Supplier balance report scheduled every 6 hours (server timezone)."
 echo "Previous crontab backed up to: $BACKUP"
 echo "Log: $ROOT/supplier-sync.log"
