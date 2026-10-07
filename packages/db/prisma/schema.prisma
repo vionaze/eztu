@@ -22,6 +22,7 @@ model User {
   role          Role     @default(USER)
   orders        Order[]
   securityEvents SecurityEvent[]
+  resellerMemberships ResellerOrganizationMember[]
   lastSeenIp    String?
   lastSeenUserAgent String?
   lastSeenAt    DateTime?
@@ -31,6 +32,57 @@ model User {
   bannedBy      String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+}
+
+enum ResellerOrganizationStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+  SUSPENDED
+}
+
+enum ResellerTier {
+  TIER_1
+  TIER_2
+}
+
+enum ResellerMemberRole {
+  OWNER
+  MEMBER
+}
+
+model ResellerOrganization {
+  id          String                     @id @default(cuid())
+  name        String
+  slug        String                     @unique
+  status      ResellerOrganizationStatus @default(PENDING)
+  tier        ResellerTier               @default(TIER_1)
+  rejectionReason String?
+  suspendedAt DateTime?
+  suspendedBy String?
+  createdAt   DateTime                   @default(now())
+  updatedAt   DateTime                   @updatedAt
+  members     ResellerOrganizationMember[]
+
+  @@index([status, createdAt])
+  @@index([tier, status])
+}
+
+model ResellerOrganizationMember {
+  id             String                   @id @default(cuid())
+  organizationId String
+  userId         String
+  role           ResellerMemberRole       @default(MEMBER)
+  active         Boolean                  @default(true)
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+  organization   ResellerOrganization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId, active])
+  @@index([organizationId, active])
+  @@index([organizationId, role])
 }
 
 /// Preventive blocks: email, IP, Clerk id, or local user id.

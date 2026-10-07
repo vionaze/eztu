@@ -25,6 +25,7 @@ const sidebarLinks = [
   { label: "Categories", href: "/admin/categories", icon: Tag },
   { label: "Orders", href: "/admin/orders", icon: ShoppingCart },
   { label: "Members", href: "/admin/members", icon: Users },
+  { label: "Resellers", href: "/admin/resellers", icon: Users },
   { label: "Blog", href: "/admin/blog", icon: Article },
   { label: "Logs", href: "/admin/logs", icon: List },
   { label: "Settings", href: "/admin/settings", icon: Gear },
@@ -148,6 +149,8 @@ export default function AdminSidebar() {
 
   // Auto-hide after any route change
   useEffect(() => {
+    // Navigation must close the mobile drawer even when the route changes via browser history.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMobileOpen(false);
   }, [pathname]);
 
