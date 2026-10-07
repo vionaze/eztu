@@ -115,10 +115,13 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
       ),
     [relatedProducts, country.supplierCode],
   );
-  const packages = useMemo(() => groupProductPackages(availableVariants), [availableVariants]);
+  const packages = useMemo(
+    () => groupProductPackages(availableVariants, {}, product.globalAvailability),
+    [availableVariants, product.globalAvailability],
+  );
   const displayedPackages = useMemo(
-    () => groupProductPackages(availableVariants, pakasirDisplayPrices),
-    [availableVariants, pakasirDisplayPrices],
+    () => groupProductPackages(availableVariants, pakasirDisplayPrices, product.globalAvailability),
+    [availableVariants, pakasirDisplayPrices, product.globalAvailability],
   );
   const selectedPackage = packages.find(group => group.key === selectedVariant && group.available)
     || packages.find(group => group.available);
