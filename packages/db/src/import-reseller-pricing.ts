@@ -23,6 +23,35 @@ type RuleReport = { schemaHash: string; generatedAt: string; sourceDir?: string;
 function arg(name: string): string | undefined { const i = process.argv.indexOf(name); return i >= 0 ? process.argv[i + 1] : undefined; }
 function sha(value: string | Buffer): string { return createHash("sha256").update(value).digest("hex"); }
 function schemaHash(): string { return sha(readFileSync(schemaPath)); }
+
+function loadEnvFile(path: string): void {
+  const text = readFileSync(path, "utf8");
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+    const eq = line.indexOf("=");
+    if (eq <= 0) continue;
+    const key = line.slice(0, eq).trim();
+    if (!key || key in process.env) continue;
+    let value = line.slice(eq + 1).trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    if (!value || value.startsWith("encrypted:")) continue;
+    process.env[key] = value;
+  }
+}
+
+/** Match Prisma's env resolution so the CLI works on VPS without exported shell vars. */
+function ensureDatabaseEnv(): void {
+  if (process.env.DATABASE_URL) return;
+  for (const candidate of [resolve(packageRoot, ".env"), resolve(repoRoot, ".env"), resolve(repoRoot, "apps/web/.env")]) {
+    if (!existsSync(candidate)) continue;
+    loadEnvFile(candidate);
+    if (process.env.DATABASE_URL) return;
+  }
+  throw new Error("DATABASE_URL_NOT_FOUND: set it in the shell or in packages/db/.env, repo .env, or apps/web/.env");
+}
 function rowMap(headers: string[], values: unknown[], formulas: Record<string, string>) {
   const entries: Array<[string, { value?: unknown; formula?: string }]> = [];
   headers.forEach((header, i) => {
@@ -96,6 +125,7 @@ function assertOutputOutsideRepo(output: string): string {
 async function loadCatalog(snapshotPath?: string): Promise<Map<string, ResellerCatalogIdentity>> {
   const map = new Map<string, ResellerCatalogIdentity>();
   if (snapshotPath) { for (const row of snapshotRows(JSON.parse(readFileSync(snapshotPath, "utf8")))) addCatalog(map, row, false); return map; }
+  ensureDatabaseEnv();
   const { prisma } = await import("./index.ts");
   try {
     const variants = await prisma.productVariant.findMany({ where: { published: true, replacementForId: null }, select: { id: true, name: true, supplierSku: true, countryCode: true, published: true, replacementForId: true, product: { select: { slug: true, name: true, category: { select: { slug: true } } } } } });
@@ -131,6 +161,7 @@ function readRulesFile(path: string): RuleReport {
 async function applyRules(report: RuleReport): Promise<void> {
   if (report.blocked.length) throw new Error(`BLOCKED_IMPORT:${report.blocked.length}`);
   if (!report.rules.length) throw new Error("EMPTY_RULES_IMPORT");
+  ensureDatabaseEnv();
   const { prisma } = await import("./index.ts");
   try {
     await prisma.$transaction(async (tx) => {

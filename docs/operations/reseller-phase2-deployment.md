@@ -46,13 +46,11 @@ Do not paste its contents into logs/chat or upload it to GitHub.
 
 ## 3. Confirm database and validate
 
-Ensure the runtime `DATABASE_URL` points to the intended production database; do not print the value or credentials.
-
-The Node importer requires the existing runtime environment to be loaded. From the repo root, this can be done using Node's env-file flag (local/private `.env` file, not a Git-tracked example):
+The importer loads database configuration by itself with the same file order as Prisma (`packages/db/.env`, repo `.env`, `apps/web/.env`). It does not print or accept credentials on the command line. Never paste `.env` contents into logs or chat.
 
 ```bash
 cd /var/www/eztu
-node --env-file=apps/web/.env --experimental-strip-types \
+node --experimental-strip-types \
   packages/db/src/import-reseller-pricing.ts \
   --rules-file /home/deploy/reseller-pricing/reseller-pricing-phase2-rules.json \
   --output /home/deploy/reseller-pricing/validated.json
@@ -66,7 +64,7 @@ Keep a production backup according to the existing DB backup procedure before fi
 
 ```bash
 cd /var/www/eztu
-node --env-file=apps/web/.env --experimental-strip-types \
+node --experimental-strip-types \
   packages/db/src/import-reseller-pricing.ts \
   --rules-file /home/deploy/reseller-pricing/reseller-pricing-phase2-rules.json \
   --output /home/deploy/reseller-pricing/applied.json \
