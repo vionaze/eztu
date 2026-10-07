@@ -111,11 +111,11 @@ async function expandCatalog(shouldApply: boolean) {
     console.log(`Fetched ${countryCode}: ${rows.length} exact SKU rows`);
   }
   const { changes, summary } = buildSupplierExpansion(products, catalogs, Number(process.env.PRODUCT_USD_IDR_RATE || "15500"));
-  console.table(summary.map(s => ({ product: s.slug, total: s.total, available: s.available, unavailable: s.total - s.available, added: s.added })));
+  console.table(summary.map(s => ({ product: s.slug, total: s.total, available: s.available, unavailable: s.total - s.available, added: s.added, unpriced: s.unpriced })));
   const report = {
     capturedAt: new Date().toISOString(), applied: shouldApply, fullImport: process.argv.includes("--full-import"), countries,
     total: changes.length, available: summary.reduce((sum, s) => sum + s.available, 0),
-    added: summary.reduce((sum, s) => sum + s.added, 0), products: summary,
+    added: summary.reduce((sum, s) => sum + s.added, 0), unpriced: summary.reduce((sum, s) => sum + s.unpriced, 0), products: summary,
     markupPairs: [...new Set(changes.map(c => `${c.productId}:${c.countryCode}:${c.nonCryptoMarkupBps}/${c.cryptoMarkupBps}`))],
   };
   const reportDir = resolve(repoRoot, "apps/web/.data/catalog-backups");

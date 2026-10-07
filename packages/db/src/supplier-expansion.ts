@@ -25,6 +25,8 @@ type Variant = {
   cryptoMarkupBps: number; priceIDR: number; priceUSD: number;
 };
 export type ExpansionProduct = { id: string; slug: string; variants: Variant[] };
+const MAX_DATABASE_PRICE_IDR = 2_147_483_647;
+
 export type CountryCatalog = { countryCode: string; rows: SupplierCatalogProduct[] };
 
 function markupTemplate(variants: Variant[], countryCode: string) {
@@ -60,13 +62,13 @@ export function buildSupplierExpansion(products: ExpansionProduct[], catalogs: C
     nonCryptoMarkupBps: number; cryptoMarkupBps: number; priceIDR: number; priceUSD: number;
   }[] = [];
   const seen = new Map<string, SupplierCatalogProduct>();
-  const summary = products.map(p => ({ productId: p.id, slug: p.slug, total: 0, available: 0, added: 0 }));
+  const summary = products.map(p => ({ productId: p.id, slug: p.slug, total: 0, available: 0, added: 0, unpriced: 0 }));
   for (const { countryCode, rows } of catalogs) {
     for (const row of rows) {
       const product = categories.get(row.category_code || "");
       if (!product) continue;
       if (row.country_code !== countryCode) throw new Error(`Supplier country mismatch for ${countryCode}:${row.code}`);
-      if (!row.code || !row.name || !row.status || !Number.isSafeInteger(row.price) || row.price <= 0) throw new Error(`Invalid supplier row ${row.code}`);
+      if (!row.code || !row.name || !row.status || !Number.isSafeInteger(row.price) || row.price <= 0 || row.price > MAX_DATABASE_PRICE_IDR) throw new Error(`Invalid supplier row ${row.code}`);
       const key = `${countryCode}:${row.code}`;
       const prior = seen.get(key);
       if (prior) {
@@ -77,7 +79,12 @@ export function buildSupplierExpansion(products: ExpansionProduct[], catalogs: C
       const originals = product.variants.filter(v => !v.replacementForId);
       const existing = originals.filter(v => v.countryCode === countryCode && v.supplierSku === row.code).sort((a, b) => a.id.localeCompare(b.id))[0];
       const template = existing || markupTemplate(originals, countryCode);
-      const priceIDR = calculateSellPriceIDR(row.price, template.nonCryptoMarkupBps);
+      const calculatedPrice = calculateSellPriceIDR(row.price, template.nonCryptoMarkupBps);
+      const unpriced = calculatedPrice > MAX_DATABASE_PRICE_IDR;
+      if (unpriced && row.status.toLowerCase() === "available") throw new Error(`Available supplier price is out of range for ${key}`);
+      // Empty SKUs may carry INT_MAX sentinel costs. A zero display placeholder
+      // remains hidden by supplier status and is replaced when real stock returns.
+      const priceIDR = unpriced ? 0 : calculatedPrice;
       changes.push({
         id: existing?.id || `supplier-${createHash("sha256").update(`${product.id}:${key}`).digest("hex").slice(0, 32)}`,
         productId: product.id, supplierSku: row.code, countryCode, name: row.name,
@@ -89,6 +96,7 @@ export function buildSupplierExpansion(products: ExpansionProduct[], catalogs: C
       });
       const count = summary.find(s => s.productId === product.id)!;
       count.total++;
+      if (unpriced) count.unpriced++;
       if (row.status.toLowerCase() === "available") count.available++;
       if (!existing) count.added++;
     }

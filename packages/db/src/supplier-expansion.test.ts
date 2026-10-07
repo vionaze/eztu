@@ -15,7 +15,7 @@ test("imports every exact SKU with stable IDs, existing margins and inactive sto
   assert.equal(result.changes[0].nonCryptoMarkupBps, 800);
   assert.equal(result.changes[1].supplierStatus, "empty");
   assert.equal(result.changes[1].priceIDR, 10800);
-  assert.deepEqual(result.summary[0], { productId: "ml", slug: "mobile-legends", total: 2, available: 1, added: 1 });
+  assert.deepEqual(result.summary[0], { productId: "ml", slug: "mobile-legends", total: 2, available: 1, added: 1, unpriced: 0 });
   const updated = [{ ...products[0], variants: result.changes.map(v => ({ ...v, replacementForId: null })) }];
   const rerun = buildSupplierExpansion(updated, catalogs);
   assert.equal(rerun.summary[0].added, 0);
@@ -25,4 +25,10 @@ test("imports every exact SKU with stable IDs, existing margins and inactive sto
 test("rejects region fallback and conflicting supplier rows before writes", () => {
   assert.throws(() => buildSupplierExpansion(products, [{ countryCode: "my", rows: [row] }]), /country mismatch/);
   assert.throws(() => buildSupplierExpansion(products, [{ countryCode: "id", rows: [row, { ...row, price: 1 }] }]), /Conflicting supplier SKU/);
+  const sentinel = { ...row, price: 2147483647, status: "empty" };
+  const result = buildSupplierExpansion(products, [{ countryCode: "id", rows: [sentinel] }]);
+  assert.equal(result.changes[0].priceIDR, 0);
+  assert.equal(result.changes[0].supplierStatus, "empty");
+  assert.equal(result.summary[0].unpriced, 1);
+  assert.throws(() => buildSupplierExpansion(products, [{ countryCode: "id", rows: [{ ...sentinel, status: "available" }] }]), /out of range/);
 });

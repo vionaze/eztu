@@ -82,3 +82,7 @@ The user explicitly requested fetching and updating the catalog. Continue single
 ## Validated supplier-code exception
 
 Six `available` ML SKUs include an internal ASCII space (e.g. `ML2342 _320-S1-my`). An authenticated read-only `/api/product` lookup confirmed this exact code is valid. Update the existing validator to `^[a-z0-9][a-z0-9._-]*(?: [a-z0-9._-]+)*$` so quote and fulfillment retain the exact supplier code. Verify the actual TypeScript module after transpilation under Node, covering the observed code and tab/newline rejection; strip only the Next.js `server-only` marker for this isolated check. This requires a web rebuild before those six SKUs can checkout.
+
+## Supplier sentinel prices
+
+The full import contains 25 empty SKUs with INT_MAX supplier cost (Rp2,147,483,647). Their marked-up price cannot fit PostgreSQL Int. Preserve the exact supplier cost/status and use zero only for the hidden, unavailable display price; it is replaced by a real price when stock returns. Reject an available SKU with an overflowing price before writes. Include unpriced counts in the report. Production's first transaction rolled back on this condition; no partial catalog was published.
