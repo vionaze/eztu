@@ -94,7 +94,7 @@ export async function getStorefrontProductBySlug(slug: string) {
       include: {
         category: true,
         variants: {
-          where: { published: true, OR: [{ supplierStatus: null }, { supplierStatus: "available" }] },
+          where: { published: true },
           orderBy: [{ priceIDR: "asc" }, { name: "asc" }],
         },
       },

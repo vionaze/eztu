@@ -35,6 +35,7 @@ import {
 import { trackProductEvent } from "@/lib/product-analytics-client";
 import { getProductVariantsForMarket } from "@/lib/product-availability";
 import { getDisplayPriceUSD } from "@/lib/display-price";
+import { groupProductPackages, quoteProductPackage } from "@/lib/product-packages";
 
 interface Props {
   product: Product;
@@ -42,6 +43,7 @@ interface Props {
 }
 
 type LiveQuote = {
+  variantId: string;
   quantity: number;
   quoteToken: string;
   paymentMethod: PaymentMethod;
@@ -113,17 +115,19 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
       ),
     [relatedProducts, country.supplierCode],
   );
-  const effectiveSelectedVariant = availableVariants.some(
-    (candidate) => candidate.id === selectedVariant,
-  )
-    ? selectedVariant
-    : availableVariants[0]?.id || "";
-  const variant = availableVariants.find(
-    (candidate) => candidate.id === effectiveSelectedVariant,
+  const packages = useMemo(() => groupProductPackages(availableVariants), [availableVariants]);
+  const displayedPackages = useMemo(
+    () => groupProductPackages(availableVariants, pakasirDisplayPrices),
+    [availableVariants, pakasirDisplayPrices],
   );
+  const selectedPackage = packages.find(group => group.key === selectedVariant && group.available)
+    || packages.find(group => group.available);
+  const effectiveSelectedVariant = selectedPackage?.key || "";
+  const variant = selectedPackage?.variant;
   const selectedPakasirDisplayPrice = variant
     ? pakasirDisplayPrices[variant.id]
     : undefined;
+  const quotedVariantId = liveQuote?.variantId;
   const loginEmail = user?.primaryEmailAddress?.emailAddress || "";
   const recipientEmail = emailWasEdited ? email : loginEmail;
   const gameIdReady = gameId.trim().length > 0;
@@ -172,10 +176,12 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
   }, [availableVariants.length, country.supplierCode, product.id]);
 
   useEffect(() => {
-    if (!variant || quantity < 1) {
+    if (!selectedPackage || !variant || quantity < 1) {
       // Reset the quote when no purchasable selection exists.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setLiveQuote(null);
+      setQuoteError("");
+      setIsQuoteLoading(false);
       return;
     }
     const controller = new AbortController();
@@ -183,18 +189,25 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
     setIsQuoteLoading(true);
     setQuoteError("");
     setLiveQuote(null);
-    fetch(
-      `/api/pricing/quote?variantId=${encodeURIComponent(variant.id)}&quantity=${quantity}&paymentMethod=${paymentMethod || "pakasir"}&marketCode=${encodeURIComponent(country.supplierCode)}`,
-      { cache: "no-store", signal: controller.signal }
-    )
-      .then(async (response) => {
-        const data = await response.json();
-        if (!response.ok) {
-          if (data.code === "SUPPLIER_SKU_UNAVAILABLE") router.refresh();
-          throw new Error(data.error || "Unable to load live price");
-        }
-        const quote = data as LiveQuote;
+    quoteProductPackage(selectedPackage.variants, async (candidate) => {
+      const response = await fetch(
+        `/api/pricing/quote?variantId=${encodeURIComponent(candidate.id)}&quantity=${quantity}&paymentMethod=${paymentMethod || "pakasir"}&marketCode=${encodeURIComponent(country.supplierCode)}`,
+        { cache: "no-store", signal: controller.signal },
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        if (data.code === "SUPPLIER_SKU_UNAVAILABLE") return null;
+        throw new Error(data.error || "Unable to load live price");
+      }
+      return { ...data, variantId: candidate.id } as LiveQuote;
+    })
+      .then((result) => {
         if (controller.signal.aborted) return;
+        if (!result) {
+          router.refresh();
+          throw new Error("Out of stock");
+        }
+        const { quote } = result;
         setQuantity(quote.quantity);
         setLiveQuote(quote);
         if (quote.paymentMethod === "pakasir") {
@@ -229,11 +242,12 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
         if (!controller.signal.aborted) setIsQuoteLoading(false);
       });
     return () => controller.abort();
-  }, [variant, quantity, paymentMethod, product.id, country.supplierCode, router]);
+  }, [variant, selectedPackage, quantity, paymentMethod, product.id, country.supplierCode, router]);
 
   useEffect(() => {
     if (
       !variant ||
+      !quotedVariantId ||
       paymentMethod !== "crypto" ||
       selectedPakasirDisplayPrice
     ) {
@@ -242,7 +256,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
 
     const controller = new AbortController();
     fetch(
-      `/api/pricing/quote?variantId=${encodeURIComponent(variant.id)}&quantity=1&paymentMethod=pakasir&marketCode=${encodeURIComponent(country.supplierCode)}`,
+      `/api/pricing/quote?variantId=${encodeURIComponent(quotedVariantId)}&quantity=1&paymentMethod=pakasir&marketCode=${encodeURIComponent(country.supplierCode)}`,
       { cache: "no-store", signal: controller.signal },
     )
       .then(async (response) => {
@@ -272,6 +286,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
     country.supplierCode,
     paymentMethod,
     selectedPakasirDisplayPrice,
+    quotedVariantId,
     variant,
   ]);
 
@@ -328,7 +343,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
     setIsCheckingOut(true);
     trackProductEvent({
       productId: product.id,
-      variantId: variant.id,
+      variantId: liveQuote.variantId,
       eventType: "CHECKOUT_SUBMITTED",
       countryCode: country.supplierCode,
       paymentMethod,
@@ -342,7 +357,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
         },
         body: JSON.stringify({
           productId: product.id,
-          variantId: variant.id,
+          variantId: liveQuote.variantId,
           email: recipientEmail,
           quantity,
           company,
@@ -373,8 +388,15 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
         }
         if (res.status === 409 && data.quote) {
           setQuantity(data.quote.quantity);
-          setLiveQuote(data.quote as LiveQuote);
+          setLiveQuote({ ...data.quote, variantId: liveQuote.variantId } as LiveQuote);
           alert(data.error || "The price changed. Please confirm the refreshed total.");
+          setIsCheckingOut(false);
+          return;
+        }
+        if (data.code === "SUPPLIER_SKU_UNAVAILABLE") {
+          setLiveQuote(null);
+          router.refresh();
+          alert("Stock changed. Please confirm the refreshed package and price.");
           setIsCheckingOut(false);
           return;
         }
@@ -419,6 +441,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
     isCheckingOut ||
     isQuoteLoading ||
     !liveQuote ||
+    !selectedPackage?.variants.some(candidate => candidate.id === liveQuote.variantId) ||
     liveQuote.quantity !== quantity ||
     liveQuote.paymentMethod !== (paymentMethod || "pakasir") ||
     Boolean(quoteError) ||
@@ -474,8 +497,8 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
             <FadeUp delay={0.1}>
               <div className="space-y-2 md:space-y-3 text-center md:text-left">
                 <Badge variant="muted">
-                  {availableVariants.length}{" "}
-                  {availableVariants.length === 1 ? "package" : "variants"}
+                  {packages.length}{" "}
+                  {packages.length === 1 ? "package" : "packages"}
                 </Badge>
                 <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-text-primary">
                   {product.name}
@@ -495,16 +518,17 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                 <div
                   className={cn(
                     "grid gap-2",
-                    availableVariants.length === 1
+                    packages.length === 1
                       ? "grid-cols-1"
                       : "grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
                   )}
                 >
-                  {availableVariants.map((v) => (
+                  {displayedPackages.map(({ key, variant: v, available, bestValue }) => (
                     <button
-                      key={v.id}
+                      key={key}
+                      disabled={!available}
                       onClick={() => {
-                        setSelectedVariant(v.id);
+                        setSelectedVariant(key);
                         if (window.matchMedia("(max-width: 767px)").matches) {
                           requestAnimationFrame(() => {
                             paymentSectionRef.current?.scrollIntoView({
@@ -522,13 +546,13 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                       }}
                       className={cn(
                         "relative min-w-0 cursor-pointer rounded-lg border p-2.5 text-left transition-all",
-                        "hover:border-accent/40",
-                        effectiveSelectedVariant === v.id
+                        "hover:border-accent/40 disabled:cursor-not-allowed disabled:opacity-50",
+                        effectiveSelectedVariant === key
                           ? "border-accent bg-accent/5 shadow-[var(--shadow-glow)]"
                           : "border-border bg-bg-card hover:bg-bg-elevated/50"
                       )}
                     >
-                      {effectiveSelectedVariant === v.id && (
+                      {effectiveSelectedVariant === key && (
                         <motion.div
                           layoutId="variant-check"
                           className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent"
@@ -540,18 +564,19 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                       <p className="line-clamp-2 min-h-[2.125rem] pr-5 text-xs font-medium leading-snug text-text-primary">
                         {v.name}
                       </p>
+                      {bestValue && <Badge variant="accent" className="mt-1 text-[9px]">Best value</Badge>}
                       <p className="mt-1 text-[13px] font-semibold leading-tight text-accent font-[family-name:var(--font-geist-mono)]">
                         <span className="sr-only">Price: </span>
-                        {pakasirDisplayPrices[v.id]
+                        {!available ? "Out of stock" : pakasirDisplayPrices[v.id]
                           ? formatLocalPrice(
                               pakasirDisplayPrices[v.id].priceIDR,
                               pakasirDisplayPrices[v.id].priceUSD,
                             )
                           : formatLocalPrice(v.priceIDR, v.priceUSD)}
                       </p>
-                      <p className="mt-1 text-[9px] leading-[1.15] text-amber-300">
+                      {available && <p className="mt-1 text-[9px] leading-[1.15] text-amber-300">
                         Dynamic price · final price follows Total Price below
-                      </p>
+                      </p>}
                     </button>
                   ))}
                 </div>

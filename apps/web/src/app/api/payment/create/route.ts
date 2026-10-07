@@ -31,7 +31,7 @@ import {
   verifyPricingQuote,
 } from "@/lib/fx";
 import { usdCentsToAmount } from "@/lib/money";
-import { getFreshVariantPricing } from "@/lib/supplier-pricing";
+import { getFreshVariantPricing, SupplierPriceUnavailableError } from "@/lib/supplier-pricing";
 import {
   getDetectedMarketCode,
   isProductExcludedFromMarket,
@@ -266,7 +266,7 @@ export async function POST(request: NextRequest) {
             error instanceof Error
               ? error.message
               : "The supplier price is temporarily unavailable.",
-          code: "SUPPLIER_PRICE_UNAVAILABLE",
+          code: error instanceof SupplierPriceUnavailableError ? error.code : "SUPPLIER_PRICE_UNAVAILABLE",
         },
         { status: 503 },
       );

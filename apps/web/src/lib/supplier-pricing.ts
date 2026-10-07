@@ -41,10 +41,11 @@ async function persistSupplierProduct(
   supplierProduct: SupplierProduct,
   verifiedAt: Date,
 ) {
-  const nonCryptoPriceIDR = calculatePriceWithMarkupBps(
-    supplierProduct.price,
-    variant.nonCryptoMarkupBps,
-  );
+  // Keep the last display price for an empty SKU so its package stays grouped.
+  // Unavailable supplier rows can also carry an INT_MAX placeholder cost.
+  const nonCryptoPriceIDR = isSupplierPurchasable(supplierProduct.status)
+    ? calculatePriceWithMarkupBps(supplierProduct.price, variant.nonCryptoMarkupBps)
+    : undefined;
   await prisma.productVariant.update({
     where: { id: variant.id },
     data: {
