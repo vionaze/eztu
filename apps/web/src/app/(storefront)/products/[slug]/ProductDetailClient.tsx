@@ -566,7 +566,12 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                       <p className="line-clamp-2 min-h-[2.125rem] pr-5 text-xs font-medium leading-snug text-text-primary">
                         {v.name}
                       </p>
-                      {bestValue && <Badge variant="accent" className="mt-1 text-[9px]">Best value</Badge>}
+                      {bestValue && (
+                        <span className="mt-1 inline-flex max-w-full items-center gap-1 rounded-full border border-amber-200/80 bg-gradient-to-r from-amber-200 to-amber-400 px-2 py-1 text-[10px] font-extrabold uppercase leading-none tracking-wide text-amber-950 shadow-[0_2px_10px_rgba(251,191,36,0.25)]">
+                          <Lightning size={12} weight="fill" aria-hidden="true" className="shrink-0" />
+                          Best value
+                        </span>
+                      )}
                       <p className="mt-1 text-[13px] font-semibold leading-tight text-accent font-[family-name:var(--font-geist-mono)]">
                         <span className="sr-only">Price: </span>
                         {pakasirDisplayPrices[v.id]
