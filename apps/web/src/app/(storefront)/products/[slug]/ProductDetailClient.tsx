@@ -523,10 +523,9 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                       : "grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
                   )}
                 >
-                  {displayedPackages.map(({ key, variant: v, available, bestValue }) => (
+                  {displayedPackages.map(({ key, variant: v, bestValue }) => (
                     <button
                       key={key}
-                      disabled={!available}
                       onClick={() => {
                         setSelectedVariant(key);
                         if (window.matchMedia("(max-width: 767px)").matches) {
@@ -546,7 +545,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                       }}
                       className={cn(
                         "relative min-w-0 cursor-pointer rounded-lg border p-2.5 text-left transition-all",
-                        "hover:border-accent/40 disabled:cursor-not-allowed disabled:opacity-50",
+                        "hover:border-accent/40",
                         effectiveSelectedVariant === key
                           ? "border-accent bg-accent/5 shadow-[var(--shadow-glow)]"
                           : "border-border bg-bg-card hover:bg-bg-elevated/50"
@@ -567,16 +566,16 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                       {bestValue && <Badge variant="accent" className="mt-1 text-[9px]">Best value</Badge>}
                       <p className="mt-1 text-[13px] font-semibold leading-tight text-accent font-[family-name:var(--font-geist-mono)]">
                         <span className="sr-only">Price: </span>
-                        {!available ? "Out of stock" : pakasirDisplayPrices[v.id]
+                        {pakasirDisplayPrices[v.id]
                           ? formatLocalPrice(
                               pakasirDisplayPrices[v.id].priceIDR,
                               pakasirDisplayPrices[v.id].priceUSD,
                             )
                           : formatLocalPrice(v.priceIDR, v.priceUSD)}
                       </p>
-                      {available && <p className="mt-1 text-[9px] leading-[1.15] text-amber-300">
+                      <p className="mt-1 text-[9px] leading-[1.15] text-amber-300">
                         Dynamic price · final price follows Total Price below
-                      </p>}
+                      </p>
                     </button>
                   ))}
                 </div>

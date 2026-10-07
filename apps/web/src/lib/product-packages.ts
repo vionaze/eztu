@@ -23,7 +23,7 @@ export function groupProductPackages(
     const candidates = [...group.variants].sort((a, b) => a.id.localeCompare(b.id));
     const variant = candidates.find(isPackageVariantAvailable) || candidates[0];
     return { ...group, variants: candidates, variant, available: candidates.some(isPackageVariantAvailable) };
-  });
+  }).filter(group => group.available);
   const cheapest = new Map<string, number>();
   const displayPrice = (variant: ProductVariant) => displayPrices[variant.id]?.priceIDR ?? variant.priceIDR;
   for (const group of packages) {

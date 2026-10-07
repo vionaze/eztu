@@ -28,11 +28,9 @@ test("equal packages share a card and fall back to an available SKU; cheapest pr
   assert.equal(result?.quote.token, "signed-c");
 });
 
-test("all empty SKUs leave an unavailable card without Best value or a checkout quote", async () => {
+test("all empty SKUs hide the package and cannot produce a checkout quote", async () => {
   const variants = ["a", "b"].map(id => ({ ...base, id, supplierStatus: "empty" }));
-  const [group] = groupProductPackages(variants);
-  assert.equal(group.available, false);
-  assert.equal(group.bestValue, false);
+  assert.deepEqual(groupProductPackages(variants), []);
   const unavailable = async () => null;
   assert.equal(await quoteProductPackage(variants, () => { throw new Error("Should not quote known empty stock"); }), null);
   assert.equal(await quoteProductPackage(variants.map(v => ({ ...v, supplierStatus: "available" })), unavailable), null);
