@@ -151,8 +151,11 @@ export default function ResellerDashboard({
 
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-bg-primary text-text-primary">
-      <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border/80 bg-bg-secondary/70 px-3 sm:px-4">
-        <div className="flex min-w-0 items-center gap-3">
+      <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border/80 bg-bg-secondary/70 px-3 sm:gap-3 sm:px-4">
+        <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+          <div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-md sm:hidden">
+            <Image src="/logo.png" alt="" fill className="object-cover object-left" sizes="28px" priority />
+          </div>
           <div className="relative hidden h-7 w-28 shrink-0 sm:block">
             <Image src="/logo.png" alt="EZTopUp" fill className="object-contain object-left" sizes="112px" priority />
           </div>
@@ -161,14 +164,17 @@ export default function ResellerDashboard({
           </span>
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold leading-tight">{orgName}</p>
-            <p className="text-[11px] leading-tight text-text-muted">{email || "—"}</p>
+            <p className="truncate text-[11px] leading-tight text-text-muted">{email || "—"}</p>
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-300">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-1 text-[11px] font-semibold text-emerald-300 sm:px-2.5">
             {statusLabel}
           </span>
-          <ResellerLogoutButton className="h-9 border border-border px-3 text-xs text-text-secondary hover:border-red-400/40 hover:text-red-200" />
+          <ResellerLogoutButton
+            compact
+            className="h-9 border border-border px-2.5 text-xs text-text-secondary hover:border-red-400/40 hover:text-red-200 sm:px-3"
+          />
         </div>
       </header>
 
@@ -196,7 +202,9 @@ export default function ResellerDashboard({
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search product or package…"
-                className="h-10 w-full rounded-xl border border-border bg-bg-card pl-9 pr-3 text-sm focus-visible:outline-2 focus-visible:outline-accent"
+                autoComplete="off"
+                enterKeyHint="search"
+                className="h-11 w-full rounded-xl border border-border bg-bg-card pl-9 pr-3 text-base focus-visible:outline-2 focus-visible:outline-accent sm:h-10 sm:text-sm"
               />
             </div>
             <div className="flex items-center justify-between text-[11px] text-text-muted">
@@ -208,7 +216,7 @@ export default function ResellerDashboard({
                 type="button"
                 disabled={loading}
                 onClick={() => setReload((value) => value + 1)}
-                className="inline-flex items-center gap-1 rounded-lg px-2 py-1 font-medium text-accent transition hover:bg-accent/10 disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 font-medium text-accent transition hover:bg-accent/10 disabled:opacity-50"
               >
                 <ArrowsClockwise size={13} aria-hidden="true" />
                 {loading ? "Refreshing…" : "Refresh"}
@@ -216,7 +224,7 @@ export default function ResellerDashboard({
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2 pb-5">
             {loading ? (
               <div className="space-y-2 p-1" aria-hidden="true">
                 {Array.from({ length: 5 }).map((_, index) => (
@@ -263,7 +271,7 @@ export default function ResellerDashboard({
                             onClick={() => selectVariant(product, variant)}
                             aria-pressed={active}
                             className={cn(
-                              "group flex w-full items-center justify-between gap-3 rounded-xl border p-2.5 text-left transition",
+                              "group flex w-full items-center justify-between gap-3 rounded-xl border p-3 text-left transition sm:p-2.5",
                               active
                                 ? "border-accent bg-accent/10 shadow-[var(--shadow-glow)]"
                                 : "border-border bg-bg-card hover:border-accent/40 hover:bg-bg-elevated/40",
@@ -303,7 +311,7 @@ export default function ResellerDashboard({
               <button
                 type="button"
                 onClick={() => setSelected(null)}
-                className="inline-flex w-fit items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-text-secondary transition hover:bg-bg-elevated/50 hover:text-text-primary lg:hidden"
+                className="inline-flex h-9 w-fit items-center gap-1.5 rounded-xl border border-border px-3 text-xs font-medium text-text-secondary transition hover:bg-bg-elevated/50 hover:text-text-primary lg:hidden"
               >
                 <CaretLeft size={14} aria-hidden="true" />
                 Catalog
@@ -359,7 +367,7 @@ export default function ResellerDashboard({
                     onClick={() => changeQuantity(quantity - 1)}
                     disabled={quantity <= 1}
                     aria-label="Decrease quantity"
-                    className="flex h-10 w-10 items-center justify-center rounded-xl border border-border text-text-secondary transition hover:border-accent/40 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-35"
+                    className="flex h-11 w-11 items-center justify-center rounded-xl border border-border text-text-secondary transition hover:border-accent/40 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-35 sm:h-10 sm:w-10"
                   >
                     <Minus size={16} weight="bold" />
                   </button>
@@ -374,7 +382,7 @@ export default function ResellerDashboard({
                     onClick={() => changeQuantity(quantity + 1)}
                     disabled={quantity >= MAX_QUANTITY}
                     aria-label="Increase quantity"
-                    className="flex h-10 w-10 items-center justify-center rounded-xl border border-border text-text-secondary transition hover:border-accent/40 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-35"
+                    className="flex h-11 w-11 items-center justify-center rounded-xl border border-border text-text-secondary transition hover:border-accent/40 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-35 sm:h-10 sm:w-10"
                   >
                     <Plus size={16} weight="bold" />
                   </button>
