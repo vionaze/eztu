@@ -16,6 +16,8 @@
     "products:import:eztopup": "node --experimental-strip-types src/import-eztopup-products.ts",
     "products:seed:test-skus": "node --experimental-strip-types src/seed-test-skus.ts",
     "products:sync:supplier": "node --experimental-strip-types src/sync-supplier-products.ts",
+    "reseller-pricing:import": "node --experimental-strip-types src/import-reseller-pricing.ts",
+    "test": "node --experimental-strip-types --test src/*.test.ts",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
     "typecheck": "tsc --noEmit --pretty false"

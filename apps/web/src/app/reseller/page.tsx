@@ -5,6 +5,7 @@ import { getCurrentResellerContext } from "@/lib/reseller-auth";
 import { resellerDisplayStatus } from "@/lib/reseller-utils";
 import ResellerLogoutButton from "./ResellerLogoutButton";
 import ResellerSignupForm from "./ResellerSignupForm";
+import ResellerCatalog from "./ResellerCatalog";
 
 export const dynamic = "force-dynamic";
 
@@ -53,12 +54,7 @@ export default async function ResellerPage() {
             {organization.rejectionReason ? ` Note: ${organization.rejectionReason}` : ""}
           </section>
         ) : (
-          <section className="mt-4 rounded-2xl border border-accent/20 bg-accent/5 p-5">
-            <h2 className="font-semibold">Reseller dashboard coming next</h2>
-            <p className="mt-2 text-sm text-text-secondary">
-              Your organization is approved. Catalog pricing, orders, and margin tools will be added in Phase 2 and Phase 3.
-            </p>
-          </section>
+          <ResellerCatalog orgId={organization.id} />
         )}
 
         <div className="mt-6 flex flex-wrap items-center gap-4">

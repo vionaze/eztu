@@ -18,6 +18,8 @@
     "db:seed": "pnpm --filter @kupon/db db:seed",
     "products:import:eztopup": "pnpm --filter @kupon/db products:import:eztopup",
     "products:sync:supplier": "pnpm --filter @kupon/db products:sync:supplier",
+    "reseller-pricing:import": "pnpm --filter @kupon/db reseller-pricing:import",
+    "test:db": "pnpm --filter @kupon/db test",
     "prisma:generate": "pnpm --filter @kupon/db prisma:generate",
     "prisma:validate": "pnpm --filter @kupon/db prisma:validate",
     "deploy:vps": "bash scripts/deploy-vps.sh"

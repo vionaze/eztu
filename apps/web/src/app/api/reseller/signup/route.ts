@@ -7,6 +7,10 @@ import { sendDiscordResellerApplication } from "@/lib/discord";
 
 export const dynamic = "force-dynamic";
 
+function publicOrganization(organization: { id: string; name: string; slug: string; status: string }) {
+  return { id: organization.id, name: organization.name, slug: organization.slug, status: organization.status };
+}
+
 export async function POST(request: Request) {
   try {
     const authenticatedUser = await requireClerkUser();
@@ -38,7 +42,7 @@ export async function POST(request: Request) {
     });
 
     if (existingMembership) {
-      return NextResponse.json({ organization: existingMembership.organization }, { status: 200 });
+      return NextResponse.json({ organization: publicOrganization(existingMembership.organization) }, { status: 200, headers: { "Cache-Control": "private, no-store" } });
     }
 
     const existingSlug = await prisma.resellerOrganization.findUnique({
@@ -88,7 +92,7 @@ export async function POST(request: Request) {
       metadata: { organizationId: organization.id, slug: organization.slug },
     });
 
-    return NextResponse.json({ organization }, { status: 201 });
+    return NextResponse.json({ organization: publicOrganization(organization) }, { status: 201, headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     if (error instanceof AuthenticationRequiredError) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });

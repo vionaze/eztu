@@ -13,19 +13,18 @@ export async function GET() {
         email: authenticatedUser.email,
         emailVerified: authenticatedUser.emailVerified,
       },
-      memberships: memberships.map(({ organization, ...membership }) => ({
-        ...membership,
+      memberships: memberships.map(({ organization, organizationId }) => ({
+        organizationId,
         organization: {
           id: organization.id,
           name: organization.name,
           slug: organization.slug,
           status: organization.status,
-          tier: organization.tier,
           rejectionReason: organization.rejectionReason,
           createdAt: organization.createdAt,
         },
       })),
-    });
+    }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     if (error instanceof AuthenticationRequiredError) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });

@@ -65,3 +65,22 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 export { reconcileSupplierReplacements } from "./supplier-replacements.ts";
+export {
+  calculateResellerPrice,
+  chooseEffectiveRule,
+  formatResellerMarkupPercent,
+  parsePercentMicros,
+  parseResellerMarkupPercent,
+} from "./reseller-pricing.ts";
+export type { ResellerPriceMode, ResellerPriceRule } from "./reseller-pricing.ts";
+export {
+  parseResellerWorkbook,
+  workbookSourceSha256,
+} from "./reseller-price-import.ts";
+export type {
+  ResellerCatalogIdentity,
+  ResellerImportResult,
+  ResellerImportRule,
+  ResellerWorkbookCell,
+  ResellerWorkbookRow,
+} from "./reseller-price-import.ts";
