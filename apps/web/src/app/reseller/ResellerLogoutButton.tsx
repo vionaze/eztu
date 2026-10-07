@@ -2,8 +2,12 @@
 
 import { useClerk } from "@clerk/nextjs";
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 
-export default function ResellerLogoutButton() {
+const baseClass =
+  "inline-flex items-center justify-center gap-2 rounded-xl text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50";
+
+export default function ResellerLogoutButton({ className }: { className?: string }) {
   const { signOut } = useClerk();
   const [isSigningOut, setIsSigningOut] = useState(false);
 
@@ -17,7 +21,11 @@ export default function ResellerLogoutButton() {
       type="button"
       onClick={handleSignOut}
       disabled={isSigningOut}
-      className="mt-3 inline-flex h-10 items-center justify-center rounded-xl border border-border px-4 text-sm font-medium text-text-secondary transition hover:border-red-400/40 hover:text-red-200 disabled:cursor-not-allowed disabled:opacity-50"
+      className={cn(
+        baseClass,
+        className ??
+          "mt-3 h-10 border border-border px-4 text-text-secondary hover:border-red-400/40 hover:text-red-200",
+      )}
     >
       {isSigningOut ? "Logging out…" : "Log out"}
     </button>
