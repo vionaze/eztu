@@ -6,6 +6,7 @@ export type SupplierCatalogProduct = {
   price: number;
   status: string;
   category_code?: string;
+  country_code?: string;
 };
 
 export type PricedCatalogItem = CatalogItem & { supplierCostIDR: number };
@@ -40,6 +41,7 @@ export async function fetchCountryCatalog(countryCode: string) {
       Accept: "application/json",
       Authorization: `Bearer ${supplierApiKey()}`,
     },
+    signal: AbortSignal.timeout(30_000),
   });
   if (!response.ok) {
     throw new Error(`Supplier ${countryCode} returned HTTP ${response.status}`);
@@ -55,7 +57,11 @@ export async function fetchCountryCatalog(countryCode: string) {
     );
   }
 
-  return body.data.products.flatMap((value) => {
+  return normalizeCatalogProducts(body.data.products);
+}
+
+function normalizeCatalogProducts(values: unknown[]) {
+  return values.flatMap((value) => {
     if (!value || typeof value !== "object" || Array.isArray(value)) return [];
     const product = value as Record<string, unknown>;
     const code = String(product.code ?? "").trim();
@@ -68,6 +74,7 @@ export async function fetchCountryCatalog(countryCode: string) {
       name,
       price,
       status,
+      country_code: typeof product.country_code === "string" ? product.country_code.trim().toLowerCase() : undefined,
       category_code:
         typeof product.category_code === "string"
           ? product.category_code.trim()
@@ -128,4 +135,40 @@ export async function hydrateMissingSupplierCosts(
       supplierStatus: supplierProduct.status.trim().toLowerCase(),
     };
   });
+}
+
+
+/** Fetch only selected existing product categories, with explicit supplier region. */
+export async function fetchCategoryCatalog(countryCode: string, categoryCodes: string[]) {
+  async function request(path: string, categoryCode?: string) {
+    const url = new URL(path, supplierApiUrl());
+    url.searchParams.set("country_code", countryCode);
+    if (categoryCode) url.searchParams.set("category_code", categoryCode);
+    const response = await fetch(url, {
+      headers: { Accept: "application/json", Authorization: `Bearer ${supplierApiKey()}` },
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!response.ok) throw new Error(`Supplier ${countryCode} returned HTTP ${response.status}`);
+    const body = await response.json() as {
+      code?: string; data?: { categories?: { code: string; country_code?: string }[]; products?: unknown[] };
+    };
+    if (body.code !== "SUCCESS") throw new Error(`Supplier ${countryCode} returned ${body.code || "invalid response"}`);
+    return body;
+  }
+  const categories = (await request("/api/category")).data?.categories;
+  if (!Array.isArray(categories)) throw new Error(`Invalid supplier categories for ${countryCode}`);
+  const allowed = new Set(categories.filter(category =>
+    !category.country_code || category.country_code.toLowerCase() === countryCode,
+  ).map(category => category.code));
+  const rows: SupplierCatalogProduct[] = [];
+  for (const categoryCode of [...new Set(categoryCodes)].filter(code => allowed.has(code))) {
+    const products = (await request("/api/product", categoryCode)).data?.products;
+    if (!Array.isArray(products)) throw new Error(`Invalid products for ${countryCode}:${categoryCode}`);
+    for (const product of normalizeCatalogProducts(products)) {
+      if (product.country_code !== countryCode) throw new Error(`Supplier country mismatch for ${countryCode}:${product.code}`);
+      if (product.category_code && product.category_code !== categoryCode) throw new Error(`Supplier category mismatch for ${product.code}`);
+      rows.push({ ...product, category_code: categoryCode });
+    }
+  }
+  return rows;
 }

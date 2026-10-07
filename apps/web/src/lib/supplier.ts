@@ -111,8 +111,8 @@ function getSupplierCountryCode() {
 export function isSupplierProductCode(value: string | null | undefined) {
   const code = value?.trim();
   if (!code) return false;
-  if (/\s/.test(code)) return false;
-  return /^[a-z0-9][a-z0-9._-]*$/i.test(code);
+  // Some exact supplier SKUs contain an internal ASCII space before a bonus amount.
+  return /^[a-z0-9][a-z0-9._-]*(?: [a-z0-9._-]+)*$/i.test(code);
 }
 
 export function getSupplierOrderCallbackUrl() {

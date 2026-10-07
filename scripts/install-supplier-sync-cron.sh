@@ -30,7 +30,7 @@ BACKUP="$ROOT/.supplier-crontab-backup-$(date +%Y%m%d%H%M%S)"
 cp "$PREVIOUS" "$BACKUP"
 # Replace this job and older supplier-sync entries, preserving unrelated jobs.
 awk '!/eztopup-hourly-supplier-sync/ && !/\/api\/cron\/product-prices/ && !/products:sync:supplier/ && !/sync-supplier-products\.ts/ && !/eztopup-supplier-balance-report/ && !/report-supplier-balance\.mjs/' "$PREVIOUS" >"$UPDATED"
-printf '0 * * * * PATH=%q %q -n %q %q --dir %q products:sync:supplier --apply >> %q 2>&1 # eztopup-hourly-supplier-sync\n' \
+printf '0 * * * * PATH=%q %q -n %q %q --dir %q products:sync:supplier --expand --apply >> %q 2>&1 # eztopup-hourly-supplier-sync\n' \
   "$PATH" "$FLOCK_BIN" "$ROOT/.supplier-sync.lock" "$PNPM_BIN" "$ROOT" "$ROOT/supplier-sync.log" >>"$UPDATED"
 printf '0 */6 * * * PATH=%q %q -n %q %q %q %q >> %q 2>&1 # eztopup-supplier-balance-report\n' \
   "$PATH" "$FLOCK_BIN" "$ROOT/.supplier-balance.lock" "$NODE_BIN" "--env-file=$ROOT/apps/web/.env" "$ROOT/scripts/report-supplier-balance.mjs" "$ROOT/supplier-balance.log" >>"$UPDATED"
