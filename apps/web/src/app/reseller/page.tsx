@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { AuthenticationRequiredError } from "@/lib/clerk";
 import { getCurrentResellerContext } from "@/lib/reseller-auth";
 import { resellerDisplayStatus } from "@/lib/reseller-utils";
+import ResellerLogoutButton from "./ResellerLogoutButton";
 import ResellerSignupForm from "./ResellerSignupForm";
 
 export const dynamic = "force-dynamic";
@@ -60,9 +61,12 @@ export default async function ResellerPage() {
           </section>
         )}
 
-        <Link href="/" className="mt-6 inline-block text-sm text-accent hover:underline">
-          Back to home
-        </Link>
+        <div className="mt-6 flex flex-wrap items-center gap-4">
+          <Link href="/" className="text-sm text-accent hover:underline">
+            Back to home
+          </Link>
+          <ResellerLogoutButton />
+        </div>
       </div>
     </main>
   );
@@ -78,6 +82,9 @@ function ResellerApplication() {
           Submit your business name. Our team will review your application and assign your reseller tier.
         </p>
         <ResellerSignupForm />
+        <div className="mt-4 text-center">
+          <ResellerLogoutButton />
+        </div>
       </div>
     </main>
   );
