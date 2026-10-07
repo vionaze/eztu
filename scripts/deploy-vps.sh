@@ -22,8 +22,7 @@ echo "==> [3/7] prisma migrate deploy + generate"
 pnpm db:migrate
 pnpm prisma:generate
 
-echo "==> [4/7] import EZ All Products catalog"
-pnpm products:import:eztopup
+echo "==> [4/7] sync existing supplier catalog"
 pnpm products:sync:supplier --expand --full-import --apply
 
 echo "==> [5/7] build web"
