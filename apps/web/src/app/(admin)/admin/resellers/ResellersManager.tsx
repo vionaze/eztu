@@ -29,6 +29,7 @@ export default function ResellersManager({
 }) {
   const router = useRouter();
   const [organizations, setOrganizations] = useState(initialOrganizations);
+  const [pendingTiers, setPendingTiers] = useState<Record<string, Organization["tier"]>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
@@ -60,12 +61,21 @@ export default function ResellersManager({
             : item,
         ),
       );
+      setPendingTiers((current) => {
+        const next = { ...current };
+        delete next[id];
+        return next;
+      });
       router.refresh();
     } catch {
       setError("Unable to connect to the server.");
     } finally {
       setBusyId(null);
     }
+  }
+
+  function selectedTier(organization: Organization) {
+    return pendingTiers[organization.id] || organization.tier;
   }
 
   return (
@@ -104,10 +114,34 @@ export default function ResellersManager({
               {organization.status === "PENDING" ? (
                 <button disabled={busyId === organization.id} onClick={() => updateOrganization(organization.id, { status: "REJECTED", rejectionReason: "Application was not approved." })} className="rounded-lg border border-red-400/30 px-3 py-2 text-xs font-semibold text-red-200 disabled:opacity-50">Reject</button>
               ) : null}
-              <select value={organization.tier} disabled={busyId === organization.id} onChange={(event) => updateOrganization(organization.id, { tier: event.target.value })} className="rounded-lg border border-border bg-bg-primary px-3 py-2 text-xs text-text-primary">
+              <select
+                value={selectedTier(organization)}
+                disabled={busyId === organization.id}
+                onChange={(event) =>
+                  setPendingTiers((current) => ({
+                    ...current,
+                    [organization.id]: event.target.value as Organization["tier"],
+                  }))
+                }
+                className="rounded-lg border border-border bg-bg-primary px-3 py-2 text-xs text-text-primary"
+              >
                 <option value="TIER_1">Tier 1</option>
                 <option value="TIER_2">Tier 2</option>
               </select>
+              {selectedTier(organization) !== organization.tier ? (
+                <button
+                  type="button"
+                  disabled={busyId === organization.id}
+                  onClick={() =>
+                    updateOrganization(organization.id, {
+                      tier: selectedTier(organization),
+                    })
+                  }
+                  className="rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-bg-primary disabled:opacity-50"
+                >
+                  {busyId === organization.id ? "Saving…" : "Save"}
+                </button>
+              ) : null}
             </div>
           </article>
         ))}

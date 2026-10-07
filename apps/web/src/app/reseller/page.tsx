@@ -41,20 +41,10 @@ export default async function ResellerPage() {
           </span>
         </div>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <section className="rounded-2xl border border-border bg-bg-card p-5">
-            <p className="text-xs uppercase tracking-wide text-text-muted">Assigned tier</p>
-            <p className="mt-2 text-2xl font-bold">{organization.tier.replace("_", " ")}</p>
-            <p className="mt-2 text-sm text-text-secondary">
-              Pricing and reseller orders will be enabled in the next phase.
-            </p>
-          </section>
-          <section className="rounded-2xl border border-border bg-bg-card p-5">
-            <p className="text-xs uppercase tracking-wide text-text-muted">Account email</p>
-            <p className="mt-2 break-all text-sm font-medium">{authenticatedUser.email || "—"}</p>
-            <p className="mt-2 text-sm text-text-secondary">Membership role: {membership.role}</p>
-          </section>
-        </div>
+        <section className="mt-6 rounded-2xl border border-border bg-bg-card p-5">
+          <p className="text-xs uppercase tracking-wide text-text-muted">Account email</p>
+          <p className="mt-2 break-all text-sm font-medium">{authenticatedUser.email || "—"}</p>
+        </section>
 
         {!isActive ? (
           <section className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/5 p-5 text-sm leading-relaxed text-amber-100/90">
@@ -71,7 +61,7 @@ export default async function ResellerPage() {
         )}
 
         <Link href="/" className="mt-6 inline-block text-sm text-accent hover:underline">
-          Back to EZTopUp
+          Back to home
         </Link>
       </div>
     </main>
