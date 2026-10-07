@@ -1,23 +1,25 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { groupProductPackages, quoteProductPackage } from "./product-packages.ts";
+import { getProductVariantsForMarket } from "./product-availability.ts";
 
 const base = { name: "14 Diamonds ( 13 + 1 Bonus )", priceIDR: 4406, priceUSD: 0.28, countryCode: "id" };
 
-test("global packages share a card across supplier countries and fall back; cheapest price gets Best value", async () => {
+test("all eligible packages share a card by name and price and fall back; cheapest price gets Best value", async () => {
   const variants = [
     { ...base, id: "a", supplierStatus: "empty" },
     { ...base, id: "b", countryCode: "br", supplierStatus: "available" },
     { ...base, id: "c", countryCode: "my", supplierStatus: "available" },
     { ...base, id: "d", countryCode: "vn", priceIDR: 4752, supplierStatus: "available" },
   ];
-  const packages = groupProductPackages(variants, {}, true);
-  assert.equal(groupProductPackages(variants).length, 3);
+  const packages = groupProductPackages(variants);
+  const regional = groupProductPackages(getProductVariantsForMarket({ variants }, "br"));
+  assert.deepEqual(regional[0].variants.map(v => v.id), ["b"]);
   assert.equal(packages.length, 2);
   assert.equal(packages[0].variant.id, "b");
   assert.equal(packages[0].bestValue, true);
   assert.equal(packages[1].bestValue, false);
-  const repriced = groupProductPackages(packages.flatMap(group => group.variants), { b: { priceIDR: 5000 } }, true);
+  const repriced = groupProductPackages(packages.flatMap(group => group.variants), { b: { priceIDR: 5000 } });
   assert.equal(repriced[0].bestValue, false);
   assert.equal(repriced[1].bestValue, true);
   const checked: string[] = [];

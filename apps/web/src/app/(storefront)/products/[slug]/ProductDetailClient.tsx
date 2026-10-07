@@ -116,12 +116,12 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
     [relatedProducts, country.supplierCode],
   );
   const packages = useMemo(
-    () => groupProductPackages(availableVariants, {}, product.globalAvailability),
-    [availableVariants, product.globalAvailability],
+    () => groupProductPackages(availableVariants),
+    [availableVariants],
   );
   const displayedPackages = useMemo(
-    () => groupProductPackages(availableVariants, pakasirDisplayPrices, product.globalAvailability),
-    [availableVariants, pakasirDisplayPrices, product.globalAvailability],
+    () => groupProductPackages(availableVariants, pakasirDisplayPrices),
+    [availableVariants, pakasirDisplayPrices],
   );
   const selectedPackage = packages.find(group => group.key === selectedVariant && group.available)
     || packages.find(group => group.available);

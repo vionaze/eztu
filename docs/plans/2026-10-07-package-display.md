@@ -1,8 +1,8 @@
 # Package display and stock fallback
 
-Goal: display one card per exact package name and IDR display price within
-the eligible market. Global products combine supplier countries; regional
-products keep supplier regions separate.
+Goal: all storefront products display one card per exact package name and
+IDR display price. Existing market eligibility runs before grouping; supplier
+country never creates separate cards among the already eligible SKUs.
 Other equivalent supplier SKUs remain available as stock fallbacks.
 
 Acceptance:

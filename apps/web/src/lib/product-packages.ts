@@ -7,14 +7,13 @@ export function isPackageVariantAvailable(variant: ProductVariant) {
 export function groupProductPackages(
   variants: readonly ProductVariant[],
   displayPrices: Readonly<Record<string, { priceIDR: number }>> = {},
-  globalAvailability = false,
 ) {
   const groups = new Map<string, {
     key: string; family: string; variants: ProductVariant[];
   }>();
   for (const variant of variants) {
-    // Global packages are interchangeable across supplier countries.
-    const family = JSON.stringify([globalAvailability ? "global" : variant.countryCode || "", variant.name]);
+    // The caller filters eligible markets before grouping package offers.
+    const family = variant.name;
     const key = JSON.stringify([family, variant.priceIDR]);
     const group = groups.get(key);
     if (group) group.variants.push(variant);
