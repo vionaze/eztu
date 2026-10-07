@@ -3,6 +3,7 @@ import { prisma } from "@kupon/db";
 import { requireClerkUser, AuthenticationRequiredError } from "@/lib/clerk";
 import { slugifyReseller } from "@/lib/reseller-utils";
 import { writeAppLog } from "@/lib/app-log";
+import { sendDiscordResellerApplication } from "@/lib/discord";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +69,13 @@ export async function POST(request: Request) {
         },
       });
       return created;
+    });
+
+    void sendDiscordResellerApplication({
+      organizationName: organization.name,
+      organizationSlug: organization.slug,
+      applicantEmail: authenticatedUser.email,
+      organizationId: organization.id,
     });
 
     await writeAppLog({

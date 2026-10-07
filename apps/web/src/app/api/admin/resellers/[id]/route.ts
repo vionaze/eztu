@@ -4,6 +4,7 @@ import { requirePlatformAdminForResellers } from "@/lib/reseller-auth";
 import { AuthenticationRequiredError, AuthorizationRequiredError } from "@/lib/clerk";
 import { writeAppLog } from "@/lib/app-log";
 import { canTransitionResellerStatus } from "@/lib/reseller-utils";
+import { sendResellerApprovalEmail } from "@/lib/reseller-notifications";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -15,6 +16,19 @@ type Tier = (typeof tiers)[number];
 
 export const dynamic = "force-dynamic";
 
+async function getOrganization(id: string) {
+  return prisma.resellerOrganization.findUnique({
+    where: { id },
+    include: {
+      members: {
+        where: { active: true, role: "OWNER" },
+        take: 1,
+        select: { user: { select: { email: true } } },
+      },
+    },
+  });
+}
+
 export async function PATCH(request: Request, context: RouteContext) {
   try {
     const admin = await requirePlatformAdminForResellers();
@@ -25,7 +39,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       rejectionReason?: string | null;
     };
 
-    const existing = await prisma.resellerOrganization.findUnique({ where: { id } });
+    const existing = await getOrganization(id);
     if (!existing) return NextResponse.json({ error: "Reseller not found" }, { status: 404 });
 
     const data: {
@@ -91,6 +105,19 @@ export async function PATCH(request: Request, context: RouteContext) {
       },
     });
 
+    if (existing.status !== "ACTIVE" && organization.status === "ACTIVE") {
+      const ownerEmail = existing.members[0]?.user.email;
+      if (ownerEmail) {
+        const emailResult = await sendResellerApprovalEmail({
+          to: ownerEmail,
+          organizationName: organization.name,
+        });
+        if (!emailResult.sent) {
+          console.warn("[admin/resellers] approval email was not sent", emailResult.error);
+        }
+      }
+    }
+
     await writeAppLog({
       category: "ADMIN",
       level: "WARNING",
@@ -110,5 +137,35 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
     console.error("[admin/resellers PATCH]", error);
     return NextResponse.json({ error: "Unable to update reseller" }, { status: 500 });
+  }
+}
+
+export async function DELETE(_request: Request, context: RouteContext) {
+  try {
+    const admin = await requirePlatformAdminForResellers();
+    const { id } = await context.params;
+    const existing = await getOrganization(id);
+    if (!existing) return NextResponse.json({ error: "Reseller not found" }, { status: 404 });
+
+    await prisma.resellerOrganization.delete({ where: { id } });
+    await writeAppLog({
+      category: "ADMIN",
+      level: "WARNING",
+      title: `Reseller organization deleted: ${existing.name}`,
+      actor: admin.email || admin.dbUserId,
+      route: `/api/admin/resellers/${id}`,
+      metadata: { organizationId: id, slug: existing.slug },
+    });
+
+    return NextResponse.json({ ok: true, id });
+  } catch (error) {
+    if (error instanceof AuthenticationRequiredError) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    }
+    if (error instanceof AuthorizationRequiredError) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    console.error("[admin/resellers DELETE]", error);
+    return NextResponse.json({ error: "Unable to delete reseller" }, { status: 500 });
   }
 }

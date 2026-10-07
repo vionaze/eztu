@@ -143,6 +143,45 @@ function fraudAlertTitle(alert: FraudAlert): string {
   return "Security flag";
 }
 
+export async function sendDiscordResellerApplication(application: {
+  organizationName: string;
+  organizationSlug: string;
+  applicantEmail: string;
+  organizationId: string;
+}): Promise<boolean> {
+  if (!FRAUD_WEBHOOK_URL) {
+    console.warn("[Discord] Report webhook URL not configured");
+    return false;
+  }
+
+  try {
+    const response = await fetch(FRAUD_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: "EZTopUp Reseller Reports",
+        allowed_mentions: { parse: [] },
+        embeds: [{
+          title: "New reseller application",
+          color: 0x22c55e,
+          fields: [
+            { name: "Organization", value: application.organizationName, inline: true },
+            { name: "Applicant", value: application.applicantEmail, inline: true },
+            { name: "Slug", value: application.organizationSlug, inline: true },
+            { name: "Organization ID", value: application.organizationId, inline: false },
+            { name: "Status", value: "PENDING", inline: true },
+          ],
+          timestamp: new Date().toISOString(),
+        }],
+      }),
+    });
+    return response.ok;
+  } catch (error) {
+    console.error("[Discord] Failed to send reseller application:", error);
+    return false;
+  }
+}
+
 export async function sendDiscordFraudAlert(
   alert: FraudAlert
 ): Promise<boolean> {
