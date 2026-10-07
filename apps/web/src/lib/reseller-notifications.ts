@@ -34,22 +34,24 @@ export async function sendResellerApprovalEmail(params: {
   const resellerUrl = "https://reseller.eztopup.io";
   const organizationName = escapeHtml(params.organizationName);
   const url = escapeHtml(resellerUrl);
-  const subject = "Your EZTopUp reseller application has been approved";
+  const subject = "Welcome to EZTopUp Reseller — your portal is ready";
   const html = `
     <div style="font-family:Arial,sans-serif;line-height:1.6;color:#111827">
-      <h1 style="font-size:22px;margin:0 0 16px">Your reseller application has been approved</h1>
-      <p>Your EZTopUp reseller application for <strong>${organizationName}</strong> has been approved.</p>
-      <p>Click the button below to access your reseller portal:</p>
+      <h1 style="font-size:22px;margin:0 0 16px">Welcome to EZTopUp Reseller</h1>
+      <p>Hi there,</p>
+      <p>We’re excited to welcome <strong>${organizationName}</strong> to the EZTopUp reseller community.</p>
+      <p>Your reseller access is ready. You can now visit your portal to continue setting up your account and explore what’s next.</p>
       <p>
         <a href="${url}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:6px">
-          Click here to access
+          Click here to access your portal
         </a>
       </p>
       <p style="word-break:break-all"><a href="${url}">${url}</a></p>
-      <p>Thank you,<br />EZTopUp Team</p>
+      <p>We’re happy to have you with us.</p>
+      <p>Warm regards,<br />The EZTopUp Team</p>
     </div>
   `;
-  const text = `Your EZTopUp reseller application for ${params.organizationName} has been approved.\n\nClick here to access your reseller portal: ${resellerUrl}\n\nThank you,\nEZTopUp Team`;
+  const text = `Welcome to EZTopUp Reseller, ${params.organizationName}!\n\nWe’re excited to welcome you to the EZTopUp reseller community. Your reseller access is ready, and your portal is available here:\n${resellerUrl}\n\nWe’re happy to have you with us.\n\nWarm regards,\nThe EZTopUp Team`;
 
   try {
     const response = await fetch("https://api.resend.com/emails", {
