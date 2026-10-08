@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowsClockwise,
   CaretLeft,
@@ -27,7 +28,6 @@ type Quote = { variantId: string; unitPriceIDR: number; totalIDR: number; quanti
 
 const MAX_QUANTITY = 20;
 const money = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
-const ACTIVE_ORDER_STATUSES = ["PAYMENT_PENDING", "PAID", "PROCESSING", "MANUAL_REVIEW", "REFUND_PENDING"];
 
 function timeLabel(value: string | null | undefined) {
   if (!value) return "";
@@ -37,10 +37,10 @@ function timeLabel(value: string | null | undefined) {
 
 function StatCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="rounded-2xl border border-border bg-bg-card p-5">
-      <p className="text-[13px] font-medium text-text-secondary">{label}</p>
-      <p className="mt-3 font-[family-name:var(--font-geist-mono)] text-3xl font-bold tracking-tight text-text-primary">{value}</p>
-      {hint ? <p className="mt-2 text-xs text-text-muted">{hint}</p> : null}
+    <div className="rounded-md border border-border/70 bg-bg-card/50 px-4 py-3.5">
+      <p className="text-[12px] font-medium text-text-secondary">{label}</p>
+      <p className="mt-1.5 font-[family-name:var(--font-geist-mono)] text-2xl font-bold tracking-tight text-text-primary">{value}</p>
+      {hint ? <p className="mt-1 text-[11px] text-text-muted">{hint}</p> : null}
     </div>
   );
 }
@@ -72,7 +72,11 @@ export default function ResellerDashboard({
   const [cart, setCart] = useState<Record<string, CartLine>>({});
   const [showOrder, setShowOrder] = useState(false);
   const [orders, setOrders] = useState<ResellerOrder[] | null>(null);
+  const [flyers, setFlyers] = useState<{ id: number; from: { x: number; y: number }; to: { x: number; y: number } }[]>([]);
+  const [toast, setToast] = useState("");
   const quoteController = useRef<AbortController | null>(null);
+  const addButtonRef = useRef<HTMLButtonElement | null>(null);
+  const cartSlotRef = useRef<HTMLSpanElement | null>(null);
 
   const orderingEnabled = Boolean(catalog?.orderingEnabled);
   const cartCount = Object.values(cart).reduce((sum, line) => sum + line.quantity, 0);
@@ -178,12 +182,29 @@ export default function ResellerDashboard({
 
   function addToCart() {
     if (!selected) return;
+    const line = selected;
+    const added = quantity;
     setCart((current) => {
-      const existing = current[selected.id];
-      const nextQuantity = Math.min(MAX_QUANTITY, (existing?.quantity ?? 0) + quantity);
-      return { ...current, [selected.id]: { variantId: selected.id, name: selected.name, unitPriceIDR: selected.priceIDR, quantity: nextQuantity } };
+      const existing = current[line.id];
+      const nextQuantity = Math.min(MAX_QUANTITY, (existing?.quantity ?? 0) + added);
+      return { ...current, [line.id]: { variantId: line.id, name: line.name, unitPriceIDR: line.priceIDR, quantity: nextQuantity } };
     });
-    setShowOrder(true);
+    const from = addButtonRef.current?.getBoundingClientRect();
+    const to = cartSlotRef.current?.getBoundingClientRect();
+    if (from && to) {
+      const id = Date.now() + Math.random();
+      setFlyers((current) => [
+        ...current,
+        {
+          id,
+          from: { x: from.left + from.width / 2, y: from.top + from.height / 2 },
+          to: { x: to.left + to.width / 2, y: to.top + to.height / 2 },
+        },
+      ]);
+      window.setTimeout(() => setFlyers((current) => current.filter((item) => item.id !== id)), 750);
+    }
+    setToast(`${added} × ${line.name} added to cart`);
+    window.setTimeout(() => setToast((current) => (current === `${added} × ${line.name} added to cart` ? "" : current)), 2400);
   }
 
   const term = search.trim().toLowerCase();
@@ -199,7 +220,6 @@ export default function ResellerDashboard({
     () => (catalog?.products ?? []).reduce((total, product) => total + product.variants.length, 0),
     [catalog],
   );
-  const activeOrders = (orders ?? []).filter((order) => ACTIVE_ORDER_STATUSES.includes(order.status)).length;
   const completedOrders = (orders ?? []).filter((order) => order.status === "COMPLETED").length;
 
   const unitPrice = quote?.unitPriceIDR ?? selected?.priceIDR ?? 0;
@@ -223,7 +243,7 @@ export default function ResellerDashboard({
       </div>
 
       <div className="border-b border-border/70 p-3">
-        <div className="rounded-xl border border-border bg-bg-card px-3 py-2.5">
+        <div className="rounded-md border border-border bg-bg-card px-3 py-2.5">
           <p className="truncate text-sm font-semibold leading-tight">{orgName}</p>
           <p className="truncate text-[11px] leading-tight text-text-muted">{email || "—"}</p>
         </div>
@@ -301,7 +321,9 @@ export default function ResellerDashboard({
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-2">
             {orderingEnabled ? (
-              <CartButton count={cartCount} onClick={() => setShowOrder(true)} />
+              <span ref={cartSlotRef} className="inline-flex">
+                <CartButton count={cartCount} onClick={() => setShowOrder(true)} />
+              </span>
             ) : (
               <span className="rounded-full border border-border px-2.5 py-1 text-[11px] text-text-muted">Ordering not enabled</span>
             )}
@@ -317,7 +339,7 @@ export default function ResellerDashboard({
                 {orderingEnabled ? (
                   <OrdersPanel orgId={orgId} />
                 ) : (
-                  <p className="rounded-2xl border border-border bg-bg-card p-5 text-sm text-text-secondary">
+                  <p className="rounded-md border border-border bg-bg-card p-5 text-sm text-text-secondary">
                     Wholesale ordering is not enabled for your organization yet.
                   </p>
                 )}
@@ -336,21 +358,20 @@ export default function ResellerDashboard({
                   type="button"
                   disabled={loading}
                   onClick={() => setReload((value) => value + 1)}
-                  className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-border px-3 text-xs font-medium text-text-secondary transition hover:border-accent/40 hover:text-text-primary disabled:opacity-50"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-3 text-xs font-medium text-text-secondary transition hover:border-accent/40 hover:text-text-primary disabled:opacity-50"
                 >
                   <ArrowsClockwise size={14} aria-hidden="true" />
                   {loading ? "Refreshing…" : "Refresh catalog"}
                 </button>
               </div>
 
-              <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
                 <StatCard label="Wholesale SKUs" value={String(skuCount)} hint={`${catalog?.products.length ?? 0} products configured`} />
-                <StatCard label="Active orders" value={orders ? String(activeOrders) : "—"} hint="Pending payment, processing, or review" />
                 <StatCard label="Completed orders" value={orders ? String(completedOrders) : "—"} hint={`Catalog updated ${timeLabel(catalog?.quotedAt) || "—"}`} />
               </div>
 
               {catalogError ? (
-                <p role="alert" className="mt-5 rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-sm text-red-200">
+                <p role="alert" className="mt-5 rounded-md border border-red-400/30 bg-red-400/10 p-4 text-sm text-red-200">
                   {catalogError}
                 </p>
               ) : null}
@@ -360,14 +381,14 @@ export default function ResellerDashboard({
                   <button
                     type="button"
                     onClick={() => setSelectedProduct(null)}
-                    className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-border px-3 text-xs font-medium text-text-secondary transition hover:text-text-primary"
+                    className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-3 text-xs font-medium text-text-secondary transition hover:text-text-primary"
                   >
                     <CaretLeft size={14} aria-hidden="true" />
                     All products
                   </button>
 
                   <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(300px,380px)]">
-                    <div className="rounded-2xl border border-border bg-bg-card p-4">
+                    <div className="rounded-md border border-border bg-bg-card p-4">
                       <h2 className="text-sm font-semibold uppercase tracking-wide text-text-muted">Packages</h2>
                       <ul className="mt-3 space-y-1.5">
                         {selectedProduct.variants.map((variant) => {
@@ -379,9 +400,9 @@ export default function ResellerDashboard({
                                 onClick={() => selectVariant(variant)}
                                 aria-pressed={active}
                                 className={cn(
-                                  "flex w-full items-center justify-between gap-3 rounded-xl border p-3 text-left transition",
+                                  "flex w-full items-center justify-between gap-3 rounded-md border p-3 text-left transition",
                                   active
-                                    ? "border-accent bg-accent/10 shadow-[var(--shadow-glow)]"
+                                    ? "border-accent/60 bg-accent/[0.07]"
                                     : "border-border bg-bg-primary/40 hover:border-accent/40",
                                 )}
                               >
@@ -399,7 +420,7 @@ export default function ResellerDashboard({
                       </ul>
                     </div>
 
-                    <div className="rounded-2xl border border-border bg-bg-card p-5">
+                    <div className="rounded-md border border-border bg-bg-card p-5">
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-xs uppercase tracking-wide text-text-muted">Unit price</p>
                         <span
@@ -413,13 +434,13 @@ export default function ResellerDashboard({
                       </div>
                       <p className="mt-2 font-[family-name:var(--font-geist-mono)] text-3xl font-bold tabular-nums">{money.format(unitPrice)}</p>
 
-                      <div className="mt-5 flex items-center justify-between rounded-2xl border border-border bg-bg-primary/50 p-2">
+                      <div className="mt-5 flex items-center justify-between rounded-md border border-border bg-bg-primary/50 p-2">
                         <button
                           type="button"
                           onClick={() => setQuantity((value) => Math.max(1, value - 1))}
                           disabled={quantity <= 1}
                           aria-label="Decrease quantity"
-                          className="flex h-10 w-10 items-center justify-center rounded-xl border border-border text-text-secondary transition hover:border-accent/40 hover:text-text-primary disabled:opacity-35"
+                          className="flex h-10 w-10 items-center justify-center rounded-md border border-border text-text-secondary transition hover:border-accent/40 hover:text-text-primary disabled:opacity-35"
                         >
                           <Minus size={15} weight="bold" />
                         </button>
@@ -432,7 +453,7 @@ export default function ResellerDashboard({
                           onClick={() => setQuantity((value) => Math.min(MAX_QUANTITY, value + 1))}
                           disabled={quantity >= MAX_QUANTITY}
                           aria-label="Increase quantity"
-                          className="flex h-10 w-10 items-center justify-center rounded-xl border border-border text-text-secondary transition hover:border-accent/40 hover:text-text-primary disabled:opacity-35"
+                          className="flex h-10 w-10 items-center justify-center rounded-md border border-border text-text-secondary transition hover:border-accent/40 hover:text-text-primary disabled:opacity-35"
                         >
                           <Plus size={15} weight="bold" />
                         </button>
@@ -448,7 +469,7 @@ export default function ResellerDashboard({
                           type="button"
                           disabled={quoteBusy || !selected}
                           onClick={() => selected && void fetchQuote(selected.id, quantity)}
-                          className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-accent/30 px-3 text-xs font-semibold text-accent transition hover:bg-accent/10 disabled:opacity-50"
+                          className="inline-flex h-9 items-center gap-1.5 rounded-md border border-accent/30 px-3 text-xs font-semibold text-accent transition hover:bg-accent/10 disabled:opacity-50"
                         >
                           <ArrowsClockwise size={13} aria-hidden="true" />
                           {quoteBusy ? "Refreshing…" : "Refresh live quote"}
@@ -458,10 +479,11 @@ export default function ResellerDashboard({
 
                       {orderingEnabled ? (
                         <button
+                          ref={addButtonRef}
                           type="button"
                           onClick={addToCart}
                           disabled={!selected}
-                          className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 text-sm font-semibold text-bg-primary transition hover:brightness-110 disabled:opacity-50"
+                          className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-accent px-4 text-sm font-semibold text-bg-primary transition hover:brightness-110 disabled:opacity-50"
                         >
                           <ShoppingCart size={16} weight="bold" aria-hidden="true" />
                           Add {quantity} to order
@@ -469,7 +491,7 @@ export default function ResellerDashboard({
                       ) : null}
 
                       {quoteError ? (
-                        <p role="alert" className="mt-3 rounded-xl border border-red-400/30 bg-red-400/10 p-3 text-xs text-red-200">
+                        <p role="alert" className="mt-3 rounded-md border border-red-400/30 bg-red-400/10 p-3 text-xs text-red-200">
                           {quoteError}
                         </p>
                       ) : null}
@@ -488,18 +510,18 @@ export default function ResellerDashboard({
                       aria-label="Search wholesale catalog"
                       autoComplete="off"
                       enterKeyHint="search"
-                      className="h-11 w-full rounded-xl border border-border bg-bg-card pl-9 pr-3 text-base sm:h-10 sm:text-sm"
+                      className="h-11 w-full rounded-md border border-border bg-bg-card pl-9 pr-3 text-base sm:h-10 sm:text-sm"
                     />
                   </div>
 
                   {loading ? (
                     <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-hidden="true">
                       {Array.from({ length: 6 }).map((_, index) => (
-                        <div key={index} className="h-32 animate-pulse rounded-2xl border border-border/60 bg-bg-card/60" />
+                        <div key={index} className="h-32 animate-pulse rounded-md border border-border/60 bg-bg-card/60" />
                       ))}
                     </div>
                   ) : products.length === 0 ? (
-                    <p className="mt-4 rounded-2xl border border-border bg-bg-card p-5 text-sm text-text-secondary">
+                    <p className="mt-4 rounded-md border border-border bg-bg-card p-5 text-sm text-text-secondary">
                       {catalog && catalog.products.length > 0
                         ? "No products match your search."
                         : "No wholesale pricing is available for your organization yet. Contact support if this looks wrong."}
@@ -513,7 +535,7 @@ export default function ResellerDashboard({
                             key={product.id}
                             type="button"
                             onClick={() => openProduct(product)}
-                            className="group flex flex-col rounded-2xl border border-border bg-bg-card p-4 text-left transition hover:border-accent/40 hover:bg-bg-elevated/40"
+                            className="group flex flex-col rounded-md border border-border bg-bg-card p-4 text-left transition hover:border-accent/40 hover:bg-bg-elevated/40"
                           >
                             <div className="flex items-center gap-3">
                               {product.image ? (
@@ -574,11 +596,41 @@ export default function ResellerDashboard({
           type="button"
           onClick={() => setNavOpen(false)}
           aria-label="Close menu"
-          className="fixed right-4 top-4 z-[80] flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-bg-secondary text-text-secondary md:hidden"
+          className="fixed right-4 top-4 z-[80] flex h-9 w-9 items-center justify-center rounded-md border border-border bg-bg-secondary text-text-secondary md:hidden"
         >
           <X size={16} weight="bold" />
         </button>
       ) : null}
+
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[90]">
+        <AnimatePresence>
+          {flyers.map((flyer) => (
+            <motion.span
+              key={flyer.id}
+              initial={{ x: flyer.from.x - 6, y: flyer.from.y - 6, scale: 1, opacity: 0.95 }}
+              animate={{ x: flyer.to.x - 6, y: flyer.to.y - 6, scale: 0.35, opacity: 0.1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.65, ease: [0.3, 0.7, 0.4, 1] }}
+              className="absolute left-0 top-0 h-3 w-3 rounded-full bg-accent"
+            />
+          ))}
+        </AnimatePresence>
+      </div>
+
+      <AnimatePresence>
+        {toast ? (
+          <motion.p
+            role="status"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            transition={{ duration: 0.18 }}
+            className="fixed bottom-5 left-1/2 z-[85] -translate-x-1/2 rounded-md border border-accent/30 bg-bg-elevated px-3.5 py-2 text-xs font-medium text-text-primary shadow-lg"
+          >
+            {toast}
+          </motion.p>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }

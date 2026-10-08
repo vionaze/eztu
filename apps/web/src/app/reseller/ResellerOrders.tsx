@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { ShoppingCart, Trash, X } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 
@@ -14,8 +15,8 @@ export type ResellerOrder = {
 const money = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
 /** Mirrors MAX_B2B_LINE_QUANTITY; the server re-validates. */
 const MAX_CART_LINE_QUANTITY = 20;
-const primaryClass = "inline-flex h-11 items-center justify-center rounded-xl bg-accent px-4 text-sm font-semibold text-bg-primary transition disabled:cursor-not-allowed disabled:opacity-50";
-const subtleClass = "inline-flex h-11 items-center justify-center rounded-xl border border-border px-4 text-sm font-medium text-text-secondary transition hover:border-accent/40 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50";
+const primaryClass = "inline-flex h-11 items-center justify-center rounded-md bg-accent px-4 text-sm font-semibold text-bg-primary transition disabled:cursor-not-allowed disabled:opacity-50";
+const subtleClass = "inline-flex h-11 items-center justify-center rounded-md border border-border px-4 text-sm font-medium text-text-secondary transition hover:border-accent/40 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50";
 
 const STATUS_STYLE: Record<string, string> = {
   PAYMENT_PENDING: "border-amber-400/30 bg-amber-400/10 text-amber-200",
@@ -30,10 +31,10 @@ const STATUS_STYLE: Record<string, string> = {
 function Shell({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label={title}>
-      <div className="flex max-h-[92dvh] w-full max-w-lg flex-col rounded-t-2xl border border-border bg-bg-elevated shadow-2xl sm:rounded-2xl">
+      <div className="flex max-h-[92dvh] w-full max-w-lg flex-col rounded-t-md border border-border bg-bg-elevated shadow-2xl sm:rounded-md">
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border/70 p-4">
           <h2 className="text-base font-semibold">{title}</h2>
-          <button type="button" onClick={onClose} aria-label="Close" className="flex h-9 w-9 items-center justify-center rounded-xl border border-border text-text-secondary hover:text-text-primary">
+          <button type="button" onClick={onClose} aria-label="Close" className="flex h-9 w-9 items-center justify-center rounded-md border border-border text-text-secondary hover:text-text-primary">
             <X size={16} weight="bold" />
           </button>
         </div>
@@ -139,7 +140,7 @@ export function OrderModal({
 
   return (
     <Shell title="Wholesale order" onClose={onClose}>
-      <div role="tablist" aria-label="Order tabs" className="mb-4 flex gap-1 rounded-xl border border-border bg-bg-primary/40 p-1">
+      <div role="tablist" aria-label="Order tabs" className="mb-4 flex gap-1 rounded-md border border-border bg-bg-primary/40 p-1">
         {(["cart", "orders"] as const).map((value) => (
           <button
             key={value}
@@ -161,7 +162,7 @@ export function OrderModal({
         <p className="text-sm text-text-secondary">Your cart is empty. Add packages from the catalog.</p>
       ) : (
         <div className="space-y-4">
-          <ul className="divide-y divide-border rounded-xl border border-border">
+          <ul className="divide-y divide-border rounded-md border border-border">
             {lines.map((line) => (
               <li key={line.variantId} className="flex flex-wrap items-center justify-between gap-3 p-3">
                 <div className="min-w-0 flex-1 basis-40">
@@ -204,7 +205,7 @@ export function OrderModal({
               </li>
             ))}
           </ul>
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-bg-primary/40 p-3">
+          <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-bg-primary/40 p-3">
             <span className="text-sm text-text-secondary">Total</span>
             <div className="flex items-center gap-3">
               <span className="font-[family-name:var(--font-geist-mono)] text-lg font-bold text-accent">{money.format(total)}</span>
@@ -222,8 +223,8 @@ export function OrderModal({
             Final price is re-verified when the order is created. Parts of an order that the supplier cannot deliver
             completely are reviewed manually before anything is refunded.
           </p>
-          {priceNotice ? <p role="status" className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">{priceNotice}</p> : null}
-          {error ? <p role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200">{error}</p> : null}
+          {priceNotice ? <p role="status" className="rounded-md border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">{priceNotice}</p> : null}
+          {error ? <p role="alert" className="rounded-md border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200">{error}</p> : null}
           {methodButtons}
         </div>
       )}
@@ -253,12 +254,12 @@ export function OrdersPanel({ orgId }: { orgId: string }) {
 
   return (
     <div>
-      {error ? <p role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200">{error}</p> : null}
+      {error ? <p role="alert" className="rounded-md border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200">{error}</p> : null}
       {!orders && !error ? <p role="status" className="text-sm text-text-secondary">Loading orders…</p> : null}
       {orders && orders.length === 0 ? <p className="text-sm text-text-secondary">No orders yet.</p> : null}
       <div className="space-y-3">
         {orders?.map((order) => (
-          <article key={order.id} className="rounded-xl border border-border bg-bg-card p-3">
+          <article key={order.id} className="rounded-md border border-border bg-bg-card p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <p className="font-[family-name:var(--font-geist-mono)] text-sm font-semibold">{order.orderNumber}</p>
@@ -302,12 +303,23 @@ export function OrdersPanel({ orgId }: { orgId: string }) {
 
 export function CartButton({ count, onClick }: { count: number; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} aria-label={`Open cart (${count})`} className="relative inline-flex h-9 items-center gap-1.5 rounded-xl border border-border px-2.5 text-xs font-medium text-text-secondary transition hover:border-accent/40 hover:text-text-primary sm:px-3">
+    <button type="button" onClick={onClick} aria-label={`Open cart (${count})`} className="relative inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-text-secondary transition hover:border-accent/40 hover:text-text-primary sm:px-3">
       <ShoppingCart size={15} aria-hidden="true" />
       <span className="hidden sm:inline">Cart</span>
-      {count > 0 ? (
-        <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-bg-primary">{count}</span>
-      ) : null}
+      <AnimatePresence>
+        {count > 0 ? (
+          <motion.span
+            key={count}
+            initial={{ scale: 0.5, opacity: 0.4 }}
+            animate={{ scale: [1.35, 1], opacity: 1 }}
+            exit={{ scale: 0.5, opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+            className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-bg-primary"
+          >
+            {count}
+          </motion.span>
+        ) : null}
+      </AnimatePresence>
     </button>
   );
 }
