@@ -10,16 +10,20 @@ import {
   Minus,
   Package,
   Plus,
+  ShoppingCart,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import ResellerLogoutButton from "./ResellerLogoutButton";
+import { CartButton, CartModal, OrdersModal, type CartLine } from "./ResellerOrders";
 
 type Variant = { id: string; name: string; countryCode: string | null; priceIDR: number };
 type Product = { id: string; name: string; slug: string; image: string | null; variants: Variant[] };
-type Catalog = { products: Product[]; quotedAt: string };
+type Catalog = { products: Product[]; quotedAt: string; orderingEnabled?: boolean };
 type Quote = { variantId: string; unitPriceIDR: number; totalIDR: number; quantity: number; quotedAt: string };
 
 const MAX_QUANTITY = 20;
+/** Mirrors MAX_B2B_LINE_QUANTITY; the server re-validates every line. */
+const MAX_QUANTITY_TOTAL = 20;
 const money = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
 
 function timeLabel(value: string | null | undefined) {
@@ -51,7 +55,21 @@ export default function ResellerDashboard({
   const [quoteBusy, setQuoteBusy] = useState(false);
   const [quoteError, setQuoteError] = useState("");
   const [quantity, setQuantity] = useState(1);
+  const [cart, setCart] = useState<Record<string, CartLine>>({});
+  const [showCart, setShowCart] = useState(false);
+  const [showOrders, setShowOrders] = useState(false);
   const quoteController = useRef<AbortController | null>(null);
+
+  function addToCart() {
+    if (!selected) return;
+    const { variant } = selected;
+    setCart((current) => {
+      const existing = current[variant.id];
+      const nextQuantity = Math.min(MAX_QUANTITY_TOTAL, (existing?.quantity ?? 0) + quantity);
+      return { ...current, [variant.id]: { variantId: variant.id, name: variant.name, unitPriceIDR: variant.priceIDR, quantity: nextQuantity } };
+    });
+    setShowCart(true);
+  }
 
   useEffect(() => {
     const controller = new AbortController();
@@ -168,9 +186,17 @@ export default function ResellerDashboard({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-          <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-1 text-[11px] font-semibold text-emerald-300 sm:px-2.5">
+          <span className="hidden rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-1 text-[11px] font-semibold text-emerald-300 sm:px-2.5 md:inline">
             {statusLabel}
           </span>
+          <button
+            type="button"
+            onClick={() => setShowOrders(true)}
+            className="inline-flex h-9 items-center rounded-xl border border-border px-2.5 text-xs font-medium text-text-secondary transition hover:border-accent/40 hover:text-text-primary sm:px-3"
+          >
+            Orders
+          </button>
+          <CartButton count={Object.values(cart).reduce((sum, line) => sum + line.quantity, 0)} onClick={() => setShowCart(true)} />
           <ResellerLogoutButton
             compact
             className="h-9 border border-border px-2.5 text-xs text-text-secondary hover:border-red-400/40 hover:text-red-200 sm:px-3"
@@ -408,6 +434,17 @@ export default function ResellerDashboard({
                   <p className="text-[11px] text-text-muted">Final price follows the live quote at checkout.</p>
                 </div>
 
+                {catalog?.orderingEnabled ? (
+                  <button
+                    type="button"
+                    onClick={addToCart}
+                    className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 text-sm font-semibold text-bg-primary transition hover:brightness-110"
+                  >
+                    <ShoppingCart size={16} weight="bold" aria-hidden="true" />
+                    Add {quantity} to order
+                  </button>
+                ) : null}
+
                 {quoteError ? (
                   <p role="alert" className="mt-3 rounded-xl border border-red-400/30 bg-red-400/10 p-3 text-xs text-red-200">
                     {quoteError}
@@ -416,8 +453,8 @@ export default function ResellerDashboard({
               </motion.div>
 
               <p className="rounded-2xl border border-accent/20 bg-accent/5 p-4 text-xs leading-relaxed text-text-secondary">
-                Wholesale ordering opens in the next phase. Prices update from supplier stock in real time — press
-                refresh before making commitments.
+                Prices update from supplier stock in real time — refresh before committing. Partially deliverable
+                orders are reviewed manually before any refund.
               </p>
             </div>
           ) : (
@@ -431,6 +468,16 @@ export default function ResellerDashboard({
           )}
         </section>
       </div>
+
+      {showCart ? (
+        <CartModal
+          orgId={orgId}
+          lines={Object.values(cart)}
+          onClose={() => setShowCart(false)}
+          onPlaced={() => setCart({})}
+        />
+      ) : null}
+      {showOrders ? <OrdersModal orgId={orgId} onClose={() => setShowOrders(false)} /> : null}
     </div>
   );
 }

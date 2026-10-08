@@ -5,6 +5,7 @@ import { AuthorizationRequiredError } from "@/lib/clerk";
 import { requireResellerUser } from "@/lib/reseller-auth";
 import { getDetectedMarketCode, isProductExcludedFromMarket } from "@/lib/product-availability";
 import { getSupplierProduct, isSupplierProductCode } from "@/lib/supplier";
+import { isB2BOrderingEnabled } from "@/lib/b2b-flags";
 import { MAX_SELF_SERVICE_QUANTITY } from "@/lib/checkout-limits";
 
 export class ResellerPricingError extends Error {
@@ -81,7 +82,11 @@ export async function getResellerCatalog(organizationId: string, requestHeaders:
     }
     product.variants.push({ id: variant.id, name: variant.name, countryCode: variant.countryCode, priceIDR });
   }
-  return { products: [...products.values()], quotedAt: new Date().toISOString() };
+  return {
+    products: [...products.values()],
+    quotedAt: new Date().toISOString(),
+    orderingEnabled: isB2BOrderingEnabled(organizationId),
+  };
 }
 
 export async function getResellerLiveQuote(
