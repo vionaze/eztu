@@ -126,3 +126,50 @@ export async function sendB2BCodesEmail(params: {
     return { sent: false, error: error instanceof Error ? error.message : "Unknown email error" };
   }
 }
+
+export async function sendB2BDeliveryEmail(params: {
+  to: string;
+  orderNumber: string;
+  attachmentBase64: string;
+  attachmentName: string;
+  voucherCount: number;
+}): Promise<EmailSendResult> {
+  const apiKey = process.env.RESEND_API_KEY?.trim();
+  if (!apiKey) return { sent: false, error: "RESEND_API_KEY is not configured." };
+
+  const orderNumber = escapeHtml(params.orderNumber);
+  const subject = `EZTopUp wholesale order ${params.orderNumber} — vouchers attached`;
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#111827">
+      <h1 style="font-size:22px;margin:0 0 16px">Your vouchers are ready</h1>
+      <p>Order <strong>${orderNumber}</strong> is complete. ${params.voucherCount} voucher code(s) are attached as an
+      Excel file (<strong>${escapeHtml(params.attachmentName)}</strong>) in the standard order-details format.</p>
+      <p>The file contains: Product Name, Reference Number, Transaction ID, Voucher, Status and the remaining standard columns.</p>
+      <p>Thank you,<br />EZTopUp Team</p>
+    </div>
+  `;
+  const text = `Order ${params.orderNumber} is complete. ${params.voucherCount} voucher code(s) are attached as ${params.attachmentName} in the standard order-details format.\n\nThank you,\nEZTopUp Team`;
+
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: getEmailFromAddress(),
+        to: params.to,
+        reply_to: getEmailReplyTo(),
+        subject,
+        html,
+        text,
+        attachments: [{ filename: params.attachmentName, content: params.attachmentBase64 }],
+      }),
+    });
+    if (!response.ok) {
+      const detail = await response.text().catch(() => "");
+      return { sent: false, error: `Resend API error: ${response.status} ${detail}`.trim() };
+    }
+    return { sent: true };
+  } catch (error) {
+    return { sent: false, error: error instanceof Error ? error.message : "Unknown email error" };
+  }
+}

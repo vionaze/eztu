@@ -8,7 +8,8 @@ import { getDetectedMarketCode, isProductExcludedFromMarket } from "@/lib/produc
 import { ResellerPricingError, requireActiveReseller } from "@/lib/reseller-pricing-service";
 import { getSupplierOrderStatus, getSupplierProduct, isSupplierProductCode, createSupplierOrder } from "@/lib/supplier";
 import { isB2BOrderingEnabled } from "@/lib/b2b-flags";
-import { sendB2BCodesEmail } from "@/lib/reseller-notifications";
+import { buildOrderDetailsWorkbook, orderDetailsFilename } from "@/lib/b2b-delivery-export";
+import { sendB2BDeliveryEmail } from "@/lib/reseller-notifications";
 import {
   buildRequestFingerprint,
   canAdminOrderTransition,
@@ -440,7 +441,10 @@ async function claimFulfillment(orderId: string) {
 export async function fulfillB2BOrder(orderId: string) {
   if (!(await claimFulfillment(orderId))) return { claimed: false };
 
-  const order = await prisma.b2BOrder.findUnique({ where: { id: orderId }, include: { lines: true } });
+  const order = await prisma.b2BOrder.findUnique({
+    where: { id: orderId },
+    include: { lines: true, createdByUser: { select: { email: true } } },
+  });
   if (!order) return { claimed: true, completed: false };
 
   const failures: string[] = [];
@@ -495,17 +499,40 @@ export async function fulfillB2BOrder(orderId: string) {
     data: { status: "COMPLETED", supplierStatus: "fulfilled", fulfillmentLeaseUntil: null, lastReconciledAt: new Date() },
   });
 
-  // Codes are also emailed to the recorded delivery address (best effort).
-  if (order.deliveryEmail) {
-    const completed = await prisma.b2BOrder.findUnique({ where: { id: orderId }, include: { lines: true } });
+  // Vouchers are delivered by email only: one standard order-details Excel per order.
+  const recipient = order.deliveryEmail || order.createdByUser?.email || null;
+  if (recipient) {
+    const completed = await prisma.b2BOrder.findUnique({
+      where: { id: orderId },
+      include: { lines: true, organization: { select: { slug: true } } },
+    });
     if (completed) {
       const lines = completed.lines.map((line) => {
         const raw = (line.supplierRaw ?? {}) as { voucherCodes?: string[] };
-        return { name: line.variantName, quantity: line.quantity, codes: raw.voucherCodes ?? [] };
+        return {
+          productName: line.variantName,
+          quantity: line.quantity,
+          supplierTid: line.supplierTid,
+          codes: raw.voucherCodes ?? [],
+        };
       });
-      const result = await sendB2BCodesEmail({ to: order.deliveryEmail, orderNumber: order.orderNumber, lines });
-      if (!result.sent) console.warn("[b2b-order] codes email was not sent", result.error);
+      const attachmentName = orderDetailsFilename(completed.orderNumber);
+      const attachmentBase64 = buildOrderDetailsWorkbook({
+        reference: completed.organization.slug,
+        orderNumber: completed.orderNumber,
+        lines,
+      });
+      const result = await sendB2BDeliveryEmail({
+        to: recipient,
+        orderNumber: completed.orderNumber,
+        attachmentBase64,
+        attachmentName,
+        voucherCount: lines.reduce((sum, line) => sum + Math.max(1, line.codes.length), 0),
+      });
+      if (!result.sent) console.warn("[b2b-order] voucher email was not sent", result.error);
     }
+  } else {
+    console.warn("[b2b-order] no delivery email found for order", order.orderNumber);
   }
   return { claimed: true, completed: true };
 }

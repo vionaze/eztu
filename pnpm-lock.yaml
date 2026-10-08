@@ -83,6 +83,9 @@ importers:
       sharp:
         specifier: 0.35.3
         version: 0.35.3(@types/node@20.19.40)
+      xlsx:
+        specifier: 0.18.5
+        version: 0.18.5
     devDependencies:
       '@tailwindcss/postcss':
         specifier: ^4.2.4
