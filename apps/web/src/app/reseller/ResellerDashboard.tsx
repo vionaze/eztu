@@ -378,6 +378,16 @@ export default function ResellerDashboard({
           >
             <List size={18} />
           </button>
+          {sidebarHidden ? (
+            <button
+              type="button"
+              onClick={() => setSidebarHidden(false)}
+              aria-label="Show sidebar"
+              className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border text-text-secondary transition hover:border-accent/40 hover:text-text-primary md:flex"
+            >
+              <SidebarSimple size={17} />
+            </button>
+          ) : null}
           <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-accent">
             Reseller
           </span>
