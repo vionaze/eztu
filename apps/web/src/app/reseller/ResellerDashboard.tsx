@@ -10,10 +10,8 @@ import {
   Minus,
   Package,
   Plus,
-  ShieldCheck,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
-import Link from "next/link";
 import ResellerLogoutButton from "./ResellerLogoutButton";
 
 type Variant = { id: string; name: string; countryCode: string | null; priceIDR: number };
@@ -173,14 +171,6 @@ export default function ResellerDashboard({
           <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-1 text-[11px] font-semibold text-emerald-300 sm:px-2.5">
             {statusLabel}
           </span>
-          <Link
-            href="/reseller/security"
-            aria-label="Account security"
-            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-border px-2.5 text-xs font-medium text-text-secondary transition hover:border-accent/40 hover:text-text-primary sm:px-3"
-          >
-            <ShieldCheck size={15} aria-hidden="true" />
-            <span className="hidden sm:inline">Security</span>
-          </Link>
           <ResellerLogoutButton
             compact
             className="h-9 border border-border px-2.5 text-xs text-text-secondary hover:border-red-400/40 hover:text-red-200 sm:px-3"
