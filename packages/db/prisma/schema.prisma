@@ -23,6 +23,7 @@ model User {
   orders        Order[]
   securityEvents SecurityEvent[]
   resellerMemberships ResellerOrganizationMember[]
+  b2bOrdersCreated B2BOrder[] @relation("B2BOrderCreatedBy")
   lastSeenIp    String?
   lastSeenUserAgent String?
   lastSeenAt    DateTime?
@@ -109,6 +110,9 @@ model ResellerOrganization {
   updatedAt   DateTime                   @updatedAt
   members     ResellerOrganizationMember[]
   skuPrices   ResellerOrganizationSkuPrice[]
+  b2bOrders   B2BOrder[]
+  walletAccounts B2BWalletAccount[]
+  walletLedgerEntries B2BWalletLedger[]
 
   @@index([status, createdAt])
   @@index([tier, status])
@@ -129,6 +133,194 @@ model ResellerOrganizationMember {
   @@index([userId, active])
   @@index([organizationId, active])
   @@index([organizationId, role])
+}
+
+enum B2BOrderStatus {
+  DRAFT
+  PAYMENT_PENDING
+  PAID
+  PROCESSING
+  COMPLETED
+  PAYMENT_FAILED
+  CANCELLED
+  MANUAL_REVIEW
+  REFUND_PENDING
+  REFUNDED
+}
+
+enum B2BPaymentMethod {
+  CRYPTO
+  PAKASIR
+}
+
+enum B2BPaymentIntentStatus {
+  PENDING
+  PAID
+  FAILED
+  EXPIRED
+  REVIEW
+}
+
+enum B2BWalletLedgerType {
+  DEPOSIT_PENDING
+  DEPOSIT_CONFIRMED
+  RESERVE
+  CAPTURE
+  RELEASE
+  REFUND
+  ADJUSTMENT
+}
+
+model B2BOrder {
+  id                   String          @id @default(cuid())
+  orderNumber          String          @unique
+  organizationId       String
+  createdByUserId      String
+  channel              String          @default("RESELLER_B2B")
+  paymentMethod        B2BPaymentMethod
+  status               B2BOrderStatus  @default(DRAFT)
+  idempotencyKey       String
+  requestFingerprint   String
+  quotedAt             DateTime
+  subtotalIDR          BigInt
+  totalIDR             BigInt
+  totalUSD             Decimal?        @db.Decimal(18, 6)
+  totalUSDCents        BigInt?
+  usdIdrRate           Decimal?        @db.Decimal(18, 6)
+  fxSource             String?
+  fxQuotedAt           DateTime?
+  quoteExpiresAt       DateTime?
+  paymentProvider      String?
+  paymentProviderPaymentId String?
+  paymentProviderInvoiceId String?
+  paymentUrl           String?
+  paidAt               DateTime?
+  supplierReference    String?         @unique
+  supplierStatus       String?
+  manualReviewReason   String?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  organization         ResellerOrganization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdByUser        User            @relation("B2BOrderCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  lines                B2BOrderLine[]
+  paymentIntent        B2BPaymentIntent?
+  walletLedgerEntries  B2BWalletLedger[]
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, createdAt])
+  @@index([status, createdAt])
+}
+
+model B2BOrderLine {
+  id                String      @id @default(cuid())
+  orderId           String
+  variantId         String
+  supplierSku       String
+  supplierCountryCode String
+  productName       String
+  variantName       String
+  quantity          Int
+  unitPriceIDR      BigInt
+  totalPriceIDR     BigInt
+  supplierCostIDR   BigInt
+  resellerTier      ResellerTier
+  pricingRuleRevision Int
+  pricingRuleId       String
+  pricingMode       ResellerPriceMode
+  markupMicros      Int?
+  fixedPriceIDR     BigInt?
+  supplierTid       String?
+  supplierStatus    String?
+  supplierRaw       Json?
+  status            String          @default("PENDING")
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  order             B2BOrder        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variant           ProductVariant  @relation(fields: [variantId], references: [id], onDelete: Restrict)
+
+  @@index([orderId, status])
+  @@index([variantId])
+  @@index([supplierTid])
+}
+
+model B2BPaymentIntent {
+  id                   String                @id @default(cuid())
+  orderId              String                @unique
+  provider              String
+  status                B2BPaymentIntentStatus @default(PENDING)
+  amountIDR             BigInt
+  amountUSDCents        BigInt?
+  currency              String
+  usdIdrRate            Decimal?              @db.Decimal(18, 6)
+  fxSource              String?
+  providerPaymentId     String?
+  providerInvoiceId     String?
+  paymentUrl            String?
+  expiresAt             DateTime?
+  paidAt                DateTime?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  order                 B2BOrder              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  events                B2BPaymentEvent[]
+
+  @@unique([provider, providerPaymentId])
+  @@index([status, createdAt])
+}
+
+model B2BPaymentEvent {
+  id                String            @id @default(cuid())
+  provider          String
+  eventId           String
+  paymentIntentId   String
+  normalizedStatus  B2BPaymentIntentStatus
+  payload           Json?
+  processedAt       DateTime?
+  createdAt         DateTime          @default(now())
+  paymentIntent     B2BPaymentIntent @relation(fields: [paymentIntentId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, eventId])
+  @@index([paymentIntentId, createdAt])
+  @@index([processedAt])
+}
+
+model B2BWalletAccount {
+  id              String             @id @default(cuid())
+  organizationId  String
+  currency        String             @default("IDR")
+  status          String             @default("DISABLED")
+  availableIDR    BigInt             @default(0)
+  reservedIDR     BigInt             @default(0)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  organization    ResellerOrganization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  ledgerEntries   B2BWalletLedger[]
+
+  @@unique([organizationId, currency])
+  @@unique([id, organizationId])
+  @@index([status, updatedAt])
+}
+
+model B2BWalletLedger {
+  id              String              @id @default(cuid())
+  accountId       String
+  organizationId  String
+  type            B2BWalletLedgerType
+  amountIDR       BigInt
+  idempotencyKey  String              @unique
+  orderId         String?
+  paymentIntentId String?
+  actorUserId     String?
+  reason          String?
+  metadata        Json?
+  createdAt       DateTime            @default(now())
+  account         B2BWalletAccount    @relation(fields: [accountId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  organization    ResellerOrganization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  order           B2BOrder?           @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, createdAt])
+  @@index([accountId, createdAt])
+  @@index([orderId])
+  @@index([paymentIntentId])
 }
 
 /// Preventive blocks: email, IP, Clerk id, or local user id.
@@ -217,6 +409,7 @@ model ProductVariant {
   analyticsEvents ProductAnalyticsEvent[]
   resellerTierPrices ResellerTierSkuPrice[]
   resellerOrganizationPrices ResellerOrganizationSkuPrice[]
+  b2bOrderLines B2BOrderLine[]
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 
