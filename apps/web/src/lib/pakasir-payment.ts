@@ -3,8 +3,7 @@ import "server-only";
 import { Prisma, prisma } from "@kupon/db";
 import {
   assertPakasirTransactionMatches,
-  getPakasirProjectSlug,
-  getPakasirTransactionDetail,
+  getPakasirTransactionStatus,
   type PakasirWebhookNotification,
   type PaymentWebhookEvent,
 } from "@kupon/payments";
@@ -23,7 +22,7 @@ async function reservePakasirVerification(orderId: string, source: string) {
       data: {
         provider: "pakasir",
         eventId,
-        eventType: "transaction.detail",
+        eventType: "transaction.status",
         providerPaymentId: orderId,
         orderId,
         processedAt: now,
@@ -68,6 +67,7 @@ export async function verifyAndApplyPakasirPayment(params: {
       status: true,
       totalIDR: true,
       paymentProvider: true,
+      paymentProviderPaymentId: true,
     },
   });
   if (!order) {
@@ -88,11 +88,14 @@ export async function verifyAndApplyPakasirPayment(params: {
     };
   }
 
-  const project = getPakasirProjectSlug();
+  const txnId = order.paymentProviderPaymentId;
+  if (!txnId) {
+    return { ok: false as const, status: 409, error: "Pakasir transaction ID is missing" };
+  }
   if (params.notification) {
     assertPakasirTransactionMatches({
       transaction: params.notification,
-      project,
+      txnId,
       orderId: order.id,
       amountIDR: order.totalIDR,
       requireCompleted: true,
@@ -111,13 +114,10 @@ export async function verifyAndApplyPakasirPayment(params: {
     };
   }
 
-  const transaction = await getPakasirTransactionDetail({
-    orderId: order.id,
-    amountIDR: order.totalIDR,
-  });
+  const transaction = await getPakasirTransactionStatus({ txnId });
   assertPakasirTransactionMatches({
     transaction,
-    project,
+    txnId,
     orderId: order.id,
     amountIDR: order.totalIDR,
   });
@@ -135,8 +135,8 @@ export async function verifyAndApplyPakasirPayment(params: {
 
   const event: PaymentWebhookEvent = {
     provider: "pakasir",
-    providerPaymentId: order.id,
-    providerInvoiceId: order.id,
+    providerPaymentId: transaction.txnId,
+    providerInvoiceId: transaction.txnId,
     orderId: order.id,
     status: "paid",
     providerStatus: transaction.status,

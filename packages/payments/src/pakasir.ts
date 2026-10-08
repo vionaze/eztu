@@ -1,43 +1,30 @@
+import { timingSafeEqual } from "node:crypto";
+
 const PAKASIR_ORIGIN = "https://app.pakasir.com";
-const PAKASIR_DETAIL_PATH = "/api/transactiondetail";
 const PAKASIR_REQUEST_TIMEOUT_MS = 10_000;
 const PAKASIR_MAX_RESPONSE_BYTES = 64 * 1024;
 
 export type PakasirTransactionStatus =
   | "pending"
   | "completed"
-  | "failed"
-  | "expired"
-  | "cancelled"
-  | "refunded"
+  | "canceled"
   | string;
 
 export type PakasirTransaction = {
-  project: string;
+  txnId: string;
   orderId: string;
   amount: number;
   status: PakasirTransactionStatus;
-  paymentMethod: string | null;
+  isSandbox: boolean;
   completedAt: string | null;
   raw: unknown;
 };
 
-export type PakasirWebhookNotification = {
-  project: string;
-  orderId: string;
-  amount: number;
-  status: string;
-  paymentMethod: string | null;
-  completedAt: string | null;
-  raw: unknown;
-};
+export type PakasirWebhookNotification = PakasirTransaction;
 
-type PakasirTransactionEnvelope = {
-  transaction?: unknown;
-  message?: unknown;
-};
-
-function requiredEnv(name: "PAKASIR_PROJECT_SLUG" | "PAKASIR_API_KEY") {
+function requiredEnv(
+  name: "PAKASIR_PROJECT_SLUG" | "PAKASIR_API_KEY" | "PAKASIR_WEBHOOK_SECRET"
+) {
   const value = process.env[name]?.trim();
   if (!value) throw new Error(`${name} is required for Pakasir payments.`);
   return value;
@@ -93,6 +80,13 @@ function validateProjectSlug(project: string) {
   return cleaned;
 }
 
+function validateTxnId(txnId: string) {
+  if (!/^[A-Za-z0-9_-]{1,100}$/.test(txnId)) {
+    throw new Error("Pakasir transaction ID is invalid.");
+  }
+  return txnId;
+}
+
 function validateAmountIDR(amountIDR: number) {
   if (!Number.isSafeInteger(amountIDR) || amountIDR <= 0) {
     throw new Error("Pakasir amount must be a positive integer in IDR.");
@@ -131,7 +125,7 @@ export function getPakasirProjectSlug() {
   return validateProjectSlug(requiredEnv("PAKASIR_PROJECT_SLUG"));
 }
 
-export function createPakasirPaymentUrl(params: {
+export async function createPakasirPayment(params: {
   orderId: string;
   amountIDR: number;
   redirectUrl: string;
@@ -141,60 +135,71 @@ export function createPakasirPaymentUrl(params: {
   const orderId = validateOrderId(params.orderId);
   const amount = validateAmountIDR(params.amountIDR);
   const redirect = validateRedirectUrl(params.redirectUrl, params.appUrl);
-  const url = new URL(
-    `/pay/${encodeURIComponent(project)}/${amount}`,
-    PAKASIR_ORIGIN
+  const row = await requestPakasir(
+    `/api/v2/create-transaction/${encodeURIComponent(project)}/${encodeURIComponent(orderId)}`,
+    { method: "POST", body: JSON.stringify({ method: "payment_link", amount }) }
   );
-  url.searchParams.set("order_id", orderId);
+  const txnId = validateTxnId(requiredString(row, "txn_id"));
+  const url = new URL(requiredString(row, "payment_link"));
+  if (url.origin !== PAKASIR_ORIGIN || url.pathname !== `/pay-v2/${txnId}`) {
+    throw new Error("Pakasir API returned an invalid payment link.");
+  }
   url.searchParams.set("redirect", redirect);
-  return url.toString();
+  return { txnId, paymentUrl: url.toString() };
 }
 
 function parseTransaction(value: unknown): PakasirTransaction {
   const row = asRecord(value);
+  if (typeof row.is_sandbox !== "boolean") {
+    throw new Error("Pakasir payload contains an invalid is_sandbox.");
+  }
   return {
-    project: requiredString(row, "project"),
+    txnId: validateTxnId(requiredString(row, "txn_id")),
     orderId: requiredString(row, "order_id"),
     amount: requiredAmount(row),
     status: requiredString(row, "status").toLowerCase(),
-    paymentMethod: optionalString(row, "payment_method"),
+    isSandbox: row.is_sandbox,
     completedAt: optionalString(row, "completed_at"),
     raw: value,
   };
 }
 
 export function parsePakasirWebhook(rawBody: string): PakasirWebhookNotification {
-  const row = asRecord(JSON.parse(rawBody) as unknown);
-  return {
-    project: requiredString(row, "project"),
-    orderId: requiredString(row, "order_id"),
-    amount: requiredAmount(row),
-    status: requiredString(row, "status").toLowerCase(),
-    paymentMethod: optionalString(row, "payment_method"),
-    completedAt: optionalString(row, "completed_at"),
-    raw: row,
-  };
+  return parseTransaction(JSON.parse(rawBody) as unknown);
 }
 
-export async function getPakasirTransactionDetail(params: {
-  orderId: string;
-  amountIDR: number;
+export function verifyPakasirWebhookSecret(secret: string | null) {
+  const expected = Buffer.from(requiredEnv("PAKASIR_WEBHOOK_SECRET"));
+  const actual = Buffer.from(secret || "");
+  return actual.length === expected.length && timingSafeEqual(actual, expected);
+}
+
+export async function getPakasirTransactionStatus(params: {
+  txnId: string;
 }): Promise<PakasirTransaction> {
   const project = getPakasirProjectSlug();
-  const apiKey = requiredEnv("PAKASIR_API_KEY");
-  const orderId = validateOrderId(params.orderId);
-  const amount = validateAmountIDR(params.amountIDR);
-  const url = new URL(PAKASIR_DETAIL_PATH, PAKASIR_ORIGIN);
-  url.searchParams.set("project", project);
-  url.searchParams.set("amount", String(amount));
-  url.searchParams.set("order_id", orderId);
-  url.searchParams.set("api_key", apiKey);
+  const txnId = validateTxnId(params.txnId);
+  return parseTransaction(
+    await requestPakasir(
+      `/api/v2/transaction-status/${encodeURIComponent(project)}/${encodeURIComponent(txnId)}`,
+      { method: "GET" }
+    )
+  );
+}
 
-  const response = await fetch(url, {
-    method: "GET",
+async function requestPakasir(
+  path: string,
+  options: { method: "GET" | "POST"; body?: string }
+) {
+  const response = await fetch(new URL(path, PAKASIR_ORIGIN), {
+    ...options,
     cache: "no-store",
     redirect: "error",
-    headers: { Accept: "application/json" },
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "X-Api-Key": requiredEnv("PAKASIR_API_KEY"),
+    },
     signal: AbortSignal.timeout(PAKASIR_REQUEST_TIMEOUT_MS),
   });
   const declaredLength = Number(response.headers.get("content-length") || "0");
@@ -205,39 +210,42 @@ export async function getPakasirTransactionDetail(params: {
   if (Buffer.byteLength(responseText, "utf8") > PAKASIR_MAX_RESPONSE_BYTES) {
     throw new Error("Pakasir API response is too large.");
   }
-  let data: PakasirTransactionEnvelope | null = null;
+  let data: Record<string, unknown> | null = null;
   try {
-    data = JSON.parse(responseText) as PakasirTransactionEnvelope;
+    data = asRecord(JSON.parse(responseText) as unknown);
   } catch {
     data = null;
   }
-  if (!response.ok || !data?.transaction) {
+  if (!response.ok || !data) {
     const message =
       typeof data?.message === "string" ? data.message : "Unknown API error";
     throw new Error(`Pakasir API error: ${response.status} ${message}`);
   }
-  return parseTransaction(data.transaction);
+  return data;
 }
 
 export function assertPakasirTransactionMatches(params: {
-  transaction: PakasirTransaction | PakasirWebhookNotification;
-  project: string;
+  transaction: PakasirTransaction;
+  txnId: string;
   orderId: string;
   amountIDR: number;
   requireCompleted?: boolean;
 }) {
-  const expectedProject = validateProjectSlug(params.project);
+  const expectedTxnId = validateTxnId(params.txnId);
   const expectedOrderId = validateOrderId(params.orderId);
   const expectedAmount = validateAmountIDR(params.amountIDR);
   const mismatches: string[] = [];
-  if (params.transaction.project !== expectedProject) {
-    mismatches.push("project");
+  if (params.transaction.txnId !== expectedTxnId) {
+    mismatches.push("txn_id");
   }
   if (params.transaction.orderId !== expectedOrderId) {
     mismatches.push("order_id");
   }
   if (params.transaction.amount !== expectedAmount) {
     mismatches.push("amount");
+  }
+  if (params.transaction.isSandbox) {
+    mismatches.push("is_sandbox");
   }
   if (params.requireCompleted && params.transaction.status !== "completed") {
     mismatches.push("status");

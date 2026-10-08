@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { parsePakasirWebhook } from "@kupon/payments";
+import { parsePakasirWebhook, verifyPakasirWebhookSecret } from "@kupon/payments";
 import { getRequestContext, notifySecurityEvent } from "@/lib/fraud";
 import { verifyAndApplyPakasirPayment } from "@/lib/pakasir-payment";
 
@@ -11,6 +11,9 @@ export async function POST(request: NextRequest) {
   const requestContext = getRequestContext(request);
   let rawBody = "";
   try {
+    if (!verifyPakasirWebhookSecret(request.headers.get("x-secret"))) {
+      return NextResponse.json({ error: "Invalid webhook secret" }, { status: 401 });
+    }
     const declaredLength = Number(request.headers.get("content-length") || "0");
     if (declaredLength > MAX_WEBHOOK_BYTES) {
       return NextResponse.json({ error: "Payload too large" }, { status: 413 });
@@ -39,7 +42,7 @@ export async function POST(request: NextRequest) {
         requestContext,
         orderId: notification.orderId,
         metadata: {
-          project: notification.project,
+          txnId: notification.txnId,
           amount: notification.amount,
           status: notification.status,
         },
@@ -60,6 +63,7 @@ export async function POST(request: NextRequest) {
     });
     const unavailable =
       message.includes("Pakasir API error") ||
+      message.includes("PAKASIR_WEBHOOK_SECRET") ||
       message.includes("aborted") ||
       message.includes("timeout");
     return NextResponse.json(

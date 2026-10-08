@@ -2,7 +2,7 @@ import "server-only";
 import { enforcePurchaseCooldown } from "@/lib/purchase-cooldown";
 import { randomUUID } from "node:crypto";
 import { prisma } from "@kupon/db";
-import { createPakasirPaymentUrl, createPaymentInvoice, isPakasirCheckoutEnabled } from "@kupon/payments";
+import { createPakasirPayment, createPaymentInvoice, isPakasirCheckoutEnabled } from "@kupon/payments";
 import { sendOrderNotification } from "@/lib/telegram";
 import { writeAppLog } from "@/lib/app-log";
 import { resolvePaymentExpiresAt } from "@/lib/payment-expiry";
@@ -159,7 +159,7 @@ export async function createCheckoutOrder(params: {
   } else if (!isFree && paymentMethod === "pakasir") {
     const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
     if (!appUrl) throw new Error("NEXT_PUBLIC_APP_URL is required.");
-    const pakasirUrl = createPakasirPaymentUrl({
+    const payment = await createPakasirPayment({
       orderId: order.id,
       amountIDR: totalIDR,
       redirectUrl: telegramChatId ? `${appUrl}/api/telegram/shop` : `${appUrl}/order/success?orderId=${encodeURIComponent(order.id)}`,
@@ -169,14 +169,14 @@ export async function createCheckoutOrder(params: {
       where: { id: order.id },
       data: {
         paymentProvider: "pakasir",
-        paymentProviderPaymentId: order.id,
-        paymentProviderInvoiceId: order.id,
+        paymentProviderPaymentId: payment.txnId,
+        paymentProviderInvoiceId: payment.txnId,
         paymentCurrency: "IDR",
-        paymentUrl: pakasirUrl,
+        paymentUrl: payment.paymentUrl,
       },
     });
-    paymentUrl = pakasirUrl;
-    checkout = { type: "redirect", url: pakasirUrl };
+    paymentUrl = payment.paymentUrl;
+    checkout = { type: "redirect", url: payment.paymentUrl };
   }
 
   // Send Telegram notification
