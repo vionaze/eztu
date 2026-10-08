@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  ArrowUp,
   ArrowsClockwise,
   CaretLeft,
   CaretRight,
@@ -113,6 +114,8 @@ export default function ResellerDashboard({
   const [orders, setOrders] = useState<ResellerOrder[] | null>(null);
   const [flyers, setFlyers] = useState<{ id: number; from: { x: number; y: number }; to: { x: number; y: number } }[]>([]);
   const [toast, setToast] = useState("");
+  const [showBackToTop, setShowBackToTop] = useState(false);
+  const mainRef = useRef<HTMLElement | null>(null);
   const quoteController = useRef<AbortController | null>(null);
   const addButtonRef = useRef<HTMLButtonElement | null>(null);
   const cartSlotRef = useRef<HTMLSpanElement | null>(null);
@@ -389,7 +392,11 @@ export default function ResellerDashboard({
           </div>
         </header>
 
-        <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <main
+          ref={mainRef}
+          onScroll={(event) => setShowBackToTop(event.currentTarget.scrollTop > 300)}
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+        >
           {view === "orders" ? (
             <div className="mx-auto max-w-4xl p-4 sm:p-6">
               <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Orders</h1>
@@ -690,6 +697,23 @@ export default function ResellerDashboard({
           ))}
         </AnimatePresence>
       </div>
+
+      <AnimatePresence>
+        {showBackToTop ? (
+          <motion.button
+            type="button"
+            initial={{ opacity: 0, scale: 0.85, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.85, y: 8 }}
+            transition={{ duration: 0.18 }}
+            onClick={() => mainRef.current?.scrollTo({ top: 0, behavior: "smooth" })}
+            aria-label="Back to top"
+            className="fixed bottom-5 right-5 z-[86] flex h-11 w-11 items-center justify-center rounded-full border border-accent/40 bg-bg-elevated text-accent shadow-lg transition hover:bg-accent/10"
+          >
+            <ArrowUp size={18} weight="bold" />
+          </motion.button>
+        ) : null}
+      </AnimatePresence>
 
       <AnimatePresence>
         {toast ? (
