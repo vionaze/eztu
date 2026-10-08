@@ -10,8 +10,12 @@ import { getSupplierOrderStatus, getSupplierProduct, isSupplierProductCode, crea
 import { isB2BOrderingEnabled } from "@/lib/b2b-flags";
 import {
   buildRequestFingerprint,
+  canAdminOrderTransition,
   canAdvanceIntent,
   mapNormalizedStatus,
+  FULFILLMENT_LEASE_MINUTES,
+  MAX_FULFILLMENT_ATTEMPTS,
+  type B2BAdminStatusTarget,
   signB2BQuote,
   verifyB2BQuote,
   B2B_QUOTE_TTL_MINUTES,
@@ -384,9 +388,28 @@ export async function applyB2BPaymentEvent(params: {
  * Provisional inline fulfillment for the controlled rollout. Any ambiguity or
  * partial result parks the order in MANUAL_REVIEW; nothing is auto-refunded.
  */
+async function claimFulfillment(orderId: string) {
+  const now = new Date();
+  const claimed = await prisma.b2BOrder.updateMany({
+    where: {
+      id: orderId,
+      fulfillmentAttempts: { lt: MAX_FULFILLMENT_ATTEMPTS },
+      OR: [
+        { status: "PAID" },
+        { status: "PROCESSING", fulfillmentLeaseUntil: { lt: now } },
+      ],
+    },
+    data: {
+      status: "PROCESSING",
+      fulfillmentLeaseUntil: new Date(now.getTime() + FULFILLMENT_LEASE_MINUTES * 60_000),
+      fulfillmentAttempts: { increment: 1 },
+    },
+  });
+  return claimed.count > 0;
+}
+
 export async function fulfillB2BOrder(orderId: string) {
-  const claim = await prisma.b2BOrder.updateMany({ where: { id: orderId, status: "PAID" }, data: { status: "PROCESSING" } });
-  if (!claim.count) return { claimed: false };
+  if (!(await claimFulfillment(orderId))) return { claimed: false };
 
   const order = await prisma.b2BOrder.findUnique({ where: { id: orderId }, include: { lines: true } });
   if (!order) return { claimed: true, completed: false };
@@ -428,12 +451,196 @@ export async function fulfillB2BOrder(orderId: string) {
   if (failures.length) {
     await prisma.b2BOrder.update({
       where: { id: orderId },
-      data: { status: "MANUAL_REVIEW", supplierStatus: "review", manualReviewReason: failures.join("; ").slice(0, 500) },
+      data: {
+        status: "MANUAL_REVIEW",
+        supplierStatus: "review",
+        manualReviewReason: failures.join("; ").slice(0, 500),
+        fulfillmentLeaseUntil: null,
+        lastReconciledAt: new Date(),
+      },
     });
     return { claimed: true, completed: false };
   }
-  await prisma.b2BOrder.update({ where: { id: orderId }, data: { status: "COMPLETED", supplierStatus: "fulfilled" } });
+  await prisma.b2BOrder.update({
+    where: { id: orderId },
+    data: { status: "COMPLETED", supplierStatus: "fulfilled", fulfillmentLeaseUntil: null, lastReconciledAt: new Date() },
+  });
   return { claimed: true, completed: true };
+}
+
+/** Sweeps expired intents, exhausted leases, and paid-but-unclaimed orders. */
+export async function reconcileB2BOrders() {
+  const now = new Date();
+  const expirable = await prisma.b2BPaymentIntent.findMany({
+    where: { status: "PENDING", expiresAt: { lt: now } },
+    select: { id: true, orderId: true },
+    take: 50,
+  });
+  let expired = 0;
+  for (const intent of expirable) {
+    const updated = await prisma.b2BPaymentIntent.updateMany({
+      where: { id: intent.id, status: "PENDING" },
+      data: { status: "EXPIRED" },
+    });
+    if (updated.count) {
+      expired += 1;
+      await prisma.b2BOrder.updateMany({
+        where: { id: intent.orderId, status: { in: ["DRAFT", "PAYMENT_PENDING"] } },
+        data: { status: "CANCELLED" },
+      });
+    }
+  }
+
+  const stuck = await prisma.b2BOrder.updateMany({
+    where: {
+      status: "PROCESSING",
+      fulfillmentLeaseUntil: { lt: now },
+      fulfillmentAttempts: { gte: MAX_FULFILLMENT_ATTEMPTS },
+    },
+    data: {
+      status: "MANUAL_REVIEW",
+      supplierStatus: "review",
+      manualReviewReason: "Fulfillment retries exhausted; reconcile with the supplier dashboard.",
+    },
+  });
+
+  const unclaimed = await prisma.b2BOrder.findMany({
+    where: { status: "PAID", paidAt: { lt: new Date(now.getTime() - 60_000) } },
+    select: { id: true },
+    orderBy: { paidAt: "asc" },
+    take: 10,
+  });
+  let retried = 0;
+  for (const order of unclaimed) {
+    const result = await fulfillB2BOrder(order.id);
+    if (result.claimed) retried += 1;
+  }
+  return { expired, stuck: stuck.count, retried };
+}
+
+export async function listAdminB2BOrders(filters: { status?: string; organizationId?: string; q?: string }) {
+  const orders = await prisma.b2BOrder.findMany({
+    where: {
+      ...(filters.status ? { status: filters.status as never } : {}),
+      ...(filters.organizationId ? { organizationId: filters.organizationId } : {}),
+      ...(filters.q ? {
+        OR: [
+          { orderNumber: { contains: filters.q, mode: "insensitive" as const } },
+          { organization: { name: { contains: filters.q, mode: "insensitive" as const } } },
+        ],
+      } : {}),
+    },
+    include: { organization: { select: { name: true, slug: true } }, lines: true },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+  });
+  return {
+    orders: orders.map((order) => ({
+      ...publicOrder(order),
+      organizationName: order.organization.name,
+      organizationSlug: order.organization.slug,
+      fulfillmentAttempts: order.fulfillmentAttempts,
+      lineDetails: order.lines.map((line) => ({
+        id: line.id,
+        name: line.variantName,
+        supplierSku: line.supplierSku,
+        quantity: line.quantity,
+        status: line.status,
+        supplierTid: line.supplierTid,
+        supplierStatus: line.supplierStatus,
+      })),
+    })),
+  };
+}
+
+export async function getAdminB2BOrder(orderId: string) {
+  const order = await prisma.b2BOrder.findUnique({
+    where: { id: orderId },
+    include: {
+      organization: { select: { id: true, name: true, slug: true, tier: true } },
+      lines: true,
+      paymentIntent: { include: { events: { orderBy: { createdAt: "desc" }, take: 20 } } },
+    },
+  });
+  if (!order) throw new B2BOrderError("Order not found.", 404, "ORDER_NOT_FOUND");
+  return {
+    order: {
+      ...publicOrder(order),
+      organizationId: order.organization.id,
+      organizationName: order.organization.name,
+      organizationTier: order.organization.tier,
+      fulfillmentAttempts: order.fulfillmentAttempts,
+      fulfillmentLeaseUntil: order.fulfillmentLeaseUntil?.toISOString() ?? null,
+      lastReconciledAt: order.lastReconciledAt?.toISOString() ?? null,
+      totalUSDCents: order.totalUSDCents === null ? null : Number(order.totalUSDCents),
+      usdIdrRate: order.usdIdrRate === null ? null : Number(order.usdIdrRate),
+      paymentIntent: order.paymentIntent ? {
+        provider: order.paymentIntent.provider,
+        status: order.paymentIntent.status,
+        amountIDR: Number(order.paymentIntent.amountIDR),
+        providerPaymentId: order.paymentIntent.providerPaymentId,
+        expiresAt: order.paymentIntent.expiresAt?.toISOString() ?? null,
+        paidAt: order.paymentIntent.paidAt?.toISOString() ?? null,
+        events: order.paymentIntent.events.map((event) => ({
+          provider: event.provider,
+          eventId: event.eventId,
+          normalizedStatus: event.normalizedStatus,
+          processedAt: event.processedAt?.toISOString() ?? null,
+          createdAt: event.createdAt.toISOString(),
+        })),
+      } : null,
+      lineDetails: order.lines.map((line) => ({
+        id: line.id,
+        name: line.variantName,
+        supplierSku: line.supplierSku,
+        supplierCountryCode: line.supplierCountryCode,
+        quantity: line.quantity,
+        unitPriceIDR: Number(line.unitPriceIDR),
+        supplierCostIDR: Number(line.supplierCostIDR),
+        pricingRuleRevision: line.pricingRuleRevision,
+        pricingMode: line.pricingMode,
+        status: line.status,
+        supplierTid: line.supplierTid,
+        supplierStatus: line.supplierStatus,
+      })),
+    },
+  };
+}
+
+export async function adminRetryFulfillment(orderId: string) {
+  const order = await prisma.b2BOrder.findUnique({ where: { id: orderId }, select: { status: true } });
+  if (!order) throw new B2BOrderError("Order not found.", 404, "ORDER_NOT_FOUND");
+  if (!["PAID", "PROCESSING", "MANUAL_REVIEW"].includes(order.status)) {
+    throw new B2BOrderError("This order cannot be re-submitted to the supplier.", 409, "RETRY_NOT_ALLOWED");
+  }
+  await prisma.b2BOrderLine.updateMany({ where: { orderId, status: "REVIEW" }, data: { status: "PENDING" } });
+  await prisma.b2BOrder.update({
+    where: { id: orderId },
+    data: {
+      status: "PAID",
+      fulfillmentAttempts: 0,
+      fulfillmentLeaseUntil: null,
+      manualReviewReason: null,
+    },
+  });
+  return fulfillB2BOrder(orderId);
+}
+
+export async function adminSetOrderStatus(orderId: string, next: B2BAdminStatusTarget, note: string | null) {
+  const order = await prisma.b2BOrder.findUnique({ where: { id: orderId }, select: { status: true } });
+  if (!order) throw new B2BOrderError("Order not found.", 404, "ORDER_NOT_FOUND");
+  if (!canAdminOrderTransition(order.status, next)) {
+    throw new B2BOrderError(`Cannot move ${order.status} to ${next}.`, 409, "TRANSITION_NOT_ALLOWED");
+  }
+  await prisma.b2BOrder.update({
+    where: { id: orderId },
+    data: {
+      status: next,
+      lastReconciledAt: new Date(),
+      ...(note ? { manualReviewReason: note } : {}),
+    },
+  });
+  return { status: next };
 }
 
 export async function listB2BOrders(organizationId: string) {

@@ -26,6 +26,7 @@ const sidebarLinks = [
   { label: "Orders", href: "/admin/orders", icon: ShoppingCart },
   { label: "Members", href: "/admin/members", icon: Users },
   { label: "Resellers", href: "/admin/resellers", icon: Users },
+  { label: "B2B Orders", href: "/admin/reseller-orders", icon: ShoppingCart },
   { label: "Blog", href: "/admin/blog", icon: Article },
   { label: "Logs", href: "/admin/logs", icon: List },
   { label: "Settings", href: "/admin/settings", icon: Gear },

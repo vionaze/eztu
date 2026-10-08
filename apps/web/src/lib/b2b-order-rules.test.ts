@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildRequestFingerprint,
+  canAdminOrderTransition,
   canAdvanceIntent,
   mapNormalizedStatus,
   signB2BQuote,
@@ -71,6 +72,17 @@ test("request fingerprints are order-independent and payload-sensitive", () => {
   assert.notEqual(a, buildRequestFingerprint("org-1", [{ variantId: "a", quantity: 2 }, { variantId: "b", quantity: 2 }], "CRYPTO"));
   assert.notEqual(a, buildRequestFingerprint("org-1", [{ variantId: "a", quantity: 1 }, { variantId: "b", quantity: 2 }], "PAKASIR"));
   assert.notEqual(a, buildRequestFingerprint("org-2", [{ variantId: "a", quantity: 1 }, { variantId: "b", quantity: 2 }], "CRYPTO"));
+});
+
+test("admin refund/cancel bookkeeping only allows explicit steps", () => {
+  assert.equal(canAdminOrderTransition("MANUAL_REVIEW", "REFUND_PENDING"), true);
+  assert.equal(canAdminOrderTransition("PAYMENT_FAILED", "REFUND_PENDING"), true);
+  assert.equal(canAdminOrderTransition("REFUND_PENDING", "REFUNDED"), true);
+  assert.equal(canAdminOrderTransition("PAYMENT_PENDING", "CANCELLED"), true);
+  assert.equal(canAdminOrderTransition("COMPLETED", "REFUND_PENDING"), false);
+  assert.equal(canAdminOrderTransition("MANUAL_REVIEW", "CANCELLED"), false);
+  assert.equal(canAdminOrderTransition("REFUND_PENDING", "REFUND_PENDING"), false);
+  assert.equal(canAdminOrderTransition("PAID", "REFUNDED"), false);
 });
 
 test("intent statuses only move forward", () => {

@@ -198,6 +198,9 @@ model B2BOrder {
   supplierReference    String?         @unique
   supplierStatus       String?
   manualReviewReason   String?
+  fulfillmentAttempts  Int             @default(0)
+  fulfillmentLeaseUntil DateTime?
+  lastReconciledAt     DateTime?
   createdAt            DateTime        @default(now())
   updatedAt            DateTime        @updatedAt
   organization         ResellerOrganization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
@@ -209,6 +212,7 @@ model B2BOrder {
   @@unique([organizationId, idempotencyKey])
   @@index([organizationId, createdAt])
   @@index([status, createdAt])
+  @@index([status, fulfillmentLeaseUntil])
 }
 
 model B2BOrderLine {

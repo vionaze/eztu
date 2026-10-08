@@ -114,6 +114,28 @@ export function canAdvanceIntent(current: B2BIntentStatusValue, next: B2BIntentS
   return false;
 }
 
+export const FULFILLMENT_LEASE_MINUTES = 10;
+export const MAX_FULFILLMENT_ATTEMPTS = 3;
+
+export type B2BAdminStatusTarget = "REFUND_PENDING" | "REFUNDED" | "CANCELLED";
+
+/**
+ * Refund/cancel bookkeeping is manual money movement: admins only record the
+ * state after doing the provider-side work. Each step must be explicit.
+ */
+export function canAdminOrderTransition(current: string, next: B2BAdminStatusTarget) {
+  switch (next) {
+    case "REFUND_PENDING":
+      return current === "MANUAL_REVIEW" || current === "PAYMENT_FAILED";
+    case "REFUNDED":
+      return current === "REFUND_PENDING";
+    case "CANCELLED":
+      return current === "PAYMENT_PENDING" || current === "PAYMENT_FAILED";
+    default:
+      return false;
+  }
+}
+
 export function mapNormalizedStatus(status: string): B2BIntentStatusValue {
   switch (status) {
     case "paid":
