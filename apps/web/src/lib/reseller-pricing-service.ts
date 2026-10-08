@@ -86,6 +86,8 @@ export async function getResellerCatalog(organizationId: string, requestHeaders:
     products: [...products.values()],
     quotedAt: new Date().toISOString(),
     orderingEnabled: isB2BOrderingEnabled(organizationId, organization.orderingEnabled),
+    // Tier 1 (large/export resellers) settle in crypto; Tier 2 shops default to Pakasir.
+    defaultPaymentMethod: organization.tier === "TIER_2" ? "PAKASIR" as const : "CRYPTO" as const,
   };
 }
 

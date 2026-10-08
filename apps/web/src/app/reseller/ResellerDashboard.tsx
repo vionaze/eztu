@@ -14,11 +14,11 @@ import {
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import ResellerLogoutButton from "./ResellerLogoutButton";
-import { CartButton, CartModal, OrdersModal, type CartLine } from "./ResellerOrders";
+import { CartButton, OrderModal, type CartLine } from "./ResellerOrders";
 
 type Variant = { id: string; name: string; countryCode: string | null; priceIDR: number };
 type Product = { id: string; name: string; slug: string; image: string | null; variants: Variant[] };
-type Catalog = { products: Product[]; quotedAt: string; orderingEnabled?: boolean };
+type Catalog = { products: Product[]; quotedAt: string; orderingEnabled?: boolean; defaultPaymentMethod?: "CRYPTO" | "PAKASIR" };
 type Quote = { variantId: string; unitPriceIDR: number; totalIDR: number; quantity: number; quotedAt: string };
 
 const MAX_QUANTITY = 20;
@@ -56,8 +56,7 @@ export default function ResellerDashboard({
   const [quoteError, setQuoteError] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [cart, setCart] = useState<Record<string, CartLine>>({});
-  const [showCart, setShowCart] = useState(false);
-  const [showOrders, setShowOrders] = useState(false);
+  const [showOrder, setShowOrder] = useState(false);
   const quoteController = useRef<AbortController | null>(null);
 
   function addToCart() {
@@ -68,7 +67,7 @@ export default function ResellerDashboard({
       const nextQuantity = Math.min(MAX_QUANTITY_TOTAL, (existing?.quantity ?? 0) + quantity);
       return { ...current, [variant.id]: { variantId: variant.id, name: variant.name, unitPriceIDR: variant.priceIDR, quantity: nextQuantity } };
     });
-    setShowCart(true);
+    setShowOrder(true);
   }
 
   useEffect(() => {
@@ -189,14 +188,7 @@ export default function ResellerDashboard({
           <span className="hidden rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-1 text-[11px] font-semibold text-emerald-300 sm:px-2.5 md:inline">
             {statusLabel}
           </span>
-          <button
-            type="button"
-            onClick={() => setShowOrders(true)}
-            className="inline-flex h-9 items-center rounded-xl border border-border px-2.5 text-xs font-medium text-text-secondary transition hover:border-accent/40 hover:text-text-primary sm:px-3"
-          >
-            Orders
-          </button>
-          <CartButton count={Object.values(cart).reduce((sum, line) => sum + line.quantity, 0)} onClick={() => setShowCart(true)} />
+          <CartButton count={Object.values(cart).reduce((sum, line) => sum + line.quantity, 0)} onClick={() => setShowOrder(true)} />
           <ResellerLogoutButton
             compact
             className="h-9 border border-border px-2.5 text-xs text-text-secondary hover:border-red-400/40 hover:text-red-200 sm:px-3"
@@ -469,15 +461,15 @@ export default function ResellerDashboard({
         </section>
       </div>
 
-      {showCart ? (
-        <CartModal
+      {showOrder ? (
+        <OrderModal
           orgId={orgId}
           lines={Object.values(cart)}
-          onClose={() => setShowCart(false)}
+          defaultMethod={catalog?.defaultPaymentMethod ?? "PAKASIR"}
+          onClose={() => setShowOrder(false)}
           onPlaced={() => setCart({})}
         />
       ) : null}
-      {showOrders ? <OrdersModal orgId={orgId} onClose={() => setShowOrders(false)} /> : null}
     </div>
   );
 }

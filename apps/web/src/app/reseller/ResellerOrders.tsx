@@ -41,7 +41,8 @@ function Shell({ title, onClose, children }: { title: string; onClose: () => voi
   );
 }
 
-export function CartModal({ orgId, lines, onClose, onPlaced }: { orgId: string; lines: CartLine[]; onClose: () => void; onPlaced: () => void }) {
+export function OrderModal({ orgId, lines, defaultMethod, onClose, onPlaced }: { orgId: string; lines: CartLine[]; defaultMethod: "CRYPTO" | "PAKASIR"; onClose: () => void; onPlaced: () => void }) {
+  const [tab, setTab] = useState<"cart" | "orders">("cart");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const total = lines.reduce((sum, line) => sum + line.unitPriceIDR * line.quantity, 0);
@@ -73,7 +74,7 @@ export function CartModal({ orgId, lines, onClose, onPlaced }: { orgId: string; 
       if (!orderResponse.ok || !order.order) throw new Error(order.error || "Unable to create the order.");
       onPlaced();
       if (order.order.paymentUrl) {
-        window.location.href = order.order.paymentUrl;
+        window.location.assign(order.order.paymentUrl);
         return;
       }
       onClose();
@@ -83,9 +84,46 @@ export function CartModal({ orgId, lines, onClose, onPlaced }: { orgId: string; 
     }
   }
 
+  const orderedMethods: ("CRYPTO" | "PAKASIR")[] =
+    defaultMethod === "CRYPTO" ? ["CRYPTO", "PAKASIR"] : ["PAKASIR", "CRYPTO"];
+  const methodButtons = (
+    <div className="grid gap-2 sm:grid-cols-2">
+      {orderedMethods.map((method) => (
+          <button
+            key={method}
+            type="button"
+            disabled={busy || lines.length === 0}
+            onClick={() => void placeOrder(method)}
+            className={method === defaultMethod ? primaryClass : cn(subtleClass, "border-accent/30 text-accent")}
+          >
+            {busy ? "Creating…" : method === "CRYPTO" ? "Pay with Crypto" : "Pay with Pakasir"}
+            {method === defaultMethod ? <span className="ml-1 text-[10px] font-normal opacity-80">(default)</span> : null}
+          </button>
+        ))}
+    </div>
+  );
+
   return (
     <Shell title="Wholesale order" onClose={onClose}>
-      {lines.length === 0 ? (
+      <div role="tablist" aria-label="Order tabs" className="mb-4 flex gap-1 rounded-xl border border-border bg-bg-primary/40 p-1">
+        {(["cart", "orders"] as const).map((value) => (
+          <button
+            key={value}
+            role="tab"
+            aria-selected={tab === value}
+            type="button"
+            onClick={() => setTab(value)}
+            className={cn(
+              "flex-1 rounded-lg px-3 py-2 text-sm font-medium transition",
+              tab === value ? "bg-accent text-bg-primary" : "text-text-secondary hover:text-text-primary",
+            )}
+          >
+            {value === "cart" ? `Cart${lines.length ? ` (${lines.length})` : ""}` : "Order history"}
+          </button>
+        ))}
+      </div>
+
+      {tab === "orders" ? <OrdersTab orgId={orgId} /> : lines.length === 0 ? (
         <p className="text-sm text-text-secondary">Your cart is empty. Add packages from the catalog.</p>
       ) : (
         <div className="space-y-4">
@@ -111,21 +149,14 @@ export function CartModal({ orgId, lines, onClose, onPlaced }: { orgId: string; 
             completely are reviewed manually before anything is refunded.
           </p>
           {error ? <p role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200">{error}</p> : null}
-          <div className="grid gap-2 sm:grid-cols-2">
-            <button type="button" disabled={busy} onClick={() => void placeOrder("CRYPTO")} className={primaryClass}>
-              {busy ? "Creating…" : "Pay with Crypto"}
-            </button>
-            <button type="button" disabled={busy} onClick={() => void placeOrder("PAKASIR")} className={cn(subtleClass, "border-accent/30 text-accent")}>
-              {busy ? "Creating…" : "Pay with Pakasir"}
-            </button>
-          </div>
+          {methodButtons}
         </div>
       )}
     </Shell>
   );
 }
 
-export function OrdersModal({ orgId, onClose }: { orgId: string; onClose: () => void }) {
+function OrdersTab({ orgId }: { orgId: string }) {
   const [orders, setOrders] = useState<ResellerOrder[] | null>(null);
   const [error, setError] = useState("");
 
@@ -146,7 +177,7 @@ export function OrdersModal({ orgId, onClose }: { orgId: string; onClose: () => 
   }, [load]);
 
   return (
-    <Shell title="Your wholesale orders" onClose={onClose}>
+    <div>
       {error ? <p role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200">{error}</p> : null}
       {!orders && !error ? <p role="status" className="text-sm text-text-secondary">Loading orders…</p> : null}
       {orders && orders.length === 0 ? <p className="text-sm text-text-secondary">No orders yet.</p> : null}
@@ -190,7 +221,7 @@ export function OrdersModal({ orgId, onClose }: { orgId: string; onClose: () => 
           </article>
         ))}
       </div>
-    </Shell>
+    </div>
   );
 }
 
