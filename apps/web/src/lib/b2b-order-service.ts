@@ -213,13 +213,21 @@ export async function createB2BOrder(params: {
   }
 
   // Rule revisions are re-checked so a price edit mid-flow cannot silently apply.
+  // The tier filter matters: without it a row from another tier can be compared
+  // against the quote and every checkout looks stale.
   for (const line of payload.lines) {
-    const rule = await prisma.resellerTierSkuPrice.findFirst({ where: { variantId: line.variantId } });
-    const override = await prisma.resellerOrganizationSkuPrice.findFirst({
-      where: { organizationId: params.organizationId, variantId: line.variantId },
-    });
-    const currentRule = override ?? rule;
-    if (!currentRule || currentRule.id !== line.ruleId || currentRule.revision !== line.ruleRevision || !currentRule.enabled) {
+    const [override, tierRule] = await Promise.all([
+      prisma.resellerOrganizationSkuPrice.findFirst({
+        where: { organizationId: params.organizationId, variantId: line.variantId },
+      }),
+      prisma.resellerTierSkuPrice.findFirst({
+        where: { variantId: line.variantId, tier: ownerTier },
+      }),
+    ]);
+    const currentRule = chooseEffectiveRule(override, tierRule);
+    const currentRuleId = override?.id ?? tierRule?.id ?? "";
+    const currentRevision = override?.revision ?? tierRule?.revision ?? 1;
+    if (!currentRule || currentRuleId !== line.ruleId || currentRevision !== line.ruleRevision || !currentRule.enabled) {
       throw new B2BOrderError("Prices changed while you were checking out. Refresh and try again.", 409, "QUOTE_STALE");
     }
   }

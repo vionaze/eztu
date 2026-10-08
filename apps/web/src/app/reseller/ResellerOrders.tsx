@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ShoppingCart, X } from "@phosphor-icons/react";
+import { ShoppingCart, Trash, X } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 
 export type CartLine = { variantId: string; name: string; unitPriceIDR: number; quantity: number };
@@ -12,6 +12,8 @@ export type ResellerOrder = {
 };
 
 const money = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
+/** Mirrors MAX_B2B_LINE_QUANTITY; the server re-validates. */
+const MAX_CART_LINE_QUANTITY = 20;
 const primaryClass = "inline-flex h-11 items-center justify-center rounded-xl bg-accent px-4 text-sm font-semibold text-bg-primary transition disabled:cursor-not-allowed disabled:opacity-50";
 const subtleClass = "inline-flex h-11 items-center justify-center rounded-xl border border-border px-4 text-sm font-medium text-text-secondary transition hover:border-accent/40 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -41,36 +43,68 @@ function Shell({ title, onClose, children }: { title: string; onClose: () => voi
   );
 }
 
-export function OrderModal({ orgId, lines, defaultMethod, onClose, onPlaced }: { orgId: string; lines: CartLine[]; defaultMethod: "CRYPTO" | "PAKASIR"; onClose: () => void; onPlaced: () => void }) {
+export function OrderModal({
+  orgId,
+  lines,
+  defaultMethod,
+  onClose,
+  onPlaced,
+  onChangeQuantity,
+  onRemove,
+  onClear,
+}: {
+  orgId: string;
+  lines: CartLine[];
+  defaultMethod: "CRYPTO" | "PAKASIR";
+  onClose: () => void;
+  onPlaced: () => void;
+  onChangeQuantity: (variantId: string, next: number) => void;
+  onRemove: (variantId: string) => void;
+  onClear: () => void;
+}) {
   const [tab, setTab] = useState<"cart" | "orders">("cart");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const total = lines.reduce((sum, line) => sum + line.unitPriceIDR * line.quantity, 0);
+  const [priceNotice, setPriceNotice] = useState("");
+  const [confirmed, setConfirmed] = useState<{ token: string; totalIDR: number } | null>(null);
+  const cartTotal = lines.reduce((sum, line) => sum + line.unitPriceIDR * line.quantity, 0);
+  const total = confirmed?.totalIDR ?? cartTotal;
+
+  async function requestQuote() {
+    const quoteResponse = await fetch("/api/reseller/orders/quote", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ organizationId: orgId, lines: lines.map(({ variantId, quantity }) => ({ variantId, quantity })) }),
+    });
+    const quote = (await quoteResponse.json().catch(() => ({}))) as { quoteToken?: string; totalIDR?: number; error?: string };
+    if (!quoteResponse.ok || !quote.quoteToken) throw new Error(quote.error || "Unable to prepare a quote.");
+    return { token: quote.quoteToken, totalIDR: quote.totalIDR ?? cartTotal };
+  }
 
   async function placeOrder(method: "CRYPTO" | "PAKASIR") {
     if (busy || lines.length === 0) return;
     setBusy(true);
     setError("");
     try {
-      const quoteResponse = await fetch("/api/reseller/orders/quote", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ organizationId: orgId, lines: lines.map(({ variantId, quantity }) => ({ variantId, quantity })) }),
-      });
-      const quote = (await quoteResponse.json().catch(() => ({}))) as { quoteToken?: string; error?: string };
-      if (!quoteResponse.ok || !quote.quoteToken) throw new Error(quote.error || "Unable to prepare a quote.");
-
+      const quote = confirmed ?? await requestQuote();
       const orderResponse = await fetch("/api/reseller/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           organizationId: orgId,
-          quoteToken: quote.quoteToken,
+          quoteToken: quote.token,
           idempotencyKey: crypto.randomUUID(),
           paymentMethod: method,
         }),
       });
-      const order = (await orderResponse.json().catch(() => ({}))) as { order?: ResellerOrder; error?: string };
+      const order = (await orderResponse.json().catch(() => ({}))) as { order?: ResellerOrder; error?: string; code?: string };
+      if (orderResponse.status === 409 && (order.code === "QUOTE_STALE" || order.code === "QUOTE_INVALID")) {
+        const renewed = await requestQuote();
+        setConfirmed(renewed);
+        setPriceNotice(`Prices were refreshed. New total: ${money.format(renewed.totalIDR)} — press a payment button to confirm.`);
+        setBusy(false);
+        return;
+      }
       if (!orderResponse.ok || !order.order) throw new Error(order.error || "Unable to create the order.");
       onPlaced();
       if (order.order.paymentUrl) {
@@ -129,10 +163,40 @@ export function OrderModal({ orgId, lines, defaultMethod, onClose, onPlaced }: {
         <div className="space-y-4">
           <ul className="divide-y divide-border rounded-xl border border-border">
             {lines.map((line) => (
-              <li key={line.variantId} className="flex items-center justify-between gap-3 p-3">
-                <div className="min-w-0">
+              <li key={line.variantId} className="flex flex-wrap items-center justify-between gap-3 p-3">
+                <div className="min-w-0 flex-1 basis-40">
                   <p className="truncate text-sm font-medium">{line.name}</p>
-                  <p className="text-xs text-text-muted">{line.quantity} × {money.format(line.unitPriceIDR)}</p>
+                  <p className="text-xs text-text-muted">{money.format(line.unitPriceIDR)} / unit</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    disabled={busy || line.quantity <= 1}
+                    onClick={() => onChangeQuantity(line.variantId, line.quantity - 1)}
+                    aria-label={`Decrease ${line.name}`}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-text-secondary transition hover:border-accent/40 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    −
+                  </button>
+                  <span className="w-8 text-center font-[family-name:var(--font-geist-mono)] text-sm font-semibold tabular-nums">{line.quantity}</span>
+                  <button
+                    type="button"
+                    disabled={busy || line.quantity >= MAX_CART_LINE_QUANTITY}
+                    onClick={() => onChangeQuantity(line.variantId, line.quantity + 1)}
+                    aria-label={`Increase ${line.name}`}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-text-secondary transition hover:border-accent/40 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    +
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => onRemove(line.variantId)}
+                    aria-label={`Remove ${line.name} from cart`}
+                    className="ml-1 flex h-8 w-8 items-center justify-center rounded-lg border border-border text-text-muted transition hover:border-red-400/40 hover:text-red-200 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Trash size={13} aria-hidden="true" />
+                  </button>
                 </div>
                 <p className="shrink-0 font-[family-name:var(--font-geist-mono)] text-sm font-semibold text-accent">
                   {money.format(line.unitPriceIDR * line.quantity)}
@@ -140,14 +204,25 @@ export function OrderModal({ orgId, lines, defaultMethod, onClose, onPlaced }: {
               </li>
             ))}
           </ul>
-          <div className="flex items-center justify-between rounded-xl border border-border bg-bg-primary/40 p-3">
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-bg-primary/40 p-3">
             <span className="text-sm text-text-secondary">Total</span>
-            <span className="font-[family-name:var(--font-geist-mono)] text-lg font-bold text-accent">{money.format(total)}</span>
+            <div className="flex items-center gap-3">
+              <span className="font-[family-name:var(--font-geist-mono)] text-lg font-bold text-accent">{money.format(total)}</span>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => { setConfirmed(null); setPriceNotice(""); onClear(); }}
+                className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-text-secondary transition hover:border-red-400/40 hover:text-red-200 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Clear cart
+              </button>
+            </div>
           </div>
           <p className="text-xs leading-relaxed text-text-muted">
             Final price is re-verified when the order is created. Parts of an order that the supplier cannot deliver
             completely are reviewed manually before anything is refunded.
           </p>
+          {priceNotice ? <p role="status" className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">{priceNotice}</p> : null}
           {error ? <p role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200">{error}</p> : null}
           {methodButtons}
         </div>

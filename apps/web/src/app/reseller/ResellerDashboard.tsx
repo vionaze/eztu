@@ -59,6 +59,25 @@ export default function ResellerDashboard({
   const [showOrder, setShowOrder] = useState(false);
   const quoteController = useRef<AbortController | null>(null);
 
+  function changeCartQuantity(variantId: string, next: number) {
+    setCart((current) => {
+      const line = current[variantId];
+      if (!line) return current;
+      const quantity = Math.max(1, Math.min(MAX_QUANTITY_TOTAL, next));
+      if (quantity === line.quantity) return current;
+      return { ...current, [variantId]: { ...line, quantity } };
+    });
+  }
+
+  function removeCartLine(variantId: string) {
+    setCart((current) => {
+      if (!current[variantId]) return current;
+      const next = { ...current };
+      delete next[variantId];
+      return next;
+    });
+  }
+
   function addToCart() {
     if (!selected) return;
     const { variant } = selected;
@@ -463,11 +482,15 @@ export default function ResellerDashboard({
 
       {showOrder ? (
         <OrderModal
+          key={Object.entries(cart).map(([id, line]) => `${id}x${line.quantity}`).sort().join("|") || "empty"}
           orgId={orgId}
           lines={Object.values(cart)}
           defaultMethod={catalog?.defaultPaymentMethod ?? "PAKASIR"}
           onClose={() => setShowOrder(false)}
           onPlaced={() => setCart({})}
+          onChangeQuantity={changeCartQuantity}
+          onRemove={removeCartLine}
+          onClear={() => setCart({})}
         />
       ) : null}
     </div>
