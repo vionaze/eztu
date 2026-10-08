@@ -85,7 +85,7 @@ export async function getResellerCatalog(organizationId: string, requestHeaders:
   return {
     products: [...products.values()],
     quotedAt: new Date().toISOString(),
-    orderingEnabled: isB2BOrderingEnabled(organizationId),
+    orderingEnabled: isB2BOrderingEnabled(organizationId, organization.orderingEnabled),
   };
 }
 

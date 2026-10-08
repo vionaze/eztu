@@ -13,6 +13,7 @@ type Organization = {
   slug: string;
   status: Status;
   tier: Tier;
+  orderingEnabled: boolean;
   rejectionReason: string | null;
   suspendedAt: string | null;
   suspendedBy: string | null;
@@ -26,7 +27,7 @@ type Organization = {
   }>;
 };
 
-type Draft = { status: Status; tier: Tier };
+type Draft = { status: Status; tier: Tier; orderingEnabled: boolean };
 
 export default function ResellersManager({
   initialOrganizations,
@@ -46,7 +47,7 @@ export default function ResellersManager({
     setEditingId(organization.id);
     setDrafts((current) => ({
       ...current,
-      [organization.id]: { status: organization.status, tier: organization.tier },
+      [organization.id]: { status: organization.status, tier: organization.tier, orderingEnabled: organization.orderingEnabled },
     }));
   }
 
@@ -72,6 +73,7 @@ export default function ResellersManager({
         body: JSON.stringify({
           status: draft.status,
           tier: draft.tier,
+          orderingEnabled: draft.orderingEnabled,
           ...(draft.status === "REJECTED" && !organization.rejectionReason
             ? { rejectionReason: "Application was not approved." }
             : {}),
@@ -137,6 +139,7 @@ export default function ResellersManager({
     return drafts[organization.id] || {
       status: organization.status,
       tier: organization.tier,
+      orderingEnabled: organization.orderingEnabled,
     };
   }
 
@@ -179,6 +182,15 @@ export default function ResellersManager({
                   </span>
                   <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-xs text-accent">
                     {organization.tier.replace("_", " ")}
+                  </span>
+                  <span
+                    className={
+                      organization.orderingEnabled
+                        ? "rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-xs text-emerald-300"
+                        : "rounded-full border border-border px-2.5 py-1 text-xs text-text-muted"
+                    }
+                  >
+                    {organization.orderingEnabled ? "B2B ordering on" : "B2B ordering off"}
                   </span>
                 </div>
               </div>
@@ -228,6 +240,21 @@ export default function ResellersManager({
                       <option value="TIER_1">Tier 1</option>
                       <option value="TIER_2">Tier 2</option>
                     </select>
+                    <label className="flex items-center gap-2 rounded-lg border border-border bg-bg-primary px-3 py-2 text-xs text-text-secondary">
+                      <input
+                        type="checkbox"
+                        checked={draft.orderingEnabled}
+                        disabled={isBusy}
+                        onChange={(event) =>
+                          setDrafts((current) => ({
+                            ...current,
+                            [organization.id]: { ...draft, orderingEnabled: event.target.checked },
+                          }))
+                        }
+                        className="accent-[var(--accent)]"
+                      />
+                      B2B ordering
+                    </label>
                     <button
                       type="button"
                       disabled={isBusy}

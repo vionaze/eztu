@@ -37,6 +37,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       status?: string;
       tier?: string;
       rejectionReason?: string | null;
+      orderingEnabled?: boolean;
     };
 
     const existing = await getOrganization(id);
@@ -46,9 +47,17 @@ export async function PATCH(request: Request, context: RouteContext) {
       status?: Status;
       tier?: Tier;
       rejectionReason?: string | null;
+      orderingEnabled?: boolean;
       suspendedAt?: Date | null;
       suspendedBy?: string | null;
     } = {};
+
+    if (body.orderingEnabled !== undefined) {
+      if (typeof body.orderingEnabled !== "boolean") {
+        return NextResponse.json({ error: "Invalid ordering setting" }, { status: 400 });
+      }
+      data.orderingEnabled = body.orderingEnabled;
+    }
 
     if (body.status !== undefined) {
       if (!statuses.includes(body.status as Status)) {

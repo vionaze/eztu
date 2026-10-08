@@ -103,6 +103,8 @@ model ResellerOrganization {
   slug        String                     @unique
   status      ResellerOrganizationStatus @default(PENDING)
   tier        ResellerTier               @default(TIER_1)
+  /// Admin toggle: allow this organization to place wholesale (B2B) orders.
+  orderingEnabled Boolean                @default(false)
   rejectionReason String?
   suspendedAt DateTime?
   suspendedBy String?

@@ -24,6 +24,16 @@
 - `b2b-order-rules.test.ts` (6 tests) covers the new admin transition matrix.
 - Typecheck, changed-file ESLint (0 errors), and production build pass.
 
+## Enabling ordering per organization (admin toggle)
+
+`ResellerOrganization.orderingEnabled` (default `false`) is the primary control. Admin → Resellers → Edit → tick **B2B ordering** → Save. Newly approved resellers stay off until staff enables them; no env edit or redeploy is needed.
+
+Precedence (`apps/web/src/lib/b2b-flags.ts`):
+
+1. `B2B_ORDERING_DISABLED=true` — global emergency stop, always wins.
+2. `orderingEnabled` per organization — normal path.
+3. `B2B_ORDERING_ORG_IDS` — optional comma-separated allowlist/escape hatch for pilots.
+
 ## Ops
 
 Add to production env and crontab (deploy user):
@@ -33,7 +43,7 @@ Add to production env and crontab (deploy user):
 */10 * * * * curl -fsS -X POST -H "Authorization: Bearer $B2B_CRON_SECRET" https://eztopup.io/api/cron/b2b-orders
 ```
 
-Live B2B ordering still requires `B2B_ORDERING_ORG_IDS` to list the pilot organization.
+`B2B_CRON_SECRET` falls back to `CRON_SECRET` when unset.
 
 ## Remaining after 4c
 

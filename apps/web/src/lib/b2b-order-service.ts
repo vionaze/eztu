@@ -33,8 +33,8 @@ export class B2BOrderError extends Error {
 
 export { isB2BOrderingEnabled };
 
-function requireOrderingEnabled(organizationId: string) {
-  if (!isB2BOrderingEnabled(organizationId)) {
+function requireOrderingEnabled(organizationId: string, orderingFlag: boolean) {
+  if (!isB2BOrderingEnabled(organizationId, orderingFlag)) {
     throw new B2BOrderError("Wholesale ordering is not enabled for this organization yet.", 403, "ORDERING_DISABLED");
   }
 }
@@ -120,8 +120,8 @@ export async function quoteB2BOrder(params: {
   lines: { variantId: string; quantity: number }[];
   requestHeaders: Headers;
 }) {
-  requireOrderingEnabled(params.organizationId);
   const { organization, authenticatedUser } = await requireActiveReseller(params.organizationId);
+  requireOrderingEnabled(params.organizationId, organization.orderingEnabled);
   const snapshots = await resolveQuoteLines(params.organizationId, params.lines, organization.tier, params.requestHeaders);
   const totalIDR = snapshots.reduce((sum, line) => sum + line.unitPriceIDR * line.quantity, 0);
   if (!Number.isSafeInteger(totalIDR) || totalIDR >= 2_147_483_647) {
@@ -184,8 +184,8 @@ export async function createB2BOrder(params: {
   paymentMethod: B2BPaymentMethodValue;
   requestHeaders: Headers;
 }) {
-  requireOrderingEnabled(params.organizationId);
   const { authenticatedUser, organization } = await requireActiveReseller(params.organizationId);
+  requireOrderingEnabled(params.organizationId, organization.orderingEnabled);
   const ownerTier = organization.tier;
 
   const payload = verifyB2BQuote(params.quoteToken);
