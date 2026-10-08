@@ -9,7 +9,8 @@ export type CartLine = { variantId: string; name: string; unitPriceIDR: number; 
 type OrderLine = { id: string; name: string; quantity: number; unitPriceIDR: number; status: string; voucherCodes: string[] };
 export type ResellerOrder = {
   id: string; orderNumber: string; status: string; paymentMethod: string; totalIDR: number;
-  paymentUrl: string | null; createdAt: string; manualReviewReason: string | null; lines: OrderLine[];
+  paymentUrl: string | null; createdAt: string; manualReviewReason: string | null;
+  deliveryEmail: string | null; lines: OrderLine[];
 };
 
 const money = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
@@ -53,6 +54,7 @@ export function OrderModal({
   onChangeQuantity,
   onRemove,
   onClear,
+  defaultEmail,
 }: {
   orgId: string;
   lines: CartLine[];
@@ -62,12 +64,14 @@ export function OrderModal({
   onChangeQuantity: (variantId: string, next: number) => void;
   onRemove: (variantId: string) => void;
   onClear: () => void;
+  defaultEmail?: string | null;
 }) {
   const [tab, setTab] = useState<"cart" | "orders">("cart");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [priceNotice, setPriceNotice] = useState("");
   const [confirmed, setConfirmed] = useState<{ token: string; totalIDR: number } | null>(null);
+  const [email, setEmail] = useState(defaultEmail ?? "");
   const cartTotal = lines.reduce((sum, line) => sum + line.unitPriceIDR * line.quantity, 0);
   const total = confirmed?.totalIDR ?? cartTotal;
 
@@ -96,6 +100,7 @@ export function OrderModal({
           quoteToken: quote.token,
           idempotencyKey: crypto.randomUUID(),
           paymentMethod: method,
+          deliveryEmail: email.trim() || null,
         }),
       });
       const order = (await orderResponse.json().catch(() => ({}))) as { order?: ResellerOrder; error?: string; code?: string };
@@ -123,18 +128,25 @@ export function OrderModal({
     defaultMethod === "CRYPTO" ? ["CRYPTO", "PAKASIR"] : ["PAKASIR", "CRYPTO"];
   const methodButtons = (
     <div className="grid gap-2 sm:grid-cols-2">
-      {orderedMethods.map((method) => (
+      {orderedMethods.map((method) => {
+        const isDefault = method === defaultMethod;
+        return (
           <button
             key={method}
             type="button"
             disabled={busy || lines.length === 0}
             onClick={() => void placeOrder(method)}
-            className={method === defaultMethod ? primaryClass : cn(subtleClass, "border-accent/30 text-accent")}
+            className={
+              isDefault
+                ? primaryClass
+                : "inline-flex h-11 items-center justify-center rounded-md border border-border/60 text-sm font-medium text-text-muted transition hover:text-text-secondary disabled:cursor-not-allowed disabled:opacity-50"
+            }
           >
             {busy ? "Creating…" : method === "CRYPTO" ? "Pay with Crypto" : "Pay with Pakasir"}
-            {method === defaultMethod ? <span className="ml-1 text-[10px] font-normal opacity-80">(default)</span> : null}
+            {isDefault ? <span className="ml-1 text-[10px] font-normal opacity-80">(primary)</span> : null}
           </button>
-        ))}
+        );
+      })}
     </div>
   );
 
@@ -223,6 +235,21 @@ export function OrderModal({
             Final price is re-verified when the order is created. Parts of an order that the supplier cannot deliver
             completely are reviewed manually before anything is refunded.
           </p>
+          <div>
+            <label htmlFor="b2b-delivery-email" className="mb-1.5 block text-xs font-medium text-text-secondary">
+              Code delivery email
+            </label>
+            <input
+              id="b2b-delivery-email"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="recipient@example.com"
+              autoComplete="email"
+              className="h-11 w-full rounded-md border border-border bg-bg-card px-3 text-base sm:h-10 sm:text-sm"
+            />
+            <p className="mt-1.5 text-[11px] text-text-muted">Codes are sent here and stay readable in Purchase history.</p>
+          </div>
           {priceNotice ? <p role="status" className="rounded-md border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">{priceNotice}</p> : null}
           {error ? <p role="alert" className="rounded-md border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200">{error}</p> : null}
           {methodButtons}
@@ -265,6 +292,7 @@ export function OrdersPanel({ orgId }: { orgId: string }) {
                 <p className="font-[family-name:var(--font-geist-mono)] text-sm font-semibold">{order.orderNumber}</p>
                 <p className="text-xs text-text-muted">
                   {new Date(order.createdAt).toLocaleString("en-GB")} · {order.paymentMethod === "CRYPTO" ? "Crypto" : "Pakasir"}
+                  {order.deliveryEmail ? ` · codes to ${order.deliveryEmail}` : ""}
                 </p>
               </div>
               <span className={cn("rounded-full border px-2.5 py-1 text-[11px] font-semibold", STATUS_STYLE[order.status] ?? "border-border text-text-muted")}>

@@ -80,3 +80,49 @@ export async function sendResellerApprovalEmail(params: {
     return { sent: false, error: error instanceof Error ? error.message : "Unknown email error" };
   }
 }
+
+export async function sendB2BCodesEmail(params: {
+  to: string;
+  orderNumber: string;
+  lines: { name: string; quantity: number; codes: string[] }[];
+}): Promise<EmailSendResult> {
+  const apiKey = process.env.RESEND_API_KEY?.trim();
+  if (!apiKey) return { sent: false, error: "RESEND_API_KEY is not configured." };
+
+  const orderNumber = escapeHtml(params.orderNumber);
+  const rows = params.lines
+    .map((line) => {
+      const codes = line.codes.length ? line.codes.map(escapeHtml).join(", ") : "Given at the supplier dashboard";
+      return `<li style="margin-bottom:8px"><strong>${escapeHtml(line.name)}</strong> × ${line.quantity}<br />` +
+        `<code style="word-break:break-all">${codes}</code></li>`;
+    })
+    .join("");
+  const subject = `Your EZTopUp wholesale order ${params.orderNumber} is delivered`;
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#111827">
+      <h1 style="font-size:22px;margin:0 0 16px">Your order is delivered</h1>
+      <p>Order <strong>${orderNumber}</strong> is complete. Here are the codes:</p>
+      <ul style="padding-left:20px;margin:0 0 16px">${rows}</ul>
+      <p>You can also view them anytime in your wholesale console order history.</p>
+      <p>Thank you,<br />EZTopUp Team</p>
+    </div>
+  `;
+  const text = `Order ${params.orderNumber} is delivered.\n\n` +
+    params.lines.map((line) => `${line.name} × ${line.quantity}: ${line.codes.join(", ") || "given at supplier"}`).join("\n") +
+    `\n\nThank you,\nEZTopUp Team`;
+
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: getEmailFromAddress(), to: params.to, reply_to: getEmailReplyTo(), subject, html, text }),
+    });
+    if (!response.ok) {
+      const detail = await response.text().catch(() => "");
+      return { sent: false, error: `Resend API error: ${response.status} ${detail}`.trim() };
+    }
+    return { sent: true };
+  } catch (error) {
+    return { sent: false, error: error instanceof Error ? error.message : "Unknown email error" };
+  }
+}

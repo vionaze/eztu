@@ -14,7 +14,9 @@ import {
   Package,
   Plus,
   ShoppingCart,
+  SidebarSimple,
   SquaresFour,
+  WhatsappLogo,
   X,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
@@ -28,6 +30,10 @@ type Quote = { variantId: string; unitPriceIDR: number; totalIDR: number; quanti
 
 const MAX_QUANTITY = 20;
 const money = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
+
+function cheapestPrice(product: Product) {
+  return product.variants.reduce((min, variant) => Math.min(min, variant.priceIDR), Number.POSITIVE_INFINITY);
+}
 
 function timeLabel(value: string | null | undefined) {
   if (!value) return "";
@@ -58,6 +64,7 @@ export default function ResellerDashboard({
 }) {
   const [view, setView] = useState<"catalog" | "orders">("catalog");
   const [navOpen, setNavOpen] = useState(false);
+  const [sidebarHidden, setSidebarHidden] = useState(false);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [loading, setLoading] = useState(true);
   const [catalogError, setCatalogError] = useState("");
@@ -228,7 +235,7 @@ export default function ResellerDashboard({
 
   const navItems: { key: "catalog" | "orders"; label: string; icon: typeof SquaresFour }[] = [
     { key: "catalog", label: "Catalog", icon: SquaresFour },
-    { key: "orders", label: "Orders", icon: Clock },
+    { key: "orders", label: "Purchase history", icon: Clock },
   ];
 
   const sidebar = (
@@ -296,7 +303,9 @@ export default function ResellerDashboard({
 
   return (
     <div className="flex h-[100dvh] overflow-hidden bg-bg-primary text-text-primary">
-      <aside className="hidden w-[236px] shrink-0 border-r border-border/80 bg-bg-secondary/50 md:block">{sidebar}</aside>
+      <aside className={cn("hidden w-[232px] shrink-0 border-r border-border/80 bg-bg-secondary/50 md:block", sidebarHidden && "md:hidden")}>
+        {sidebar}
+      </aside>
 
       {navOpen ? (
         <div className="fixed inset-0 z-[70] md:hidden" role="dialog" aria-modal="true" aria-label="Reseller menu">
@@ -391,7 +400,7 @@ export default function ResellerDashboard({
                     <div className="rounded-md border border-border bg-bg-card p-4">
                       <h2 className="text-sm font-semibold uppercase tracking-wide text-text-muted">Packages</h2>
                       <ul className="mt-3 space-y-1.5">
-                        {selectedProduct.variants.map((variant) => {
+                        {[...selectedProduct.variants].sort((a, b) => a.priceIDR - b.priceIDR).map((variant) => {
                           const active = selected?.id === variant.id;
                           return (
                             <li key={variant.id}>
@@ -529,7 +538,7 @@ export default function ResellerDashboard({
                   ) : (
                     <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       {products.map((product) => {
-                        const cheapest = product.variants.reduce((min, variant) => Math.min(min, variant.priceIDR), Number.POSITIVE_INFINITY);
+                        const cheapest = cheapestPrice(product);
                         return (
                           <button
                             key={product.id}
@@ -577,6 +586,7 @@ export default function ResellerDashboard({
           orgId={orgId}
           lines={Object.values(cart)}
           defaultMethod={catalog?.defaultPaymentMethod ?? "PAKASIR"}
+          defaultEmail={email}
           onClose={() => setShowOrder(false)}
           onPlaced={() => setCart({})}
           onChangeQuantity={changeCartQuantity}

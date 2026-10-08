@@ -8,6 +8,7 @@ import { getDetectedMarketCode, isProductExcludedFromMarket } from "@/lib/produc
 import { ResellerPricingError, requireActiveReseller } from "@/lib/reseller-pricing-service";
 import { getSupplierOrderStatus, getSupplierProduct, isSupplierProductCode, createSupplierOrder } from "@/lib/supplier";
 import { isB2BOrderingEnabled } from "@/lib/b2b-flags";
+import { sendB2BCodesEmail } from "@/lib/reseller-notifications";
 import {
   buildRequestFingerprint,
   canAdminOrderTransition,
@@ -151,7 +152,7 @@ export async function quoteB2BOrder(params: {
 
 function publicOrder(order: {
   id: string; orderNumber: string; status: string; totalIDR: bigint; paymentMethod: string;
-  paymentUrl: string | null; createdAt: Date; manualReviewReason: string | null;
+  paymentUrl: string | null; createdAt: Date; manualReviewReason: string | null; deliveryEmail: string | null;
   lines: { id: string; variantName: string; quantity: number; unitPriceIDR: bigint; status: string; supplierRaw: unknown }[];
 }) {
   return {
@@ -159,6 +160,7 @@ function publicOrder(order: {
     orderNumber: order.orderNumber,
     status: order.status,
     paymentMethod: order.paymentMethod,
+    deliveryEmail: order.deliveryEmail,
     totalIDR: Number(order.totalIDR),
     paymentUrl: order.status === "PAYMENT_PENDING" ? order.paymentUrl : null,
     createdAt: order.createdAt.toISOString(),
@@ -177,16 +179,24 @@ function publicOrder(order: {
   };
 }
 
+const DELIVERY_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
 export async function createB2BOrder(params: {
   organizationId: string;
   quoteToken: string;
   idempotencyKey: string;
   paymentMethod: B2BPaymentMethodValue;
+  deliveryEmail?: string | null;
   requestHeaders: Headers;
 }) {
   const { authenticatedUser, organization } = await requireActiveReseller(params.organizationId);
   requireOrderingEnabled(params.organizationId, organization.orderingEnabled);
   const ownerTier = organization.tier;
+
+  const deliveryEmail = (params.deliveryEmail ?? "").trim().toLowerCase() || null;
+  if (deliveryEmail && !DELIVERY_EMAIL_PATTERN.test(deliveryEmail)) {
+    throw new B2BOrderError("Enter a valid email for code delivery.", 400, "INVALID_DELIVERY_EMAIL");
+  }
 
   const payload = verifyB2BQuote(params.quoteToken);
   if (!payload || payload.org !== params.organizationId || payload.user !== authenticatedUser.dbUserId) {
@@ -203,7 +213,7 @@ export async function createB2BOrder(params: {
     include: { lines: true },
   });
   if (existing) {
-    if (existing.requestFingerprint !== fingerprint) {
+    if (existing.requestFingerprint !== fingerprint || (existing.deliveryEmail ?? null) !== deliveryEmail) {
       throw new B2BOrderError("This order key was already used with different items.", 409, "IDEMPOTENCY_CONFLICT");
     }
     // A DRAFT row without a payment URL means invoice creation failed last time; heal it below.
@@ -247,6 +257,7 @@ export async function createB2BOrder(params: {
         status: "DRAFT",
         idempotencyKey: params.idempotencyKey,
         requestFingerprint: fingerprint,
+        deliveryEmail,
         quotedAt: new Date(),
         quoteExpiresAt: new Date(payload.exp),
         subtotalIDR: BigInt(payload.totalIDR),
@@ -473,6 +484,19 @@ export async function fulfillB2BOrder(orderId: string) {
     where: { id: orderId },
     data: { status: "COMPLETED", supplierStatus: "fulfilled", fulfillmentLeaseUntil: null, lastReconciledAt: new Date() },
   });
+
+  // Codes are also emailed to the recorded delivery address (best effort).
+  if (order.deliveryEmail) {
+    const completed = await prisma.b2BOrder.findUnique({ where: { id: orderId }, include: { lines: true } });
+    if (completed) {
+      const lines = completed.lines.map((line) => {
+        const raw = (line.supplierRaw ?? {}) as { voucherCodes?: string[] };
+        return { name: line.variantName, quantity: line.quantity, codes: raw.voucherCodes ?? [] };
+      });
+      const result = await sendB2BCodesEmail({ to: order.deliveryEmail, orderNumber: order.orderNumber, lines });
+      if (!result.sent) console.warn("[b2b-order] codes email was not sent", result.error);
+    }
+  }
   return { claimed: true, completed: true };
 }
 

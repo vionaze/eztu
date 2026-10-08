@@ -200,6 +200,8 @@ model B2BOrder {
   supplierReference    String?         @unique
   supplierStatus       String?
   manualReviewReason   String?
+  /// Where the delivered codes are emailed; defaults to the buyer account email.
+  deliveryEmail        String?
   fulfillmentAttempts  Int             @default(0)
   fulfillmentLeaseUntil DateTime?
   lastReconciledAt     DateTime?
