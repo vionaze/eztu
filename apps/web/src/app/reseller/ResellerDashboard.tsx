@@ -276,9 +276,14 @@ export default function ResellerDashboard({
         <div className="relative h-7 w-28 shrink-0">
           <Image src="/logo.png" alt="EZTopUp" fill className="object-contain object-left" sizes="112px" priority />
         </div>
-        <span className="ml-auto rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
-          Reseller
-        </span>
+        <button
+          type="button"
+          onClick={() => setSidebarHidden(true)}
+          aria-label="Hide sidebar"
+          className="ml-auto hidden h-8 w-8 items-center justify-center rounded-md border border-border text-text-secondary transition hover:text-text-primary md:flex"
+        >
+          <SidebarSimple size={16} />
+        </button>
       </div>
 
       <div className="border-b border-border/70 p-3">
@@ -344,9 +349,14 @@ export default function ResellerDashboard({
 
   return (
     <div className="flex h-[100dvh] overflow-hidden bg-bg-primary text-text-primary">
-      <aside className={cn("hidden w-[232px] shrink-0 border-r border-border/80 bg-bg-secondary/50 md:block", sidebarHidden && "md:hidden")}>
-        {sidebar}
-      </aside>
+      <motion.aside
+        initial={false}
+        animate={{ width: sidebarHidden ? 0 : 232, opacity: sidebarHidden ? 0 : 1 }}
+        transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+        className="hidden shrink-0 overflow-hidden border-r border-border/80 bg-bg-secondary/50 md:block"
+      >
+        <div className="w-[232px]">{sidebar}</div>
+      </motion.aside>
 
       {navOpen ? (
         <div className="fixed inset-0 z-[70] md:hidden" role="dialog" aria-modal="true" aria-label="Reseller menu">
@@ -365,19 +375,9 @@ export default function ResellerDashboard({
           >
             <List size={18} />
           </button>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold leading-tight">{orgName}</p>
-            <p className="text-[11px] leading-tight text-text-muted">Wholesale console</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setSidebarHidden((value) => !value)}
-            aria-label={sidebarHidden ? "Show sidebar" : "Hide sidebar"}
-            aria-expanded={!sidebarHidden}
-            className="hidden h-9 w-9 items-center justify-center rounded-md border border-border text-text-secondary transition hover:text-text-primary md:flex"
-          >
-            <SidebarSimple size={17} />
-          </button>
+          <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-accent">
+            Reseller
+          </span>
           <div className="ml-auto flex shrink-0 items-center gap-2">
             {orderingEnabled ? (
               <span ref={cartSlotRef} className="inline-flex">
