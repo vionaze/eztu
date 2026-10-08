@@ -13,6 +13,7 @@ const defaults: Record<string, string> = {
   "playstation store B2B Indonesia.xlsx": "PAKE INI FINAL RUMUS",
   "steam B2B.xlsx": "STEAM COGS EZ b2b cust (2)",
   "NINTENDO E SHOP US B2B.xlsx": "NINTENDO B2B",
+  "PC GAME PASS XBOX.xlsx": "pc game pass 3 bulan b2b rate",
 };
 
 type SnapshotRow = {

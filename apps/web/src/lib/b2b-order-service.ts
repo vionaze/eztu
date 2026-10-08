@@ -180,6 +180,7 @@ function publicOrder(order: {
 }
 
 const DELIVERY_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const PAYMENT_WINDOW_MINUTES = 10;
 
 export async function createB2BOrder(params: {
   organizationId: string;
@@ -289,6 +290,7 @@ export async function createB2BOrder(params: {
           create: {
             provider: params.paymentMethod === "CRYPTO" ? "cryptomus" : "pakasir",
             status: "PENDING",
+            expiresAt: new Date(Date.now() + PAYMENT_WINDOW_MINUTES * 60_000),
             amountIDR: BigInt(payload.totalIDR),
             amountUSDCents: BigInt(totalUSDCents),
             currency: params.paymentMethod === "CRYPTO" ? "USD" : "IDR",
@@ -342,7 +344,7 @@ export async function createB2BOrder(params: {
       data: { status: "PAYMENT_PENDING", paymentUrl, paymentProvider: provider, paymentProviderPaymentId: providerPaymentId },
     }),
   ]);
-  const fresh = await prisma.b2BOrder.findUniqueOrThrow({ where: { id: order.id }, include: { lines: true } });
+  const fresh = await prisma.b2BOrder.findUniqueOrThrow({ where: { id: order.id }, include: { lines: true, paymentIntent: { select: { expiresAt: true } } } });
   return { order: publicOrder(fresh), reused: Boolean(existing) };
 }
 
@@ -376,6 +378,14 @@ export async function applyB2BPaymentEvent(params: {
   }
 
   const next = mapNormalizedStatus(params.normalizedStatus);
+  if (next === "PAID" && intent.status === "EXPIRED") {
+    await prisma.b2BPaymentIntent.updateMany({ where: { id: intent.id, status: "EXPIRED" }, data: { status: "REVIEW" } });
+    await prisma.b2BOrder.updateMany({
+      where: { id: intent.orderId, status: "CANCELLED" },
+      data: { status: "MANUAL_REVIEW", manualReviewReason: "Payment received after the 10-minute window closed; reconcile with the buyer." },
+    });
+    return { applied: true, reason: "LATE_PAYMENT_REVIEW" as const };
+  }
   if (!canAdvanceIntent(intent.status, next)) return { applied: false, reason: "STALE" as const };
 
   const updated = await prisma.b2BPaymentIntent.updateMany({
@@ -562,7 +572,11 @@ export async function listAdminB2BOrders(filters: { status?: string; organizatio
         ],
       } : {}),
     },
-    include: { organization: { select: { name: true, slug: true } }, lines: true },
+    include: {
+      organization: { select: { name: true, slug: true } },
+      lines: true,
+      paymentIntent: { select: { expiresAt: true } },
+    },
     orderBy: { createdAt: "desc" },
     take: 50,
   });
@@ -690,7 +704,7 @@ export async function getB2BOrder(organizationId: string, orderId: string) {
   await requireActiveReseller(organizationId);
   const order = await prisma.b2BOrder.findFirst({
     where: { id: orderId, organizationId },
-    include: { lines: true },
+    include: { lines: true, paymentIntent: { select: { expiresAt: true } } },
   });
   if (!order) throw new B2BOrderError("Order not found.", 404, "ORDER_NOT_FOUND");
   return { order: publicOrder(order) };

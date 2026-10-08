@@ -10,7 +10,7 @@ type OrderLine = { id: string; name: string; quantity: number; unitPriceIDR: num
 export type ResellerOrder = {
   id: string; orderNumber: string; status: string; paymentMethod: string; totalIDR: number;
   paymentUrl: string | null; createdAt: string; manualReviewReason: string | null;
-  deliveryEmail: string | null; lines: OrderLine[];
+  deliveryEmail: string | null; paymentExpiresAt: string | null; paymentExpired: boolean; lines: OrderLine[];
 };
 
 const money = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
@@ -295,8 +295,13 @@ export function OrdersPanel({ orgId }: { orgId: string }) {
                   {order.deliveryEmail ? ` · codes to ${order.deliveryEmail}` : ""}
                 </p>
               </div>
-              <span className={cn("rounded-full border px-2.5 py-1 text-[11px] font-semibold", STATUS_STYLE[order.status] ?? "border-border text-text-muted")}>
-                {order.status.replaceAll("_", " ")}
+              <span
+                className={cn(
+                  "rounded-full border px-2.5 py-1 text-[11px] font-semibold",
+                  order.paymentExpired ? "border-red-400/40 bg-red-400/10 text-red-300" : STATUS_STYLE[order.status] ?? "border-border text-text-muted",
+                )}
+              >
+                {order.paymentExpired ? "EXPIRED" : order.status.replaceAll("_", " ")}
               </span>
             </div>
             <ul className="mt-2 space-y-1 text-xs text-text-secondary">
@@ -313,9 +318,30 @@ export function OrdersPanel({ orgId }: { orgId: string }) {
             </ul>
             <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
               <span className="font-[family-name:var(--font-geist-mono)] text-sm font-semibold text-accent">{money.format(order.totalIDR)}</span>
-              {order.paymentUrl ? (
-                <a href={order.paymentUrl} className="text-xs font-semibold text-accent hover:underline">Complete payment →</a>
-              ) : null}
+              {(() => {
+                const expiresAt = order.paymentExpiresAt ? new Date(order.paymentExpiresAt) : null;
+                if (order.status !== "PAYMENT_PENDING") return null;
+                if (order.paymentExpired || !expiresAt) {
+                  return (
+                    <span className="text-xs font-semibold text-red-300" role="status">
+                      Payment window closed — order cancelled
+                    </span>
+                  );
+                }
+                return (
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className="text-[11px] text-text-muted">
+                      Pay within 10 minutes · until{" "}
+                      {expiresAt?.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                    {order.paymentUrl ? (
+                      <a href={order.paymentUrl} className="text-xs font-semibold text-accent hover:underline">
+                        Complete payment →
+                      </a>
+                    ) : null}
+                  </span>
+                );
+              })()}
             </div>
             {order.manualReviewReason ? (
               <p className="mt-2 rounded-lg border border-orange-400/30 bg-orange-400/5 p-2 text-xs text-orange-200">

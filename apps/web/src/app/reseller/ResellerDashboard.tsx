@@ -35,6 +35,38 @@ function cheapestPrice(product: Product) {
   return product.variants.reduce((min, variant) => Math.min(min, variant.priceIDR), Number.POSITIVE_INFINITY);
 }
 
+const DURATION_SUFFIX = /\s+\d+\s*(bulan|month|months|hari|day|days|tahun|year|years)$/i;
+const AMOUNT_SUFFIX = /\s+(IDR|Rp|USD|USDT|MYR|THB|BRL|PHP|SGD|HKD|EUR|GBP)\s*[\d.,]+$/i;
+const SYMBOL_AMOUNT_SUFFIX = /\s+[$€£]\s*[\d.,]+$/;
+
+/** "PlayStation IDR 100.000" and "PlayStation IDR 200.000" share the "PlayStation IDR" group. */
+function packageGroupName(name: string) {
+  let base = name.trim();
+  let previous = "";
+  while (base !== previous) {
+    previous = base;
+    base = base.replace(DURATION_SUFFIX, "").replace(AMOUNT_SUFFIX, "").replace(SYMBOL_AMOUNT_SUFFIX, "").trim();
+  }
+  return base || name.trim();
+}
+
+function groupPackages(variants: Variant[]) {
+  const groups = new Map<string, Variant[]>();
+  for (const variant of variants) {
+    const key = packageGroupName(variant.name);
+    const bucket = groups.get(key);
+    if (bucket) bucket.push(variant);
+    else groups.set(key, [variant]);
+  }
+  return [...groups.entries()]
+    .map(([name, items]) => ({
+      name,
+      variants: [...items].sort((a, b) => a.priceIDR - b.priceIDR),
+      from: items.reduce((min, variant) => Math.min(min, variant.priceIDR), Number.POSITIVE_INFINITY),
+    }))
+    .sort((a, b) => a.from - b.from);
+}
+
 function timeLabel(value: string | null | undefined) {
   if (!value) return "";
   const date = new Date(value);
@@ -295,7 +327,16 @@ export default function ResellerDashboard({
       </nav>
 
       <div className="space-y-2 border-t border-border/70 p-2.5">
-        <span className="block px-2.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-300">{statusLabel}</span>
+        <a
+          href="https://wa.me/6287896969420?text=Halo%20EZTopUp%2C%20saya%20reseller%20dan%20butuh%20bantuan"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-[#25D366]/40 bg-[#25D366]/10 text-xs font-semibold text-[#25D366] transition hover:bg-[#25D366]/20"
+        >
+          <WhatsappLogo size={15} weight="fill" aria-hidden="true" />
+          Chat CS on WhatsApp
+        </a>
+        <span className="block text-center text-[11px] font-semibold uppercase tracking-wide text-emerald-300">{statusLabel}</span>
         <ResellerLogoutButton className="flex h-9 w-full items-center justify-center rounded-lg border border-border text-xs font-medium text-text-secondary transition hover:border-red-400/40 hover:text-red-200" />
       </div>
     </div>
@@ -328,6 +369,15 @@ export default function ResellerDashboard({
             <p className="truncate text-sm font-semibold leading-tight">{orgName}</p>
             <p className="text-[11px] leading-tight text-text-muted">Wholesale console</p>
           </div>
+          <button
+            type="button"
+            onClick={() => setSidebarHidden((value) => !value)}
+            aria-label={sidebarHidden ? "Show sidebar" : "Hide sidebar"}
+            aria-expanded={!sidebarHidden}
+            className="hidden h-9 w-9 items-center justify-center rounded-md border border-border text-text-secondary transition hover:text-text-primary md:flex"
+          >
+            <SidebarSimple size={17} />
+          </button>
           <div className="ml-auto flex shrink-0 items-center gap-2">
             {orderingEnabled ? (
               <span ref={cartSlotRef} className="inline-flex">
@@ -399,34 +449,48 @@ export default function ResellerDashboard({
                   <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(300px,380px)]">
                     <div className="rounded-md border border-border bg-bg-card p-4">
                       <h2 className="text-sm font-semibold uppercase tracking-wide text-text-muted">Packages</h2>
-                      <ul className="mt-3 space-y-1.5">
-                        {[...selectedProduct.variants].sort((a, b) => a.priceIDR - b.priceIDR).map((variant) => {
-                          const active = selected?.id === variant.id;
-                          return (
-                            <li key={variant.id}>
-                              <button
-                                type="button"
-                                onClick={() => selectVariant(variant)}
-                                aria-pressed={active}
-                                className={cn(
-                                  "flex w-full items-center justify-between gap-3 rounded-md border p-3 text-left transition",
-                                  active
-                                    ? "border-accent/60 bg-accent/[0.07]"
-                                    : "border-border bg-bg-primary/40 hover:border-accent/40",
-                                )}
-                              >
-                                <span className="min-w-0">
-                                  <span className="block truncate text-[13px] font-medium leading-tight">{variant.name}</span>
-                                  <span className="mt-0.5 block text-[10px] uppercase tracking-wide text-text-muted">{variant.countryCode || "Global"}</span>
-                                </span>
-                                <span className="shrink-0 font-[family-name:var(--font-geist-mono)] text-[13px] font-semibold text-accent">
-                                  {money.format(variant.priceIDR)}
-                                </span>
-                              </button>
-                            </li>
-                          );
-                        })}
-                      </ul>
+                      <div className="mt-3 space-y-4">
+                        {groupPackages(selectedProduct.variants).map((group) => (
+                          <section key={group.name} aria-label={group.name}>
+                            {groupPackages(selectedProduct.variants).length > 1 ? (
+                              <h3 className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                                {group.name}
+                                <span className="ml-1.5 font-normal normal-case text-text-muted/70">{group.variants.length}</span>
+                              </h3>
+                            ) : null}
+                            <ul className="space-y-1.5">
+                              {group.variants.map((variant) => {
+                                const active = selected?.id === variant.id;
+                                return (
+                                  <li key={variant.id}>
+                                    <button
+                                      type="button"
+                                      onClick={() => selectVariant(variant)}
+                                      aria-pressed={active}
+                                      className={cn(
+                                        "flex w-full items-center justify-between gap-3 rounded-md border p-3 text-left transition",
+                                        active
+                                          ? "border-accent/60 bg-accent/[0.07]"
+                                          : "border-border bg-bg-primary/40 hover:border-accent/40",
+                                      )}
+                                    >
+                                      <span className="min-w-0">
+                                        <span className="block truncate text-[13px] font-medium leading-tight">{variant.name}</span>
+                                        <span className="mt-0.5 block text-[10px] uppercase tracking-wide text-text-muted">
+                                          {variant.countryCode || "Global"}
+                                        </span>
+                                      </span>
+                                      <span className="shrink-0 font-[family-name:var(--font-geist-mono)] text-[13px] font-semibold text-accent">
+                                        {money.format(variant.priceIDR)}
+                                      </span>
+                                    </button>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </section>
+                        ))}
+                      </div>
                     </div>
 
                     <div className="rounded-md border border-border bg-bg-card p-5">

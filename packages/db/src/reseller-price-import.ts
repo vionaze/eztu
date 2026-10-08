@@ -47,6 +47,7 @@ const HEADER_ALIASES: Record<string, string[]> = {
 };
 const EXPECTED_SLUG: Record<string, string> = {
   ROB: "roblox-gift-card", VPSN: "playstation-store", VSTEAM: "steam", NTD: "nintendo-eshop",
+  PCGP: "xbox-pc-game-pass",
 };
 
 function text(value: unknown): string { return value == null ? "" : String(value).trim(); }
@@ -72,7 +73,10 @@ function formulaPercent(formula: string, row: number, sourceColumn: string, expe
   const f = formula.replace(/\s+/g, "").toUpperCase();
   const cell = `${sourceColumn.toUpperCase()}${row}`;
   let match: RegExpMatchArray | null = null;
-  if (style === "multiply") match = f.match(new RegExp(`^\\(?${cell}\\*([0-9]+(?:\\.[0-9]+)?)%\\)?$`));
+  if (style === "multiply") {
+    match = f.match(new RegExp(`^\\(?${cell}\\*([0-9]+(?:\\.[0-9]+)?)%\\)?$`)) ??
+      f.match(new RegExp(`^\\(?([0-9]+(?:\\.[0-9]+)?)%\\*${cell}\\)?$`));
+  }
   else match = f.match(new RegExp(`^\\(?${cell}\\+\\(([0-9]+(?:\\.[0-9]+)?)%\\*${cell}\\)\\)?$`));
   if (!match) throw new Error("FORMULA_RULE_NOT_VERIFIED");
   const multiplier = Number(match[1]);
@@ -114,13 +118,14 @@ export function parseResellerWorkbook(options: ParseResellerWorkbookOptions): Re
   const isPs = sheet === "PAKE INI FINAL RUMUS";
   const isSteam = sheet.includes("STEAM") && sheet.includes("cust");
   const isNintendo = sheet === "NINTENDO B2B";
-  const supported = isRoblox1 || isRoblox2 || isPs || isSteam || isNintendo;
+  const isXbox = sheet.toLowerCase().includes("game pass");
+  const supported = isRoblox1 || isRoblox2 || isPs || isSteam || isNintendo || isXbox;
   if (!supported || !skuCol || !nameCol || !categoryCol) {
     for (let i = 0; i < rows.length; i++) result.skipped.push(issue(sourceName, sheet, i + 2, "UNSUPPORTED_SHEET"));
     return result;
   }
-  const category = isRoblox1 || isRoblox2 ? "ROB" : isPs ? "VPSN" : isSteam ? "VSTEAM" : "NTD";
-  const expected = isRoblox1 ? 1.11111 : isRoblox2 ? 3.33333 : isPs ? 1.5 : isSteam ? 2 : 4;
+  const category = isRoblox1 || isRoblox2 ? "ROB" : isPs ? "VPSN" : isSteam ? "VSTEAM" : isXbox ? "PCGP" : "NTD";
+  const expected = isRoblox1 ? 1.11111 : isRoblox2 ? 3.33333 : isPs ? 1.5 : isSteam ? 2 : isXbox ? 3 : 4;
   const style = isSteam || isNintendo ? "add" : "multiply";
   const formulaColumn = isRoblox1 || isRoblox2 ? "K" : isPs ? "F" : "G";
   const sourceColumn = isRoblox1 || isRoblox2 || isPs ? "G" : "H";

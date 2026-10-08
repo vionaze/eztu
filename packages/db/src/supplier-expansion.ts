@@ -16,7 +16,7 @@ export const PRODUCT_SUPPLIER_CATEGORIES: Record<string, readonly string[]> = {
   "roblox-gift-card": ["ROB"],
   steam: ["VSTEAM"],
   valorant: ["VAL"],
-  "xbox-pc-game-pass": ["VXBOX"],
+  "xbox-pc-game-pass": ["VXBOX", "PCGP"],
 };
 
 type Variant = {
