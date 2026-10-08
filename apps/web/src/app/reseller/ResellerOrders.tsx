@@ -157,7 +157,7 @@ export function OrderModal({
         ))}
       </div>
 
-      {tab === "orders" ? <OrdersTab orgId={orgId} /> : lines.length === 0 ? (
+      {tab === "orders" ? <OrdersPanel orgId={orgId} /> : lines.length === 0 ? (
         <p className="text-sm text-text-secondary">Your cart is empty. Add packages from the catalog.</p>
       ) : (
         <div className="space-y-4">
@@ -231,7 +231,7 @@ export function OrderModal({
   );
 }
 
-function OrdersTab({ orgId }: { orgId: string }) {
+export function OrdersPanel({ orgId }: { orgId: string }) {
   const [orders, setOrders] = useState<ResellerOrder[] | null>(null);
   const [error, setError] = useState("");
 
