@@ -358,7 +358,7 @@ export default function ResellerDashboard({
         transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
         className="hidden shrink-0 overflow-hidden border-r border-border/80 bg-bg-secondary/50 md:block"
       >
-        <div className="w-[232px]">{sidebar}</div>
+        <div className="h-full w-[232px]">{sidebar}</div>
       </motion.aside>
 
       {navOpen ? (
