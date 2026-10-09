@@ -34,6 +34,9 @@ export async function POST(request: NextRequest) {
       source: "webhook",
     });
     if (!result.ok) {
+      if (result.status === 503) {
+        return NextResponse.json({ error: result.error }, { status: 503 });
+      }
       await notifySecurityEvent({
         eventType: "pakasir_webhook_rejected",
         severity: "high",
@@ -63,7 +66,6 @@ export async function POST(request: NextRequest) {
     });
     const unavailable =
       message.includes("Pakasir API error") ||
-      message.includes("PAKASIR_WEBHOOK_SECRET") ||
       message.includes("aborted") ||
       message.includes("timeout");
     return NextResponse.json(

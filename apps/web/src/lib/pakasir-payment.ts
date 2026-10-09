@@ -11,10 +11,11 @@ import {
   applyPaymentEventToOrder,
 } from "@/lib/payment-orders";
 import type { FraudRequestContext } from "@/lib/fraud";
+import { applyB2BPaymentEvent } from "@/lib/b2b-order-service";
 
 const VERIFICATION_COOLDOWN_MS = 5_000;
 
-async function reservePakasirVerification(orderId: string, source: string) {
+async function reservePakasirVerification(orderId: string, source: string, isReseller: boolean) {
   const now = new Date();
   const eventId = `verification:${orderId}`;
   try {
@@ -24,7 +25,7 @@ async function reservePakasirVerification(orderId: string, source: string) {
         eventId,
         eventType: "transaction.status",
         providerPaymentId: orderId,
-        orderId,
+        orderId: isReseller ? null : orderId,
         processedAt: now,
         payload: { source },
       },
@@ -60,7 +61,7 @@ export async function verifyAndApplyPakasirPayment(params: {
   actorUserId?: string;
   actorClerkUserId?: string;
 }) {
-  const order = await prisma.order.findUnique({
+  const consumerOrder = await prisma.order.findUnique({
     where: { id: params.orderId },
     select: {
       id: true,
@@ -70,6 +71,24 @@ export async function verifyAndApplyPakasirPayment(params: {
       paymentProviderPaymentId: true,
     },
   });
+  const resellerOrder = consumerOrder ? null : await prisma.b2BOrder.findUnique({
+    where: { id: params.orderId },
+    select: {
+      id: true,
+      status: true,
+      paymentIntent: {
+        select: { provider: true, providerPaymentId: true, amountIDR: true },
+      },
+    },
+  });
+  const intent = resellerOrder?.paymentIntent;
+  const order = consumerOrder ?? (resellerOrder && intent ? {
+    id: resellerOrder.id,
+    status: resellerOrder.status,
+    totalIDR: Number(intent.amountIDR),
+    paymentProvider: intent.provider,
+    paymentProviderPaymentId: intent.providerPaymentId,
+  } : null);
   if (!order) {
     return { ok: false as const, status: 404, error: "Order not found" };
   }
@@ -102,8 +121,11 @@ export async function verifyAndApplyPakasirPayment(params: {
     });
   }
 
-  const reserved = await reservePakasirVerification(order.id, params.source);
+  const reserved = await reservePakasirVerification(order.id, params.source, Boolean(resellerOrder));
   if (!reserved) {
+    if (params.source === "webhook") {
+      return { ok: false as const, status: 503, error: "Pakasir verification is busy; retry webhook" };
+    }
     return {
       ok: true as const,
       orderId: order.id,
@@ -123,6 +145,9 @@ export async function verifyAndApplyPakasirPayment(params: {
   });
 
   if (transaction.status !== "completed") {
+    if (params.source === "webhook") {
+      return { ok: false as const, status: 503, error: "Pakasir payment is not confirmed yet; retry webhook" };
+    }
     return {
       ok: true as const,
       orderId: order.id,
@@ -130,6 +155,28 @@ export async function verifyAndApplyPakasirPayment(params: {
       status: order.status,
       providerStatus: transaction.status,
       applied: false as const,
+    };
+  }
+
+  if (resellerOrder) {
+    const result = await applyB2BPaymentEvent({
+      provider: "pakasir",
+      providerPaymentId: transaction.txnId,
+      eventId: `${transaction.txnId}:${transaction.status}`,
+      normalizedStatus: "paid",
+      raw: transaction.raw,
+    });
+    const current = await prisma.b2BOrder.findUniqueOrThrow({
+      where: { id: order.id },
+      select: { status: true },
+    });
+    return {
+      ok: true as const,
+      orderId: order.id,
+      previousStatus: order.status,
+      status: current.status,
+      providerStatus: transaction.status,
+      applied: result.applied,
     };
   }
 

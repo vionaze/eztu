@@ -23,7 +23,7 @@ export type PakasirTransaction = {
 export type PakasirWebhookNotification = PakasirTransaction;
 
 function requiredEnv(
-  name: "PAKASIR_PROJECT_SLUG" | "PAKASIR_API_KEY" | "PAKASIR_WEBHOOK_SECRET"
+  name: "PAKASIR_PROJECT_SLUG" | "PAKASIR_API_KEY"
 ) {
   const value = process.env[name]?.trim();
   if (!value) throw new Error(`${name} is required for Pakasir payments.`);
@@ -169,7 +169,11 @@ export function parsePakasirWebhook(rawBody: string): PakasirWebhookNotification
 }
 
 export function verifyPakasirWebhookSecret(secret: string | null) {
-  const expected = Buffer.from(requiredEnv("PAKASIR_WEBHOOK_SECRET"));
+  const configured = process.env.PAKASIR_WEBHOOK_SECRET?.trim();
+  // Without a configured secret, callers must still verify the transaction
+  // through the authenticated status API before applying any payment.
+  if (!configured) return true;
+  const expected = Buffer.from(configured);
   const actual = Buffer.from(secret || "");
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }

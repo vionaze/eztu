@@ -176,7 +176,7 @@ test("verifies status through Pakasir's v2 status API", async () => {
   }
 });
 
-test("authenticates the v2 webhook secret and fails closed when unconfigured", () => {
+test("checks a configured v2 webhook secret and permits API verification when unconfigured", () => {
   const previous = process.env.PAKASIR_WEBHOOK_SECRET;
   try {
     process.env.PAKASIR_WEBHOOK_SECRET = "webhook-secret";
@@ -184,7 +184,7 @@ test("authenticates the v2 webhook secret and fails closed when unconfigured", (
     assert.equal(verifyPakasirWebhookSecret("invalid-secret"), false);
     assert.equal(verifyPakasirWebhookSecret(null), false);
     delete process.env.PAKASIR_WEBHOOK_SECRET;
-    assert.throws(() => verifyPakasirWebhookSecret("webhook-secret"), /PAKASIR_WEBHOOK_SECRET is required/);
+    assert.equal(verifyPakasirWebhookSecret(null), true);
   } finally {
     restoreEnv("PAKASIR_WEBHOOK_SECRET", previous);
   }
