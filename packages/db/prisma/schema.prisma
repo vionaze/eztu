@@ -202,6 +202,10 @@ model B2BOrder {
   manualReviewReason   String?
   /// Where the delivered codes are emailed; defaults to the buyer account email.
   deliveryEmail        String?
+  /// Enabled only for orders created after encrypted delivery was introduced.
+  secureDelivery       Boolean         @default(false)
+  deliveryEmailSentAt  DateTime?
+  delivery             B2BOrderDelivery?
   fulfillmentAttempts  Int             @default(0)
   fulfillmentLeaseUntil DateTime?
   lastReconciledAt     DateTime?
@@ -217,6 +221,13 @@ model B2BOrder {
   @@index([organizationId, createdAt])
   @@index([status, createdAt])
   @@index([status, fulfillmentLeaseUntil])
+}
+
+model B2BOrderDelivery {
+  orderId       String   @id
+  encryptedFile Bytes
+  createdAt     DateTime @default(now())
+  order         B2BOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
 }
 
 model B2BOrderLine {

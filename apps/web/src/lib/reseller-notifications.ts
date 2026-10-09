@@ -133,6 +133,7 @@ export async function sendB2BDeliveryEmail(params: {
   attachmentBase64: string;
   attachmentName: string;
   voucherCount: number;
+  password?: string;
 }): Promise<EmailSendResult> {
   const apiKey = process.env.RESEND_API_KEY?.trim();
   if (!apiKey) return { sent: false, error: "RESEND_API_KEY is not configured." };
@@ -144,15 +145,17 @@ export async function sendB2BDeliveryEmail(params: {
       <h1 style="font-size:22px;margin:0 0 16px">Your vouchers are ready</h1>
       <p>Order <strong>${orderNumber}</strong> is complete. ${params.voucherCount} voucher code(s) are attached as an
       Excel file (<strong>${escapeHtml(params.attachmentName)}</strong>) in the standard order-details format.</p>
+      ${params.password ? `<p>This Excel file is encrypted. Open it with this password:</p><p><code style="font-size:18px;word-break:break-all">${escapeHtml(params.password)}</code></p><p>Keep this password private. It is sent only to this email and is not available in the reseller portal or admin.</p>` : ""}
       <p>The file contains: Product Name, Reference Number, Transaction ID, Voucher, Status and the remaining standard columns.</p>
       <p>Thank you,<br />EZTopUp Team</p>
     </div>
   `;
-  const text = `Order ${params.orderNumber} is complete. ${params.voucherCount} voucher code(s) are attached as ${params.attachmentName} in the standard order-details format.\n\nThank you,\nEZTopUp Team`;
+  const text = `Order ${params.orderNumber} is complete. ${params.voucherCount} voucher code(s) are attached as ${params.attachmentName} in the standard order-details format.${params.password ? `\n\nExcel password: ${params.password}\nKeep it private. The password is sent only to this email and is not available in the portal or admin.` : ""}\n\nThank you,\nEZTopUp Team`;
 
   try {
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
+      signal: AbortSignal.timeout(30_000),
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         from: getEmailFromAddress(),
@@ -165,11 +168,10 @@ export async function sendB2BDeliveryEmail(params: {
       }),
     });
     if (!response.ok) {
-      const detail = await response.text().catch(() => "");
-      return { sent: false, error: `Resend API error: ${response.status} ${detail}`.trim() };
+      return { sent: false, error: `Resend API error: ${response.status}` };
     }
     return { sent: true };
-  } catch (error) {
-    return { sent: false, error: error instanceof Error ? error.message : "Unknown email error" };
+  } catch {
+    return { sent: false, error: "Email delivery request failed." };
   }
 }

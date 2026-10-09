@@ -1,14 +1,15 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import { createPakasirPayment, createPaymentInvoice } from "@kupon/payments";
+import { createPakasirPayment } from "@kupon/payments";
 import { calculateResellerPrice, chooseEffectiveRule, prisma, Prisma } from "@kupon/db";
 import { getUsdIdrRate } from "@/lib/fx";
 import { getDetectedMarketCode, isProductExcludedFromMarket } from "@/lib/product-availability";
 import { ResellerPricingError, requireActiveReseller } from "@/lib/reseller-pricing-service";
 import { getSupplierOrderStatus, getSupplierProduct, isSupplierProductCode, createSupplierOrder } from "@/lib/supplier";
 import { isB2BOrderingEnabled } from "@/lib/b2b-flags";
-import { buildOrderDetailsWorkbook, orderDetailsFilename } from "@/lib/b2b-delivery-export";
+import { buildEncryptedOrderDetailsWorkbook, buildOrderDetailsWorkbook, orderDetailsFilename } from "@/lib/b2b-delivery-export";
+import { requirePlatformAdminForResellers } from "@/lib/reseller-auth";
 import { sendB2BDeliveryEmail } from "@/lib/reseller-notifications";
 import {
   buildRequestFingerprint,
@@ -154,6 +155,7 @@ export async function quoteB2BOrder(params: {
 function publicOrder(order: {
   id: string; orderNumber: string; status: string; totalIDR: bigint; paymentMethod: string;
   paymentUrl: string | null; createdAt: Date; manualReviewReason: string | null; deliveryEmail: string | null;
+  secureDelivery: boolean; deliveryEmailSentAt: Date | null;
   lines: { id: string; variantName: string; quantity: number; unitPriceIDR: bigint; status: string; supplierRaw: unknown }[];
 }) {
   return {
@@ -162,6 +164,9 @@ function publicOrder(order: {
     status: order.status,
     paymentMethod: order.paymentMethod,
     deliveryEmail: order.deliveryEmail,
+    secureDelivery: order.secureDelivery,
+    hasDeliveryFile: order.secureDelivery && Boolean(order.deliveryEmailSentAt),
+    deliveryEmailSentAt: order.deliveryEmailSentAt?.toISOString() ?? null,
     totalIDR: Number(order.totalIDR),
     paymentUrl: order.status === "PAYMENT_PENDING" ? order.paymentUrl : null,
     createdAt: order.createdAt.toISOString(),
@@ -174,7 +179,7 @@ function publicOrder(order: {
         quantity: line.quantity,
         unitPriceIDR: Number(line.unitPriceIDR),
         status: line.status,
-        voucherCodes: line.status === "FULFILLED" ? raw.voucherCodes ?? [] : [],
+        voucherCodes: !order.secureDelivery && line.status === "FULFILLED" ? raw.voucherCodes ?? [] : [],
       };
     }),
   };
@@ -193,10 +198,13 @@ export async function createB2BOrder(params: {
 }) {
   const { authenticatedUser, organization } = await requireActiveReseller(params.organizationId);
   requireOrderingEnabled(params.organizationId, organization.orderingEnabled);
+  if (params.paymentMethod === "CRYPTO") {
+    throw new B2BOrderError("Crypto payments are coming soon.", 400, "CRYPTO_COMING_SOON");
+  }
   const ownerTier = organization.tier;
 
-  const deliveryEmail = (params.deliveryEmail ?? "").trim().toLowerCase() || null;
-  if (deliveryEmail && !DELIVERY_EMAIL_PATTERN.test(deliveryEmail)) {
+  const deliveryEmail = (params.deliveryEmail || authenticatedUser.email || "").trim().toLowerCase() || null;
+  if (!deliveryEmail || !DELIVERY_EMAIL_PATTERN.test(deliveryEmail)) {
     throw new B2BOrderError("Enter a valid email for code delivery.", 400, "INVALID_DELIVERY_EMAIL");
   }
 
@@ -260,6 +268,7 @@ export async function createB2BOrder(params: {
         idempotencyKey: params.idempotencyKey,
         requestFingerprint: fingerprint,
         deliveryEmail,
+        secureDelivery: true,
         quotedAt: new Date(),
         quoteExpiresAt: new Date(payload.exp),
         subtotalIDR: BigInt(payload.totalIDR),
@@ -289,12 +298,12 @@ export async function createB2BOrder(params: {
         },
         paymentIntent: {
           create: {
-            provider: params.paymentMethod === "CRYPTO" ? "cryptomus" : "pakasir",
+            provider: "pakasir",
             status: "PENDING",
             expiresAt: new Date(Date.now() + PAYMENT_WINDOW_MINUTES * 60_000),
             amountIDR: BigInt(payload.totalIDR),
             amountUSDCents: BigInt(totalUSDCents),
-            currency: params.paymentMethod === "CRYPTO" ? "USD" : "IDR",
+            currency: "IDR",
             usdIdrRate: new Prisma.Decimal(rate.usdIdrRate),
             fxSource: rate.source,
           },
@@ -309,32 +318,15 @@ export async function createB2BOrder(params: {
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
   if (!appUrl) throw new B2BOrderError("Checkout is not configured.", 503, "CONFIG_MISSING");
 
-  let paymentUrl: string;
-  let providerPaymentId: string;
-  if (params.paymentMethod === "CRYPTO") {
-    const invoice = await createPaymentInvoice({
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      amountUSD: totalUSDCents / 100,
-      description: `EZTopUp B2B ${order.orderNumber}`,
-      callbackUrl: `${appUrl}/api/payment/b2b/webhook`,
-      successUrl: appUrl,
-      cancelUrl: appUrl,
-    });
-    paymentUrl = invoice.paymentUrl;
-    providerPaymentId = invoice.providerPaymentId;
-  } else {
-    const payment = await createPakasirPayment({
-      orderId: order.id,
-      amountIDR: payload.totalIDR,
-      redirectUrl: appUrl,
-      appUrl,
-    });
-    paymentUrl = payment.paymentUrl;
-    providerPaymentId = payment.txnId;
-  }
-
-  const provider = params.paymentMethod === "CRYPTO" ? "cryptomus" : "pakasir";
+  const payment = await createPakasirPayment({
+    orderId: order.id,
+    amountIDR: payload.totalIDR,
+    redirectUrl: appUrl,
+    appUrl,
+  });
+  const paymentUrl = payment.paymentUrl;
+  const providerPaymentId = payment.txnId;
+  const provider = "pakasir";
   await prisma.$transaction([
     prisma.b2BPaymentIntent.update({
       where: { orderId: order.id },
@@ -467,7 +459,7 @@ export async function fulfillB2BOrder(orderId: string) {
           supplierTid: submitted.tid,
           supplierStatus: status,
           status: fulfilled ? "FULFILLED" : "REVIEW",
-          supplierRaw: {
+          supplierRaw: order.secureDelivery ? Prisma.JsonNull : {
             submit: submitted.raw ?? null,
             snapshot: snapshot?.raw ?? null,
             voucherCodes: fulfilled ? snapshot?.voucherCodes ?? [] : [],
@@ -499,6 +491,12 @@ export async function fulfillB2BOrder(orderId: string) {
     data: { status: "COMPLETED", supplierStatus: "fulfilled", fulfillmentLeaseUntil: null, lastReconciledAt: new Date() },
   });
 
+  if (order.secureDelivery) {
+    await deliverSecureB2BOrder(orderId);
+    return { claimed: true, completed: true };
+  }
+
+  // Legacy orders keep their existing delivery format.
   // Vouchers are delivered by email only: one standard order-details Excel per order.
   const recipient = order.deliveryEmail || order.createdByUser?.email || null;
   if (recipient) {
@@ -535,6 +533,78 @@ export async function fulfillB2BOrder(orderId: string) {
     console.warn("[b2b-order] no delivery email found for order", order.orderNumber);
   }
   return { claimed: true, completed: true };
+}
+
+/** The password exists only in memory and in the client's delivery email. */
+async function deliverSecureB2BOrder(orderId: string) {
+  const now = new Date();
+  let leaseUntil = new Date(now.getTime() + FULFILLMENT_LEASE_MINUTES * 60_000);
+  const claimed = await prisma.b2BOrder.updateMany({
+    where: {
+      id: orderId, status: "COMPLETED", secureDelivery: true, deliveryEmailSentAt: null,
+      OR: [{ fulfillmentLeaseUntil: null }, { fulfillmentLeaseUntil: { lt: now } }],
+    },
+    data: { fulfillmentLeaseUntil: leaseUntil },
+  });
+  if (!claimed.count) return false;
+
+  try {
+    const order = await prisma.b2BOrder.findUniqueOrThrow({
+      where: { id: orderId },
+      include: { lines: true, organization: { select: { slug: true } }, createdByUser: { select: { email: true } } },
+    });
+    const recipient = order.deliveryEmail || order.createdByUser.email;
+    if (!recipient) throw new Error("missing_delivery_email");
+    const lines = [];
+    for (const line of order.lines) {
+      // Fetch codes by the existing transaction ID; never buy vouchers again on an email retry.
+      if (line.status !== "FULFILLED" || !line.supplierTid) throw new Error("incomplete_delivery");
+      const snapshot = await getSupplierOrderStatus({ tid: line.supplierTid });
+      if (snapshot.status.trim().toLowerCase() !== "success" || snapshot.voucherCodes.length !== line.quantity) {
+        throw new Error("incomplete_voucher_codes");
+      }
+      lines.push({ productName: line.variantName, quantity: line.quantity, supplierTid: line.supplierTid, codes: snapshot.voucherCodes });
+    }
+    const { encryptedFile, password } = await buildEncryptedOrderDetailsWorkbook({
+      reference: order.organization.slug, orderNumber: order.orderNumber, lines,
+    });
+    const renewedLeaseUntil = new Date(Date.now() + FULFILLMENT_LEASE_MINUTES * 60_000);
+    await prisma.$transaction(async (tx) => {
+      // A slow supplier request must not overwrite the file after another worker claimed the lease.
+      const held = await tx.b2BOrder.updateMany({
+        where: { id: orderId, fulfillmentLeaseUntil: leaseUntil, deliveryEmailSentAt: null },
+        data: { fulfillmentLeaseUntil: renewedLeaseUntil },
+      });
+      if (!held.count || Date.now() >= leaseUntil.getTime()) throw new Error("delivery_lease_expired");
+      await tx.b2BOrderDelivery.upsert({
+        where: { orderId },
+        create: { orderId, encryptedFile: new Uint8Array(encryptedFile) },
+        update: { encryptedFile: new Uint8Array(encryptedFile), createdAt: new Date() },
+      });
+    });
+    leaseUntil = renewedLeaseUntil;
+    const result = await sendB2BDeliveryEmail({
+      to: recipient, orderNumber: order.orderNumber,
+      attachmentName: orderDetailsFilename(order.orderNumber),
+      attachmentBase64: encryptedFile.toString("base64"), password,
+      voucherCount: lines.reduce((sum, line) => sum + line.codes.length, 0),
+    });
+    if (!result.sent) throw new Error("email_not_sent");
+    await prisma.b2BOrder.updateMany({
+      where: { id: orderId, fulfillmentLeaseUntil: leaseUntil, deliveryEmailSentAt: null },
+      data: { deliveryEmailSentAt: new Date(), fulfillmentLeaseUntil: null },
+    });
+    return true;
+  } catch {
+    // Supplier and email provider errors may contain secrets: log only the order ID.
+    console.warn("[b2b-order] secure delivery pending", orderId);
+    return false;
+  } finally {
+    await prisma.b2BOrder.updateMany({
+      where: { id: orderId, fulfillmentLeaseUntil: leaseUntil },
+      data: { fulfillmentLeaseUntil: null },
+    });
+  }
 }
 
 /** Sweeps expired intents, exhausted leases, and paid-but-unclaimed orders. */
@@ -584,7 +654,18 @@ export async function reconcileB2BOrders() {
     const result = await fulfillB2BOrder(order.id);
     if (result.claimed) retried += 1;
   }
-  return { expired, stuck: stuck.count, retried };
+  const pendingDelivery = await prisma.b2BOrder.findMany({
+    where: {
+      status: "COMPLETED", secureDelivery: true, deliveryEmailSentAt: null,
+      OR: [{ fulfillmentLeaseUntil: null }, { fulfillmentLeaseUntil: { lt: now } }],
+    },
+    select: { id: true }, orderBy: { updatedAt: "asc" }, take: 10,
+  });
+  let delivered = 0;
+  for (const order of pendingDelivery) {
+    if (await deliverSecureB2BOrder(order.id)) delivered += 1;
+  }
+  return { expired, stuck: stuck.count, retried, delivered };
 }
 
 export async function listAdminB2BOrders(filters: { status?: string; organizationId?: string; q?: string }) {
@@ -735,6 +816,26 @@ export async function getB2BOrder(organizationId: string, orderId: string) {
   });
   if (!order) throw new B2BOrderError("Order not found.", 404, "ORDER_NOT_FOUND");
   return { order: publicOrder(order) };
+}
+
+export async function downloadB2BOrderDelivery(orderId: string, organizationId?: string) {
+  if (organizationId) await requireActiveReseller(organizationId);
+  else await requirePlatformAdminForResellers();
+  const order = await prisma.b2BOrder.findFirst({
+    where: {
+      id: orderId, ...(organizationId ? { organizationId } : {}),
+      secureDelivery: true, deliveryEmailSentAt: { not: null },
+    },
+    select: { orderNumber: true, delivery: { select: { encryptedFile: true } } },
+  });
+  if (!order?.delivery) throw new B2BOrderError("Locked Excel is not available yet.", 404, "DELIVERY_NOT_FOUND");
+  return new Response(new Uint8Array(order.delivery.encryptedFile), {
+    headers: {
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": `attachment; filename="${orderDetailsFilename(order.orderNumber)}"`,
+      "Cache-Control": "private, no-store", "Vary": "Cookie", "X-Content-Type-Options": "nosniff",
+    },
+  });
 }
 
 export function b2bApiError(error: unknown, json: (body: unknown, status?: number) => Response) {

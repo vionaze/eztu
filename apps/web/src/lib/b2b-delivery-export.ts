@@ -1,6 +1,8 @@
 import "server-only";
 
 import * as XLSX from "xlsx";
+import XlsxPopulate from "xlsx-populate";
+import { randomBytes } from "node:crypto";
 
 export type DeliveryExportLine = {
   productName: string;
@@ -65,4 +67,12 @@ export function buildOrderDetailsWorkbook(params: {
 
 export function orderDetailsFilename(orderNumber: string) {
   return `order_details_${orderNumber.replace(/[^A-Za-z0-9_-]/g, "")}.xlsx`;
+}
+
+/** Office Agile encryption (AES-256), not worksheet edit protection. */
+export async function buildEncryptedOrderDetailsWorkbook(params: Parameters<typeof buildOrderDetailsWorkbook>[0]) {
+  const password = randomBytes(24).toString("base64url");
+  const workbook = await XlsxPopulate.fromDataAsync(Buffer.from(buildOrderDetailsWorkbook(params), "base64"));
+  const encryptedFile = await workbook.outputAsync({ type: "nodebuffer", password }) as Buffer;
+  return { encryptedFile, password };
 }

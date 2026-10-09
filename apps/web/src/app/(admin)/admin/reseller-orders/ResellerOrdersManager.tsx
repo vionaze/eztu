@@ -11,6 +11,7 @@ type OrderRow = {
   id: string; orderNumber: string; status: string; paymentMethod: string; totalIDR: number;
   createdAt: string; manualReviewReason: string | null; organizationName: string; organizationSlug: string;
   fulfillmentAttempts: number; lineDetails: LineDetail[];
+  secureDelivery: boolean; hasDeliveryFile: boolean; deliveryEmailSentAt: string | null; deliveryEmail: string | null;
 };
 type OrderDetail = OrderRow & {
   organizationTier: string;
@@ -232,6 +233,21 @@ export default function ResellerOrdersManager() {
                 </li>
               ))}
             </ul>
+
+            {detail.secureDelivery ? (
+              <div className="mt-4 rounded-xl border border-border p-3">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-text-muted">Secure delivery</h4>
+                {detail.hasDeliveryFile ? (
+                  <>
+                    <a href={`/api/admin/reseller-orders/${detail.id}/delivery`} className="mt-2 inline-block text-sm font-semibold text-accent hover:underline">Download locked Excel</a>
+                    <p className="mt-1 text-xs text-text-muted">Email sent to {detail.deliveryEmail} · {detail.deliveryEmailSentAt ? new Date(detail.deliveryEmailSentAt).toLocaleString("en-GB") : ""}</p>
+                    <p className="mt-1 text-xs text-text-muted">This is the same encrypted attachment sent to the client. The password is available only in their email.</p>
+                  </>
+                ) : (
+                  <p className="mt-2 text-xs text-text-muted">{detail.status === "COMPLETED" ? "Email delivery pending; the system will retry automatically." : "The locked Excel will be available after fulfillment and email delivery."}</p>
+                )}
+              </div>
+            ) : null}
 
             {detail.paymentIntent ? (
               <>

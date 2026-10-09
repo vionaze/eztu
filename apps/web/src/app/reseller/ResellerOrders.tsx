@@ -10,6 +10,7 @@ type OrderLine = { id: string; name: string; quantity: number; unitPriceIDR: num
 export type ResellerOrder = {
   id: string; orderNumber: string; status: string; paymentMethod: string; totalIDR: number;
   paymentUrl: string | null; createdAt: string; manualReviewReason: string | null;
+  secureDelivery: boolean; hasDeliveryFile: boolean; deliveryEmailSentAt: string | null;
   deliveryEmail: string | null; paymentExpiresAt: string | null; paymentExpired: boolean; lines: OrderLine[];
 };
 
@@ -87,7 +88,7 @@ export function OrderModal({
   }
 
   async function placeOrder(method: "CRYPTO" | "PAKASIR") {
-    if (busy || lines.length === 0) return;
+    if (busy || lines.length === 0 || method === "CRYPTO") return;
     setBusy(true);
     setError("");
     try {
@@ -125,16 +126,16 @@ export function OrderModal({
   }
 
   const orderedMethods: ("CRYPTO" | "PAKASIR")[] =
-    defaultMethod === "CRYPTO" ? ["CRYPTO", "PAKASIR"] : ["PAKASIR", "CRYPTO"];
+    ["PAKASIR", "CRYPTO"];
   const methodButtons = (
     <div className="grid gap-2 sm:grid-cols-2">
       {orderedMethods.map((method) => {
-        const isDefault = method === defaultMethod;
+        const isDefault = method === (defaultMethod === "CRYPTO" ? "PAKASIR" : defaultMethod);
         return (
           <button
             key={method}
             type="button"
-            disabled={busy || lines.length === 0}
+            disabled={method === "CRYPTO" || busy || lines.length === 0}
             onClick={() => void placeOrder(method)}
             className={
               isDefault
@@ -142,7 +143,7 @@ export function OrderModal({
                 : "inline-flex h-11 items-center justify-center rounded-md border border-border/60 text-sm font-medium text-text-muted transition hover:text-text-secondary disabled:cursor-not-allowed disabled:opacity-50"
             }
           >
-            {busy ? "Creating…" : method === "CRYPTO" ? "Pay with Crypto" : "Pay with Pakasir"}
+            {method === "CRYPTO" ? "Crypto — Coming soon" : busy ? "Creating…" : "Pay with Pakasir"}
             {isDefault ? <span className="ml-1 text-[10px] font-normal opacity-80">(primary)</span> : null}
           </button>
         );
@@ -248,7 +249,7 @@ export function OrderModal({
               autoComplete="email"
               className="h-11 w-full rounded-md border border-border bg-bg-card px-3 text-base sm:h-10 sm:text-sm"
             />
-            <p className="mt-1.5 text-[11px] text-text-muted">Codes are sent here and stay readable in Purchase history.</p>
+            <p className="mt-1.5 text-[11px] text-text-muted">The password-protected Excel and its password are sent only to this email. Purchase history keeps a locked backup.</p>
           </div>
           {priceNotice ? <p role="status" className="rounded-md border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">{priceNotice}</p> : null}
           {error ? <p role="alert" className="rounded-md border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200">{error}</p> : null}
@@ -308,7 +309,7 @@ export function OrdersPanel({ orgId }: { orgId: string }) {
               {order.lines.map((line) => (
                 <li key={line.id}>
                   {line.quantity} × {line.name} — {money.format(line.unitPriceIDR * line.quantity)}
-                  {line.voucherCodes.length > 0 ? (
+                  {!order.secureDelivery && line.voucherCodes.length > 0 ? (
                     <span className="mt-1 block break-all font-[family-name:var(--font-geist-mono)] text-accent">
                       {line.voucherCodes.join(", ")}
                     </span>
@@ -343,6 +344,16 @@ export function OrdersPanel({ orgId }: { orgId: string }) {
                 );
               })()}
             </div>
+            {order.hasDeliveryFile ? (
+              <div className="mt-3 border-t border-border pt-3">
+                <a href={`/api/reseller/orders/${order.id}/delivery?organizationId=${encodeURIComponent(orgId)}`} className="text-xs font-semibold text-accent hover:underline">
+                  Download locked Excel
+                </a>
+                <p className="mt-1 text-[11px] text-text-muted">The password was sent only to the delivery email.</p>
+              </div>
+            ) : order.secureDelivery && order.status === "COMPLETED" ? (
+              <p role="status" className="mt-3 text-xs text-amber-200">Secure email delivery pending. The locked backup appears once the email is sent.</p>
+            ) : null}
             {order.manualReviewReason ? (
               <p className="mt-2 rounded-lg border border-orange-400/30 bg-orange-400/5 p-2 text-xs text-orange-200">
                 Under manual review: {order.manualReviewReason}
