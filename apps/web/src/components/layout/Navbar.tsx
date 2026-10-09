@@ -133,7 +133,7 @@ export default function Navbar() {
           >
             <div className="relative h-[35px] w-[120px] sm:h-10 sm:w-40 md:h-[45px] md:w-[200px] transition-transform duration-300 group-hover:scale-[1.03]">
               <Image
-                src="/logo.png?v=20261010"
+                src="/new-logo-eztopup.png"
                 alt="EZTopUp"
                 fill
                 className="object-contain object-left"
