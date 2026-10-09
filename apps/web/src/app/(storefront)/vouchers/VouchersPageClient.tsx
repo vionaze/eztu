@@ -13,11 +13,12 @@ import { isProductAvailableInMarket } from "@/lib/product-availability";
 interface Props {
   products: Product[];
   categories: Category[];
+  initialSearch?: string;
 }
 
-export default function VouchersPageClient({ products, categories }: Props) {
+export default function VouchersPageClient({ products, categories, initialSearch = "" }: Props) {
   const { country } = useCurrency();
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
@@ -30,7 +31,7 @@ export default function VouchersPageClient({ products, categories }: Props) {
     }
 
     if (search.trim()) {
-      const q = search.toLowerCase();
+      const q = search.trim().toLowerCase();
       result = result.filter(
         (p) =>
           p.name.toLowerCase().includes(q) ||
@@ -63,6 +64,8 @@ export default function VouchersPageClient({ products, categories }: Props) {
             {/* Search */}
             <div className="w-full sm:w-80">
               <Input
+                type="search"
+                aria-label="Search vouchers"
                 placeholder="Search vouchers..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}

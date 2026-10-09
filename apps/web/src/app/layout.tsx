@@ -27,7 +27,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
+    <ClerkProvider signInUrl="/login" signUpUrl="/signup">
       <html lang="id" className="antialiased">
         <body className="min-h-[100dvh] flex flex-col bg-bg-primary text-text-primary">
           <AppProviders>{children}</AppProviders>

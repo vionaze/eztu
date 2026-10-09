@@ -13,13 +13,19 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default async function VouchersPage() {
+export default async function VouchersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string | string[] }>;
+}) {
+  const { q } = await searchParams;
+  const initialSearch = (Array.isArray(q) ? q[0] : q)?.trim().slice(0, 100) || "";
   const [products, categories] = await Promise.all([
     getStorefrontProducts(),
     getStorefrontCategories(),
   ]);
 
   return (
-    <VouchersPageClient products={products} categories={categories} />
+    <VouchersPageClient key={initialSearch} products={products} categories={categories} initialSearch={initialSearch} />
   );
 }

@@ -3,7 +3,7 @@
 import { useEffect, useState, type MouseEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { SignIn, useAuth } from "@clerk/nextjs";
+import { SignIn, SignUp, useAuth } from "@clerk/nextjs";
 import { AnimatePresence, motion } from "framer-motion";
 
 const TOS_STORAGE_KEY = "eztopup_tos_accepted_v1";
@@ -13,11 +13,14 @@ const TOS_STORAGE_KEY = "eztopup_tos_accepted_v1";
  * SignIn form. We gate the SignIn widget: form only mounts after accept.
  * ToS sits ABOVE the form so the flow is obvious: check → form appears.
  */
-export default function LoginClient({ redirectUrl }: { redirectUrl: string }) {
+export default function LoginClient({ redirectUrl, mode = "signin" }: { redirectUrl: string; mode?: "signin" | "signup" }) {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const completeUrl = `/auth/complete?redirect_url=${encodeURIComponent(redirectUrl)}`;
+  const signInUrl = `/login?redirect_url=${encodeURIComponent(redirectUrl)}`;
+  const signUpUrl = `/signup?redirect_url=${encodeURIComponent(redirectUrl)}`;
 
   useEffect(() => {
     try {
@@ -33,9 +36,9 @@ export default function LoginClient({ redirectUrl }: { redirectUrl: string }) {
 
   useEffect(() => {
     if (isLoaded && isSignedIn) {
-      router.replace(redirectUrl);
+      router.replace(completeUrl);
     }
-  }, [isLoaded, isSignedIn, redirectUrl, router]);
+  }, [isLoaded, isSignedIn, completeUrl, router]);
 
   const handleAcceptChange = (checked: boolean) => {
     setAcceptedTerms(checked);
@@ -55,11 +58,12 @@ export default function LoginClient({ redirectUrl }: { redirectUrl: string }) {
       <div className="w-full max-w-md flex flex-col gap-5">
         <div className="text-center space-y-2">
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-text-primary">
-            Sign in to EZTopUp
+            {mode === "signup" ? "Create your EZTopUp account" : "Sign in to EZTopUp"}
           </h1>
           <p className="text-sm text-text-secondary leading-relaxed">
-            Accept the Terms, then sign in with email or Google. You will return
-            to your previous page when possible.
+            {mode === "signup"
+              ? "Sign up with your email and verify the one-time code sent to your inbox."
+              : "Sign in with an email verification code or Google. New here? Create an account below."}
           </p>
         </div>
 
@@ -103,7 +107,7 @@ export default function LoginClient({ redirectUrl }: { redirectUrl: string }) {
           <AnimatePresence mode="wait" initial={false}>
             {acceptedTerms ? (
               <motion.div
-                key="clerk-sign-in"
+                key={mode}
                 initial={{ opacity: 0, y: 24 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 12 }}
@@ -114,11 +118,21 @@ export default function LoginClient({ redirectUrl }: { redirectUrl: string }) {
                 }}
                 className="flex justify-center [&_.cl-rootBox]:mx-auto w-full"
               >
-                <SignIn
-                  routing="hash"
-                  fallbackRedirectUrl={redirectUrl}
-                  forceRedirectUrl={redirectUrl}
-                />
+                {mode === "signup" ? (
+                  <SignUp
+                    routing="hash"
+                    signInUrl={signInUrl}
+                    forceRedirectUrl={completeUrl}
+                    signInForceRedirectUrl={completeUrl}
+                  />
+                ) : (
+                  <SignIn
+                    routing="hash"
+                    signUpUrl={signUpUrl}
+                    forceRedirectUrl={completeUrl}
+                    signUpForceRedirectUrl={completeUrl}
+                  />
+                )}
               </motion.div>
             ) : (
               <motion.div
@@ -137,6 +151,13 @@ export default function LoginClient({ redirectUrl }: { redirectUrl: string }) {
             )}
           </AnimatePresence>
         </div>
+
+        <p className="text-center text-sm text-text-secondary">
+          {mode === "signup" ? "Already have an account? " : "Don't have an account? "}
+          <Link href={mode === "signup" ? signInUrl : signUpUrl} className="text-accent hover:underline">
+            {mode === "signup" ? "Sign in" : "Sign up"}
+          </Link>
+        </p>
 
         <p className="text-center text-xs text-text-muted">
           Need help?{" "}

@@ -50,6 +50,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
   const closeMobile = useCallback(() => setMobileOpen(false), []);
@@ -85,7 +86,7 @@ export default function Navbar() {
 
   // Resolve DB role (ADMIN / SUPERADMIN) for navbar Admin link
   useEffect(() => {
-    if (!isLoaded) return;
+    if (!isLoaded || pathname === "/login" || pathname === "/signup") return;
 
     if (!isSignedIn) {
       setIsAdmin(false);
@@ -109,7 +110,7 @@ export default function Navbar() {
     return () => {
       cancelled = true;
     };
-  }, [isLoaded, isSignedIn]);
+  }, [isLoaded, isSignedIn, pathname]);
 
   return (
     <>
@@ -173,9 +174,13 @@ export default function Navbar() {
 
             {/* Search */}
             <button
+              type="button"
+              onClick={() => setSearchOpen(!searchOpen)}
               className="w-9 h-9 rounded-xl flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-white/5 transition-all cursor-pointer"
               id="nav-search-btn"
               aria-label="Search"
+              aria-expanded={searchOpen}
+              aria-controls="nav-product-search"
             >
               <MagnifyingGlass size={18} />
             </button>
@@ -224,6 +229,31 @@ export default function Navbar() {
             </button>
           </div>
         </div>
+        {searchOpen && (
+          <form
+            id="nav-product-search"
+            action="/vouchers"
+            method="get"
+            role="search"
+            className="max-w-[1400px] mx-auto mt-4 px-4 md:px-8 flex gap-2"
+          >
+            <input
+              type="search"
+              name="q"
+              aria-label="Search vouchers"
+              placeholder="Search vouchers..."
+              autoFocus
+              maxLength={100}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") setSearchOpen(false);
+              }}
+              className="min-w-0 flex-1 h-10 rounded-xl border border-border bg-bg-card px-3 text-sm text-text-primary focus:outline-none focus:border-accent"
+            />
+            <button type="submit" className="h-10 rounded-xl bg-accent px-4 text-sm font-medium text-bg-primary">
+              Search
+            </button>
+          </form>
+        )}
       </header>
 
       {/* Mobile drawer: overlay + panel share one AnimatePresence for clean exit */}
