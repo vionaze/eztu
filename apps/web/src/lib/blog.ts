@@ -53,7 +53,7 @@ export function buildBlogJsonLd(post: BlogPost) {
       url: SITE_URL,
       logo: {
         "@type": "ImageObject",
-        url: `${SITE_URL}/logo.png`,
+        url: `${SITE_URL}/logo.png?v=20261010`,
       },
     },
     mainEntityOfPage: {

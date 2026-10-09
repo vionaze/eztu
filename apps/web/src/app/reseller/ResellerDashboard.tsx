@@ -277,7 +277,7 @@ export default function ResellerDashboard({
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 border-b border-border/70 px-4 py-4">
         <div className="relative h-7 w-28 shrink-0">
-          <Image src="/logo.png" alt="EZTopUp" fill className="object-contain object-left" sizes="112px" priority />
+          <Image src="/logo.png?v=20261010" alt="EZTopUp" fill className="object-contain object-left" sizes="112px" priority />
         </div>
         <button
           type="button"

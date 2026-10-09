@@ -55,7 +55,7 @@ function SidebarContent({
           {!collapsed ? (
             <div className="relative h-7 w-[128px] shrink-0">
               <Image
-                src="/logo.png"
+                src="/logo.png?v=20261010"
                 alt="EZTopUp"
                 fill
                 className="object-contain object-left"
@@ -66,7 +66,7 @@ function SidebarContent({
           ) : (
             <div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-md">
               <Image
-                src="/logo.png"
+                src="/logo.png?v=20261010"
                 alt="EZTopUp"
                 fill
                 className="object-cover object-left"
@@ -199,7 +199,7 @@ export default function AdminSidebar() {
         </button>
         <div className="relative h-7 w-28">
           <Image
-            src="/logo.png"
+            src="/logo.png?v=20261010"
             alt="EZTopUp"
             fill
             className="object-contain object-left"
