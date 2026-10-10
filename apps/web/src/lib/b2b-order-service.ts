@@ -156,7 +156,7 @@ function publicOrder(order: {
   id: string; orderNumber: string; status: string; totalIDR: bigint; paymentMethod: string;
   paymentUrl: string | null; createdAt: Date; manualReviewReason: string | null; deliveryEmail: string | null;
   secureDelivery: boolean; deliveryEmailSentAt: Date | null;
-  lines: { id: string; variantName: string; quantity: number; unitPriceIDR: bigint; status: string; supplierRaw: unknown }[];
+  lines: { id: string; variantName: string; quantity: number; unitPriceIDR: bigint; status: string }[];
 }) {
   return {
     id: order.id,
@@ -171,17 +171,14 @@ function publicOrder(order: {
     paymentUrl: order.status === "PAYMENT_PENDING" ? order.paymentUrl : null,
     createdAt: order.createdAt.toISOString(),
     manualReviewReason: order.status === "MANUAL_REVIEW" ? order.manualReviewReason : null,
-    lines: order.lines.map((line) => {
-      const raw = (line.supplierRaw ?? {}) as { voucherCodes?: string[] };
-      return {
-        id: line.id,
-        name: line.variantName,
-        quantity: line.quantity,
-        unitPriceIDR: Number(line.unitPriceIDR),
-        status: line.status,
-        voucherCodes: !order.secureDelivery && line.status === "FULFILLED" ? raw.voucherCodes ?? [] : [],
-      };
-    }),
+    // Admin and reseller responses must never include voucher codes, including legacy orders.
+    lines: order.lines.map((line) => ({
+      id: line.id,
+      name: line.variantName,
+      quantity: line.quantity,
+      unitPriceIDR: Number(line.unitPriceIDR),
+      status: line.status,
+    })),
   };
 }
 

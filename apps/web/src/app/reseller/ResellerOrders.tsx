@@ -6,7 +6,7 @@ import { ShoppingCart, Trash, X } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 
 export type CartLine = { variantId: string; name: string; unitPriceIDR: number; quantity: number };
-type OrderLine = { id: string; name: string; quantity: number; unitPriceIDR: number; status: string; voucherCodes: string[] };
+type OrderLine = { id: string; name: string; quantity: number; unitPriceIDR: number; status: string };
 export type ResellerOrder = {
   id: string; orderNumber: string; status: string; paymentMethod: string; totalIDR: number;
   paymentUrl: string | null; createdAt: string; manualReviewReason: string | null;
@@ -309,11 +309,6 @@ export function OrdersPanel({ orgId }: { orgId: string }) {
               {order.lines.map((line) => (
                 <li key={line.id}>
                   {line.quantity} × {line.name} — {money.format(line.unitPriceIDR * line.quantity)}
-                  {!order.secureDelivery && line.voucherCodes.length > 0 ? (
-                    <span className="mt-1 block break-all font-[family-name:var(--font-geist-mono)] text-accent">
-                      {line.voucherCodes.join(", ")}
-                    </span>
-                  ) : null}
                 </li>
               ))}
             </ul>
