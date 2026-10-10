@@ -314,12 +314,17 @@ export async function createB2BOrder(params: {
   // Provider invoices happen outside the DB transaction; failures leave a healable DRAFT.
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
   if (!appUrl) throw new B2BOrderError("Checkout is not configured.", 503, "CONFIG_MISSING");
+  const resellerUrl = new URL("/reseller", appUrl);
+  if (["eztopup.io", "www.eztopup.io"].includes(resellerUrl.hostname)) {
+    resellerUrl.hostname = "reseller.eztopup.io";
+    resellerUrl.pathname = "/";
+  }
 
   const payment = await createPakasirPayment({
     orderId: order.id,
     amountIDR: payload.totalIDR,
-    redirectUrl: appUrl,
-    appUrl,
+    redirectUrl: resellerUrl.toString(),
+    appUrl: resellerUrl.origin,
   });
   const paymentUrl = payment.paymentUrl;
   const providerPaymentId = payment.txnId;
