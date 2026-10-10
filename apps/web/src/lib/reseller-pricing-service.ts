@@ -6,7 +6,6 @@ import { requireResellerUser } from "@/lib/reseller-auth";
 import { getDetectedMarketCode, isProductExcludedFromMarket } from "@/lib/product-availability";
 import { getSupplierProduct, isSupplierProductCode } from "@/lib/supplier";
 import { isB2BOrderingEnabled } from "@/lib/b2b-flags";
-import { MAX_SELF_SERVICE_QUANTITY } from "@/lib/checkout-limits";
 
 export class ResellerPricingError extends Error {
   constructor(message: string, public readonly status: number, public readonly code: string) {
@@ -97,7 +96,7 @@ export async function getResellerLiveQuote(
   quantity: number,
   requestHeaders: Headers,
 ) {
-  if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > MAX_SELF_SERVICE_QUANTITY) {
+  if (!Number.isSafeInteger(quantity) || quantity < 1) {
     throw new ResellerPricingError("Invalid quantity.", 400, "INVALID_QUANTITY");
   }
   const initialContext = await requireActiveReseller(organizationId);

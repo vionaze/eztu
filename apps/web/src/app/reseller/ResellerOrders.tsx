@@ -15,8 +15,6 @@ export type ResellerOrder = {
 };
 
 const money = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
-/** Mirrors MAX_B2B_LINE_QUANTITY; the server re-validates. */
-const MAX_CART_LINE_QUANTITY = 20;
 const primaryClass = "inline-flex h-11 items-center justify-center rounded-md bg-accent px-4 text-sm font-semibold text-bg-primary transition disabled:cursor-not-allowed disabled:opacity-50";
 const subtleClass = "inline-flex h-11 items-center justify-center rounded-md border border-border px-4 text-sm font-medium text-text-secondary transition hover:border-accent/40 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -190,10 +188,22 @@ export function OrderModal({
                   >
                     −
                   </button>
-                  <span className="w-8 text-center font-[family-name:var(--font-geist-mono)] text-sm font-semibold tabular-nums">{line.quantity}</span>
+                  <input
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={line.quantity}
+                    disabled={busy}
+                    onChange={(event) => {
+                      const next = event.currentTarget.valueAsNumber;
+                      if (Number.isSafeInteger(next) && next >= 1) onChangeQuantity(line.variantId, next);
+                    }}
+                    aria-label={`Quantity for ${line.name}`}
+                    className="w-20 rounded-md border border-border bg-bg-primary px-2 py-1 text-center font-[family-name:var(--font-geist-mono)] text-sm font-semibold tabular-nums disabled:opacity-40"
+                  />
                   <button
                     type="button"
-                    disabled={busy || line.quantity >= MAX_CART_LINE_QUANTITY}
+                    disabled={busy}
                     onClick={() => onChangeQuantity(line.variantId, line.quantity + 1)}
                     aria-label={`Increase ${line.name}`}
                     className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-text-secondary transition hover:border-accent/40 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"

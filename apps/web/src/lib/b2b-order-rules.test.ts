@@ -56,10 +56,11 @@ test("expired, malformed and foreign quotes are rejected", () => {
   assert.equal(verifyB2BQuote(consumer, new Date(), secret), null);
 });
 
-test("line validation enforces caps and duplicates", () => {
+test("line validation accepts bulk quantities and rejects invalid or duplicate lines", () => {
   assert.equal(validateB2BLines([]).ok, false);
   assert.equal(validateB2BLines([{ variantId: "a", quantity: 0 }]).ok, false);
-  assert.equal(validateB2BLines([{ variantId: "a", quantity: 21 }]).ok, false);
+  assert.equal(validateB2BLines([{ variantId: "a", quantity: 1000 }]).ok, true);
+  assert.equal(validateB2BLines([{ variantId: "a", quantity: 1.5 }]).ok, false);
   assert.equal(validateB2BLines([{ variantId: "a", quantity: 1 }, { variantId: "a", quantity: 2 }]).ok, false);
   const ok = validateB2BLines([{ variantId: "a", quantity: 2 }, { variantId: "b", quantity: 20 }]);
   assert.equal(ok.ok, true);

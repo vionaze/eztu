@@ -29,7 +29,6 @@ type Product = { id: string; name: string; slug: string; image: string | null; v
 type Catalog = { products: Product[]; quotedAt: string; orderingEnabled?: boolean; defaultPaymentMethod?: "CRYPTO" | "PAKASIR" };
 type Quote = { variantId: string; unitPriceIDR: number; totalIDR: number; quantity: number; quotedAt: string };
 
-const MAX_QUANTITY = 20;
 const money = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
 
 function cheapestPrice(product: Product) {
@@ -216,7 +215,8 @@ export default function ResellerDashboard({
     setCart((current) => {
       const line = current[variantId];
       if (!line) return current;
-      const qty = Math.max(1, Math.min(MAX_QUANTITY, next));
+      if (!Number.isSafeInteger(next)) return current;
+      const qty = Math.max(1, next);
       if (qty === line.quantity) return current;
       return { ...current, [variantId]: { ...line, quantity: qty } };
     });
@@ -228,7 +228,7 @@ export default function ResellerDashboard({
     const added = quantity;
     setCart((current) => {
       const existing = current[line.id];
-      const nextQuantity = Math.min(MAX_QUANTITY, (existing?.quantity ?? 0) + added);
+      const nextQuantity = (existing?.quantity ?? 0) + added;
       return { ...current, [line.id]: { variantId: line.id, name: line.name, unitPriceIDR: line.priceIDR, quantity: nextQuantity } };
     });
     const from = addButtonRef.current?.getBoundingClientRect();
@@ -535,13 +535,23 @@ export default function ResellerDashboard({
                           <Minus size={15} weight="bold" />
                         </button>
                         <div className="text-center">
-                          <p className="font-[family-name:var(--font-geist-mono)] text-xl font-bold leading-none tabular-nums">{quantity}</p>
+                          <input
+                            type="number"
+                            min={1}
+                            step={1}
+                            value={quantity}
+                            onChange={(event) => {
+                              const next = event.currentTarget.valueAsNumber;
+                              if (Number.isSafeInteger(next) && next >= 1) setQuantity(next);
+                            }}
+                            aria-label="Order quantity"
+                            className="w-24 rounded-md border border-border bg-bg-primary px-2 py-1 text-center font-[family-name:var(--font-geist-mono)] text-xl font-bold tabular-nums"
+                          />
                           <p className="mt-1 text-[10px] uppercase tracking-[0.14em] text-text-muted">units</p>
                         </div>
                         <button
                           type="button"
-                          onClick={() => setQuantity((value) => Math.min(MAX_QUANTITY, value + 1))}
-                          disabled={quantity >= MAX_QUANTITY}
+                          onClick={() => setQuantity((value) => value + 1)}
                           aria-label="Increase quantity"
                           className="flex h-10 w-10 items-center justify-center rounded-md border border-border text-text-secondary transition hover:border-accent/40 hover:text-text-primary disabled:opacity-35"
                         >

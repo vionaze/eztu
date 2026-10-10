@@ -3,9 +3,8 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 export const B2B_QUOTE_VERSION = 1;
 export const B2B_QUOTE_TTL_MINUTES = 15;
 
-/** Provisional safety caps for the controlled Phase 4b rollout. Raise only after supplier-safe bulk validation. */
+/** Maximum number of distinct packages in one order. */
 export const MAX_B2B_ORDER_LINES = 10;
-export const MAX_B2B_LINE_QUANTITY = 20;
 
 export type B2BPaymentMethodValue = "CRYPTO" | "PAKASIR";
 
@@ -46,8 +45,8 @@ export function validateB2BLines(lines: unknown) {
     const item = raw as { variantId?: unknown; quantity?: unknown };
     const variantId = typeof item?.variantId === "string" ? item.variantId.trim() : "";
     const quantity = item?.quantity;
-    if (!variantId || !Number.isInteger(quantity) || (quantity as number) < 1 || (quantity as number) > MAX_B2B_LINE_QUANTITY) {
-      return { ok: false as const, error: `Each line needs a package and a quantity between 1 and ${MAX_B2B_LINE_QUANTITY}.` };
+    if (!variantId || !Number.isSafeInteger(quantity) || (quantity as number) < 1) {
+      return { ok: false as const, error: "Each line needs a package and a positive whole-number quantity." };
     }
     if (seen.has(variantId)) return { ok: false as const, error: "Duplicate package in one order." };
     seen.add(variantId);
