@@ -190,7 +190,6 @@ export async function createB2BOrder(params: {
   quoteToken: string;
   idempotencyKey: string;
   paymentMethod: B2BPaymentMethodValue;
-  deliveryEmail?: string | null;
   requestHeaders: Headers;
 }) {
   const { authenticatedUser, organization } = await requireActiveReseller(params.organizationId);
@@ -200,9 +199,9 @@ export async function createB2BOrder(params: {
   }
   const ownerTier = organization.tier;
 
-  const deliveryEmail = (params.deliveryEmail || authenticatedUser.email || "").trim().toLowerCase() || null;
+  const deliveryEmail = (authenticatedUser.email || "").trim().toLowerCase() || null;
   if (!deliveryEmail || !DELIVERY_EMAIL_PATTERN.test(deliveryEmail)) {
-    throw new B2BOrderError("Enter a valid email for code delivery.", 400, "INVALID_DELIVERY_EMAIL");
+    throw new B2BOrderError("Your account needs a valid email for code delivery.", 400, "INVALID_DELIVERY_EMAIL");
   }
 
   const payload = verifyB2BQuote(params.quoteToken);

@@ -22,7 +22,6 @@ export async function POST(request: NextRequest) {
       quoteToken?: unknown;
       idempotencyKey?: unknown;
       paymentMethod?: unknown;
-      deliveryEmail?: unknown;
     };
     const organizationId = typeof body.organizationId === "string" ? body.organizationId.trim() : "";
     const quoteToken = typeof body.quoteToken === "string" ? body.quoteToken : "";
@@ -36,7 +35,6 @@ export async function POST(request: NextRequest) {
       quoteToken,
       idempotencyKey,
       paymentMethod,
-      deliveryEmail: typeof body.deliveryEmail === "string" ? body.deliveryEmail : null,
       requestHeaders: request.headers,
     });
     return resellerJson(result, result.reused ? 200 : 201);

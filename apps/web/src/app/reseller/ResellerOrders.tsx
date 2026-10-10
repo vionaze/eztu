@@ -72,7 +72,6 @@ export function OrderModal({
   const [error, setError] = useState("");
   const [priceNotice, setPriceNotice] = useState("");
   const [confirmed, setConfirmed] = useState<{ token: string; totalIDR: number } | null>(null);
-  const [email, setEmail] = useState(defaultEmail ?? "");
   const cartTotal = lines.reduce((sum, line) => sum + line.unitPriceIDR * line.quantity, 0);
   const total = confirmed?.totalIDR ?? cartTotal;
 
@@ -101,7 +100,6 @@ export function OrderModal({
           quoteToken: quote.token,
           idempotencyKey: crypto.randomUUID(),
           paymentMethod: method,
-          deliveryEmail: email.trim() || null,
         }),
       });
       const order = (await orderResponse.json().catch(() => ({}))) as { order?: ResellerOrder; error?: string; code?: string };
@@ -243,13 +241,13 @@ export function OrderModal({
             <input
               id="b2b-delivery-email"
               type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              value={defaultEmail ?? ""}
+              disabled
               placeholder="recipient@example.com"
               autoComplete="email"
-              className="h-11 w-full rounded-md border border-border bg-bg-card px-3 text-base sm:h-10 sm:text-sm"
+              className="h-11 w-full cursor-not-allowed rounded-md border border-border bg-bg-card px-3 text-base opacity-70 sm:h-10 sm:text-sm"
             />
-            <p className="mt-1.5 text-[11px] text-text-muted">The password-protected Excel and its password are sent only to this email. Purchase history keeps a locked backup.</p>
+            <p className="mt-1.5 text-[11px] text-text-muted">The password-protected Excel and its password are sent only to your account email. Purchase history keeps a locked backup.</p>
           </div>
           {priceNotice ? <p role="status" className="rounded-md border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">{priceNotice}</p> : null}
           {error ? <p role="alert" className="rounded-md border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200">{error}</p> : null}
