@@ -143,6 +143,52 @@ function fraudAlertTitle(alert: FraudAlert): string {
   return "Security flag";
 }
 
+export async function sendDiscordResellerSale(order: {
+  orderNumber: string;
+  organizationName: string;
+  amountIDR: number;
+  paymentMethod: string;
+  paidAt: Date | null;
+  lines: { productName: string; variantName: string; quantity: number }[];
+}): Promise<boolean> {
+  if (!WEBHOOK_URL) {
+    console.warn("[Discord] Sales webhook URL not configured");
+    return false;
+  }
+
+  try {
+    const response = await fetch(WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(10_000),
+      body: JSON.stringify({
+        username: "EZTopUp Reseller Reports",
+        allowed_mentions: { parse: [] },
+        embeds: [{
+          title: "💰 Reseller Sale · COMPLETED",
+          color: 0x22c55e,
+          fields: [
+            { name: "Order", value: order.orderNumber, inline: true },
+            { name: "Organization", value: truncateDiscordValue(order.organizationName), inline: true },
+            { name: "Amount", value: fmtIDR(order.amountIDR), inline: true },
+            { name: "Payment Method", value: order.paymentMethod, inline: true },
+            { name: "Status", value: "COMPLETED", inline: true },
+            { name: "Products", value: truncateDiscordValue(order.lines.map((line) =>
+              `${line.productName} - ${line.variantName} × ${line.quantity}`
+            ).join("\n") || "—"), inline: false },
+          ],
+          timestamp: (order.paidAt ?? new Date()).toISOString(),
+        }],
+      }),
+    });
+    if (!response.ok) console.warn("[Discord] Reseller sale rejected", order.orderNumber, response.status);
+    return response.ok;
+  } catch {
+    console.warn("[Discord] Failed to send reseller sale", order.orderNumber);
+    return false;
+  }
+}
+
 export async function sendDiscordResellerApplication(application: {
   organizationName: string;
   organizationSlug: string;

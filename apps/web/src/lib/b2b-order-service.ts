@@ -11,6 +11,7 @@ import { isB2BOrderingEnabled } from "@/lib/b2b-flags";
 import { buildEncryptedOrderDetailsWorkbook, buildOrderDetailsWorkbook, orderDetailsFilename } from "@/lib/b2b-delivery-export";
 import { requirePlatformAdminForResellers } from "@/lib/reseller-auth";
 import { sendB2BDeliveryEmail } from "@/lib/reseller-notifications";
+import { sendDiscordResellerSale } from "@/lib/discord";
 import {
   buildRequestFingerprint,
   canAdminOrderTransition,
@@ -436,7 +437,7 @@ export async function fulfillB2BOrder(orderId: string) {
 
   const order = await prisma.b2BOrder.findUnique({
     where: { id: orderId },
-    include: { lines: true, createdByUser: { select: { email: true } } },
+    include: { lines: true, createdByUser: { select: { email: true } }, organization: { select: { name: true } } },
   });
   if (!order) return { claimed: true, completed: false };
 
@@ -490,6 +491,14 @@ export async function fulfillB2BOrder(orderId: string) {
   await prisma.b2BOrder.update({
     where: { id: orderId },
     data: { status: "COMPLETED", supplierStatus: "fulfilled", fulfillmentLeaseUntil: null, lastReconciledAt: new Date() },
+  });
+  await sendDiscordResellerSale({
+    orderNumber: order.orderNumber,
+    organizationName: order.organization.name,
+    amountIDR: Number(order.totalIDR),
+    paymentMethod: order.paymentMethod,
+    paidAt: order.paidAt,
+    lines: order.lines.map(({ productName, variantName, quantity }) => ({ productName, variantName, quantity })),
   });
 
   if (order.secureDelivery) {
