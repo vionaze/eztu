@@ -39,14 +39,15 @@ export function buildOrderDetailsWorkbook(params: {
     const transactionId = line.supplierTid ?? `${params.orderNumber}-${index + 1}`;
     const codes = line.codes.length ? line.codes : [""];
     for (const code of codes) {
+      const serialPin = code.trim().match(/^(SerialNumber\s*=\s*[^|]+)\|\s*PIN\s*=\s*([^|]+)$/i);
       rows.push([
         line.productName,
         params.reference,
         transactionId,
         null,
         "*",
-        code || "-",
-        "-",
+        serialPin ? serialPin[1].trim() : code || "-",
+        serialPin ? serialPin[2].trim() : "-",
         "-",
         "-",
         "Success",
@@ -57,8 +58,8 @@ export function buildOrderDetailsWorkbook(params: {
 
   const sheet = XLSX.utils.aoa_to_sheet([[...DELIVERY_SHEET_COLUMNS], ...rows]);
   sheet["!cols"] = [
-    { wch: 42 }, { wch: 18 }, { wch: 34 }, { wch: 14 }, { wch: 12 }, { wch: 24 },
-    { wch: 12 }, { wch: 14 }, { wch: 8 }, { wch: 10 }, { wch: 18 },
+    { wch: 42 }, { wch: 18 }, { wch: 34 }, { wch: 14 }, { wch: 12 }, { wch: 44 },
+    { wch: 20 }, { wch: 14 }, { wch: 8 }, { wch: 10 }, { wch: 18 },
   ];
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, sheet, "data");

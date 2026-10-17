@@ -6,7 +6,8 @@ import { buildEncryptedOrderDetailsWorkbook, DELIVERY_SHEET_COLUMNS } from "./b2
 
 const order = {
   reference: "test-reseller", orderNumber: "B2B-TEST",
-  lines: [{ productName: "Test gift card", quantity: 1, supplierTid: "TEST-TID", codes: ["TEST-VOUCHER-ONLY"] }],
+  lines: [{ productName: "Test gift card", quantity: 2, supplierTid: "TEST-TID",
+    codes: ["TEST-VOUCHER-ONLY", "SerialNumber=SCEH-ID-XXXXX-23637873-XXXX|PIN=9FXQ-XXXX-44HH"] }],
 };
 
 test("encrypted delivery opens with its password and preserves voucher rows", async () => {
@@ -19,6 +20,9 @@ test("encrypted delivery opens with its password and preserves voucher rows", as
   const rows = XLSX.utils.sheet_to_json<string[]>(workbook.Sheets.data, { header: 1 });
   assert.deepEqual(rows[0], [...DELIVERY_SHEET_COLUMNS]);
   assert.equal(rows[1][5], "TEST-VOUCHER-ONLY");
+  assert.equal(rows[1][6], "-");
+  assert.equal(rows[2][5], "SerialNumber=SCEH-ID-XXXXX-23637873-XXXX");
+  assert.equal(rows[2][6], "9FXQ-XXXX-44HH");
   assert.equal(rows[1][2], "TEST-TID");
 });
 
