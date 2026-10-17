@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { applySupplierOrderSnapshot } from "@/lib/fulfillment";
+import { reconcileB2BSupplierCallback } from "@/lib/b2b-order-service";
 import { getRequestContext, notifySecurityEvent } from "@/lib/fraud";
 import {
   parseSupplierCallbackPayload,
@@ -88,6 +89,10 @@ export async function POST(request: NextRequest) {
       });
 
       return NextResponse.json({ message: "BAD_REQUEST" }, { status: 400 });
+    }
+
+    if (await reconcileB2BSupplierCallback(snapshot.tid)) {
+      return NextResponse.json({ message: "SUCCESS" });
     }
 
     const result = await applySupplierOrderSnapshot(snapshot);

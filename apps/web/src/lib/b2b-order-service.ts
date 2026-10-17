@@ -409,8 +409,8 @@ export async function applyB2BPaymentEvent(params: {
 }
 
 /**
- * Provisional inline fulfillment for the controlled rollout. Any ambiguity or
- * partial result parks the order in MANUAL_REVIEW; nothing is auto-refunded.
+ * Pending supplier transactions are checked again by callback/cron using their
+ * existing TID. Terminal failures still require manual review.
  */
 async function claimFulfillment(orderId: string) {
   const now = new Date();
@@ -420,7 +420,7 @@ async function claimFulfillment(orderId: string) {
       fulfillmentAttempts: { lt: MAX_FULFILLMENT_ATTEMPTS },
       OR: [
         { status: "PAID" },
-        { status: "PROCESSING", fulfillmentLeaseUntil: { lt: now } },
+        { status: "PROCESSING", OR: [{ fulfillmentLeaseUntil: null }, { fulfillmentLeaseUntil: { lt: now } }] },
       ],
     },
     data: {
@@ -442,27 +442,36 @@ export async function fulfillB2BOrder(orderId: string) {
   if (!order) return { claimed: true, completed: false };
 
   const failures: string[] = [];
+  let pending = false;
   for (const [index, line] of order.lines.entries()) {
+    if (line.status === "FULFILLED") continue;
     try {
-      const submitted = await createSupplierOrder({
+      const submitted = line.supplierTid ? null : await createSupplierOrder({
         orderNumber: `${order.orderNumber}-${index + 1}`,
         productCode: line.supplierSku,
         quantity: line.quantity,
         unitPriceIDR: Number(line.supplierCostIDR),
         countryCode: line.supplierCountryCode,
       });
-      const snapshot = await getSupplierOrderStatus({ tid: submitted.tid }).catch(() => null);
+      const tid = line.supplierTid || submitted!.tid;
+      // Persist the accepted transaction before a status request can fail.
+      if (submitted) await prisma.b2BOrderLine.update({
+        where: { id: line.id }, data: { supplierTid: tid, supplierStatus: "accepted" },
+      });
+      const snapshot = await getSupplierOrderStatus({ tid }).catch(() => null);
       const status = snapshot?.status?.trim().toLowerCase() ?? "accepted";
-      const fulfilled = status === "success";
-      if (!fulfilled) failures.push(`${line.supplierSku}:${status}`);
+      const fulfilled = status === "success" && snapshot?.voucherCodes.length === line.quantity;
+      const waiting = ["pending", "processing", "accepted"].includes(status);
+      if (waiting) pending = true;
+      else if (!fulfilled) failures.push(`${line.supplierSku}:${status === "success" ? "incomplete_voucher_codes" : status}`);
       await prisma.b2BOrderLine.update({
         where: { id: line.id },
         data: {
-          supplierTid: submitted.tid,
+          supplierTid: tid,
           supplierStatus: status,
-          status: fulfilled ? "FULFILLED" : "REVIEW",
+          status: fulfilled ? "FULFILLED" : waiting ? "PENDING" : "REVIEW",
           supplierRaw: order.secureDelivery ? Prisma.JsonNull : {
-            submit: submitted.raw ?? null,
+            submit: submitted?.raw ?? null,
             snapshot: snapshot?.raw ?? null,
             voucherCodes: fulfilled ? snapshot?.voucherCodes ?? [] : [],
           } as never,
@@ -488,9 +497,19 @@ export async function fulfillB2BOrder(orderId: string) {
     });
     return { claimed: true, completed: false };
   }
+  if (pending) {
+    await prisma.b2BOrder.update({
+      where: { id: orderId },
+      data: {
+        status: "PROCESSING", supplierStatus: "pending", manualReviewReason: null,
+        fulfillmentLeaseUntil: null, fulfillmentAttempts: { decrement: 1 }, lastReconciledAt: new Date(),
+      },
+    });
+    return { claimed: true, completed: false };
+  }
   await prisma.b2BOrder.update({
     where: { id: orderId },
-    data: { status: "COMPLETED", supplierStatus: "fulfilled", fulfillmentLeaseUntil: null, lastReconciledAt: new Date() },
+    data: { status: "COMPLETED", supplierStatus: "fulfilled", manualReviewReason: null, fulfillmentLeaseUntil: null, lastReconciledAt: new Date() },
   });
   await sendDiscordResellerSale({
     orderNumber: order.orderNumber,
@@ -543,6 +562,15 @@ export async function fulfillB2BOrder(orderId: string) {
     console.warn("[b2b-order] no delivery email found for order", order.orderNumber);
   }
   return { claimed: true, completed: true };
+}
+
+/** Callback payloads only trigger a fresh authenticated supplier status lookup. */
+export async function reconcileB2BSupplierCallback(tid: string | null) {
+  if (!tid) return false;
+  const line = await prisma.b2BOrderLine.findFirst({ where: { supplierTid: tid }, select: { orderId: true } });
+  if (!line) return false;
+  await fulfillB2BOrder(line.orderId);
+  return true;
 }
 
 /** The password exists only in memory and in the client's delivery email. */
@@ -654,7 +682,10 @@ export async function reconcileB2BOrders() {
   });
 
   const unclaimed = await prisma.b2BOrder.findMany({
-    where: { status: "PAID", paidAt: { lt: new Date(now.getTime() - 60_000) } },
+    where: { OR: [
+      { status: "PAID", paidAt: { lt: new Date(now.getTime() - 60_000) } },
+      { status: "PROCESSING", OR: [{ fulfillmentLeaseUntil: null }, { fulfillmentLeaseUntil: { lt: now } }] },
+    ] },
     select: { id: true },
     orderBy: { paidAt: "asc" },
     take: 10,
