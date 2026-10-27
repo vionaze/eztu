@@ -44,9 +44,10 @@ async function catalog(chatId: string, state: ShopState, page = 0) {
   if (state.stage === "product") {
     const products = await prisma.product.findMany({
       where: { published: true, OR: [{ globalAvailability: true }, { variants: { some: { published: true, countryCode: state.market } } }] },
+      include: { variants: { where: { published: true, OR: [{ supplierStatus: null }, { supplierStatus: "available" }] } } },
       orderBy: { name: "asc" },
     });
-    return choose(chatId, state, "Select a game or voucher:", products.filter(p => !isProductExcludedFromMarket(p, state.market)).map(p => ({ id: p.id, label: p.name })), page);
+    return choose(chatId, state, "Select a game or voucher:", products.filter(p => !isProductExcludedFromMarket(p, state.market) && p.variants.some(v => p.globalAvailability || v.countryCode === state.market)).map(p => ({ id: p.id, label: p.name })), page);
   }
   const product = await prisma.product.findFirst({ where: { id: state.productId, published: true } });
   if (!product || isProductExcludedFromMarket(product, state.market)) throw new Error("Product unavailable");
@@ -61,6 +62,7 @@ async function selectedVariant(state: ShopState) {
   if (!state.variantId || !state.market) throw new Error("Selection missing");
   const variant = await prisma.productVariant.findUnique({ where: { id: state.variantId }, include: { product: true } });
   if (!variant || !variant.published || !variant.product.published ||
+      (variant.supplierStatus !== null && variant.supplierStatus !== "available") ||
       isProductExcludedFromMarket(variant.product, state.market) ||
       (!variant.product.globalAvailability && variant.countryCode !== state.market)) throw new Error("Product unavailable");
   return variant;
