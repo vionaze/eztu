@@ -11,6 +11,7 @@ import {
   getFreshVariantPricing,
   SupplierPriceUnavailableError,
 } from "@/lib/supplier-pricing";
+import { SupplierApiError } from "@/lib/supplier";
 import {
   getDetectedMarketCode,
   isProductExcludedFromMarket,
@@ -107,6 +108,15 @@ export async function GET(request: NextRequest) {
     if (error instanceof SupplierPriceUnavailableError) {
       return NextResponse.json(
         { error: error.message, code: error.code },
+        { status: 503 },
+      );
+    }
+    if (error instanceof SupplierApiError) {
+      return NextResponse.json(
+        {
+          error: "Supplier pricing is temporarily unavailable. Please try again shortly.",
+          code: "SUPPLIER_API_UNAVAILABLE",
+        },
         { status: 503 },
       );
     }
