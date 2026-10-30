@@ -3,7 +3,7 @@ import { idrToUsdCentsCeil } from "./money.ts";
 
 export type FxRate = {
   usdIdrRate: number;
-  source: "openexchangerates" | "currencyfreaks" | "override";
+  source: "openexchangerates" | "currencyfreaks" | "override" | "fallback";
   quotedAt: Date;
 };
 
@@ -27,6 +27,7 @@ export type PricingQuote = {
 type CachedRate = FxRate & { cachedAt: number };
 
 let rateCache: CachedRate | null = null;
+const FALLBACK_USD_IDR_RATE = 18_300;
 
 function positiveNumber(value: unknown): number | null {
   const parsed =
@@ -132,9 +133,14 @@ export async function getUsdIdrRate(): Promise<FxRate> {
     }
   }
 
-  throw new Error(
-    `No fresh USD/IDR rate is available. Configure OPEN_EXCHANGE_RATES_APP_ID or CURRENCYFREAKS_API_KEY.${errors.length ? ` ${errors.join("; ")}` : ""}`
-  );
+  const fallback: CachedRate = {
+    usdIdrRate: FALLBACK_USD_IDR_RATE,
+    source: "fallback",
+    quotedAt: new Date(now),
+    cachedAt: now,
+  };
+  rateCache = fallback;
+  return fallback;
 }
 
 export function createPricingQuote(params: {
