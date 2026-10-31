@@ -1,5 +1,5 @@
 import "server-only";
-import { prisma, type BlogPost } from "@kupon/db";
+import { prisma, Prisma, type BlogPost } from "@kupon/db";
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://eztopup.io";
 
@@ -91,6 +91,50 @@ export function buildBlogJsonLd(post: BlogPost) {
     "@context": "https://schema.org",
     "@graph": graph,
   };
+}
+
+export const BLOG_PAGE_SIZE = 12;
+
+const BLOG_LIST_SELECT = {
+  id: true,
+  title: true,
+  slug: true,
+  excerpt: true,
+  // Only needed to estimate reading time; it is never sent to the client.
+  content: true,
+  coverImage: true,
+  thumbnailImage: true,
+  category: true,
+  countryCode: true,
+  publishedAt: true,
+  createdAt: true,
+} satisfies Prisma.BlogPostSelect;
+
+export type BlogListPost = Prisma.BlogPostGetPayload<{
+  select: typeof BLOG_LIST_SELECT;
+}>;
+
+/**
+ * The listing used to load every published post (with full article bodies),
+ * which reached ~7 MB of HTML at 1.4k posts. Keep it paginated.
+ */
+export async function getPublishedPostsPage(requestedPage: number) {
+  const where = { published: true } satisfies Prisma.BlogPostWhereInput;
+  const total = await prisma.blogPost.count({ where });
+  const totalPages = Math.max(1, Math.ceil(total / BLOG_PAGE_SIZE));
+  const page = Math.min(
+    Math.max(1, Math.floor(requestedPage) || 1),
+    totalPages,
+  );
+  const posts = await prisma.blogPost.findMany({
+    where,
+    orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
+    skip: (page - 1) * BLOG_PAGE_SIZE,
+    take: BLOG_PAGE_SIZE,
+    select: BLOG_LIST_SELECT,
+  });
+
+  return { posts, page, totalPages, total };
 }
 
 export async function getPublishedPosts() {

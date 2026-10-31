@@ -7,7 +7,7 @@ import { Clock, CalendarBlank, ArrowRight } from "@phosphor-icons/react/dist/ssr
 import {
   estimateReadTime,
   formatBlogDate,
-  getPublishedPosts,
+  getPublishedPostsPage,
 } from "@/lib/blog";
 
 export const dynamic = "force-dynamic";
@@ -18,8 +18,16 @@ export const metadata: Metadata = {
     "Digital voucher, crypto payment, and gaming commerce guides from EZTopUp.",
 };
 
-export default async function BlogPage() {
-  const posts = await getPublishedPosts();
+export default async function BlogPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string | string[] }>;
+}) {
+  const params = await searchParams;
+  const rawPage = Array.isArray(params.page) ? params.page[0] : params.page;
+  const { posts, page, totalPages, total } = await getPublishedPostsPage(
+    Number.parseInt(rawPage ?? "1", 10),
+  );
   const featured = posts[0];
   const rest = posts.slice(1);
 
@@ -167,6 +175,34 @@ export default async function BlogPage() {
                 );
               })}
             </StaggerReveal>
+
+            {totalPages > 1 ? (
+              <nav className="mt-12 flex items-center justify-between gap-4">
+                {page > 1 ? (
+                  <Link
+                    href={`/blog?page=${page - 1}`}
+                    className="text-sm font-medium text-accent hover:underline"
+                  >
+                    ← Newer
+                  </Link>
+                ) : (
+                  <span className="text-sm text-text-muted opacity-40">← Newer</span>
+                )}
+                <span className="text-xs text-text-muted">
+                  Page {page} of {totalPages} · {total} articles
+                </span>
+                {page < totalPages ? (
+                  <Link
+                    href={`/blog?page=${page + 1}`}
+                    className="text-sm font-medium text-accent hover:underline"
+                  >
+                    Older →
+                  </Link>
+                ) : (
+                  <span className="text-sm text-text-muted opacity-40">Older →</span>
+                )}
+              </nav>
+            ) : null}
           </>
         )}
       </div>
