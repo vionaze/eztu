@@ -7,7 +7,6 @@
 
 import { PurchaseCooldownError } from "@/lib/purchase-cooldown";
 import { NextRequest, NextResponse } from "next/server";
-import { isPakasirCheckoutEnabled } from "@kupon/payments";
 import { prisma } from "@kupon/db";
 import { getCryptoMinimumQuantity, CRYPTO_MINIMUM_IDR, CRYPTO_MINIMUM_USD_CENTS, MAX_SELF_SERVICE_QUANTITY } from "@/lib/checkout-limits";
 import { createCheckoutOrder } from "@/lib/checkout-order";
@@ -19,7 +18,10 @@ import {
   type FraudSeverity,
 } from "@/lib/fraud";
 import { findActiveAccessBlock } from "@/lib/access-block";
-import { getCryptoAvailability } from "@/lib/payment-settings";
+import {
+  getCryptoAvailability,
+  isPakasirEnabledForCheckout,
+} from "@/lib/payment-settings";
 import {
   AccountBannedError,
   AuthenticationRequiredError,
@@ -409,8 +411,12 @@ export async function POST(request: NextRequest) {
       clerkUserId: authenticatedUser.clerkUserId,
     });
 
-    if (quote.totalUSDCents > 0 && paymentMethod === "pakasir" && !isPakasirCheckoutEnabled()) {
-      return NextResponse.json({ error: "Pakasir is currently unavailable. Please choose Crypto." }, { status: 503 });
+    if (
+      quote.totalUSDCents > 0 &&
+      paymentMethod === "pakasir" &&
+      !(await isPakasirEnabledForCheckout())
+    ) {
+      return NextResponse.json({ error: "Pakasir is currently unavailable. Please choose Crypto.", code: "PAKASIR_UNAVAILABLE" }, { status: 503 });
     }
     return NextResponse.json(await createCheckoutOrder({
       userId: authenticatedUser.dbUserId, email, gameId, serverId, productId,

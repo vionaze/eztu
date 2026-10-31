@@ -70,8 +70,44 @@ export function OrderModal({
   const [error, setError] = useState("");
   const [priceNotice, setPriceNotice] = useState("");
   const [confirmed, setConfirmed] = useState<{ token: string; totalIDR: number } | null>(null);
+  const [paymentsAvailable, setPaymentsAvailable] = useState(true);
+  const [cryptoAvailable, setCryptoAvailable] = useState(false);
+  const [pakasirAvailable, setPakasirAvailable] = useState(true);
   const cartTotal = lines.reduce((sum, line) => sum + line.unitPriceIDR * line.quantity, 0);
   const total = confirmed?.totalIDR ?? cartTotal;
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/payment/methods", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: {
+        crypto?: { enabled?: boolean };
+        pakasir?: { enabled?: boolean };
+        reseller?: {
+          crypto?: { enabled?: boolean };
+          pakasir?: { enabled?: boolean };
+        };
+      } | null) => {
+        if (!active || !data) return;
+        const resellerCrypto =
+          typeof data.reseller?.crypto?.enabled === "boolean"
+            ? data.reseller.crypto.enabled
+            : Boolean(data.crypto?.enabled);
+        const resellerPakasir =
+          typeof data.reseller?.pakasir?.enabled === "boolean"
+            ? data.reseller.pakasir.enabled
+            : Boolean(data.pakasir?.enabled);
+        setCryptoAvailable(resellerCrypto);
+        setPakasirAvailable(resellerPakasir);
+        setPaymentsAvailable(resellerCrypto || resellerPakasir);
+      })
+      .catch(() => {
+        // Keep the buttons enabled; the server still rejects unavailable methods.
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function requestQuote() {
     const quoteResponse = await fetch("/api/reseller/orders/quote", {
@@ -85,7 +121,8 @@ export function OrderModal({
   }
 
   async function placeOrder(method: "CRYPTO" | "PAKASIR") {
-    if (busy || lines.length === 0 || method === "CRYPTO") return;
+    if (busy || lines.length === 0) return;
+    if (method === "CRYPTO" ? !cryptoAvailable : !pakasirAvailable) return;
     setBusy(true);
     setError("");
     try {
@@ -127,20 +164,29 @@ export function OrderModal({
     <div className="grid gap-2 sm:grid-cols-2">
       {orderedMethods.map((method) => {
         const isDefault = method === (defaultMethod === "CRYPTO" ? "PAKASIR" : defaultMethod);
+        const methodAvailable = method === "CRYPTO" ? cryptoAvailable : pakasirAvailable;
         return (
           <button
             key={method}
             type="button"
-            disabled={method === "CRYPTO" || busy || lines.length === 0}
+            disabled={!methodAvailable || busy || lines.length === 0}
             onClick={() => void placeOrder(method)}
             className={
-              isDefault
+              isDefault && methodAvailable
                 ? primaryClass
                 : "inline-flex h-11 items-center justify-center rounded-md border border-border/60 text-sm font-medium text-text-muted transition hover:text-text-secondary disabled:cursor-not-allowed disabled:opacity-50"
             }
           >
-            {method === "CRYPTO" ? "Crypto — Coming soon" : busy ? "Creating…" : "Pay with Pakasir"}
-            {isDefault ? <span className="ml-1 text-[10px] font-normal opacity-80">(primary)</span> : null}
+            {method === "CRYPTO"
+              ? cryptoAvailable
+                ? "Pay with Crypto"
+                : "Crypto unavailable"
+              : pakasirAvailable
+                ? busy
+                  ? "Creating…"
+                  : "Pay with Pakasir"
+                : "Pakasir unavailable"}
+            {isDefault && methodAvailable ? <span className="ml-1 text-[10px] font-normal opacity-80">(primary)</span> : null}
           </button>
         );
       })}
@@ -261,7 +307,20 @@ export function OrderModal({
           </div>
           {priceNotice ? <p role="status" className="rounded-md border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">{priceNotice}</p> : null}
           {error ? <p role="alert" className="rounded-md border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200">{error}</p> : null}
-          {methodButtons}
+          {paymentsAvailable ? (
+            <div>
+              <p className="mb-2 text-xs font-medium text-text-secondary">Available payment method</p>
+              {methodButtons}
+            </div>
+          ) : (
+            <div className="rounded-md border border-red-400/30 bg-red-400/10 p-4 text-sm leading-relaxed text-red-200">
+              There&apos;s an error on your account. Please contact admin{" "}
+              <a href="mailto:cs@eztopup.io" className="font-medium underline underline-offset-2">
+                cs@eztopup.io
+              </a>
+              .
+            </div>
+          )}
         </div>
       )}
     </Shell>

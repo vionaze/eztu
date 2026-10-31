@@ -1,7 +1,7 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import { createPakasirPayment } from "@kupon/payments";
+import { createPakasirPayment, createPaymentInvoice } from "@kupon/payments";
 import { calculateResellerPrice, chooseEffectiveRule, prisma, Prisma } from "@kupon/db";
 import { getUsdIdrRate } from "@/lib/fx";
 import { getDetectedMarketCode, isProductExcludedFromMarket } from "@/lib/product-availability";
@@ -10,6 +10,10 @@ import { getSupplierOrderStatus, getSupplierProduct, isSupplierProductCode, crea
 import { isB2BOrderingEnabled } from "@/lib/b2b-flags";
 import { buildEncryptedOrderDetailsWorkbook, buildOrderDetailsWorkbook, orderDetailsFilename } from "@/lib/b2b-delivery-export";
 import { requirePlatformAdminForResellers } from "@/lib/reseller-auth";
+import {
+  isResellerCryptoEnabledForCheckout,
+  isResellerPakasirEnabledForCheckout,
+} from "@/lib/payment-settings";
 import { sendB2BDeliveryEmail } from "@/lib/reseller-notifications";
 import { sendDiscordResellerSale } from "@/lib/discord";
 import {
@@ -196,7 +200,19 @@ export async function createB2BOrder(params: {
   const { authenticatedUser, organization } = await requireActiveReseller(params.organizationId);
   requireOrderingEnabled(params.organizationId, organization.orderingEnabled);
   if (params.paymentMethod === "CRYPTO") {
-    throw new B2BOrderError("Crypto payments are coming soon.", 400, "CRYPTO_COMING_SOON");
+    if (!(await isResellerCryptoEnabledForCheckout())) {
+      throw new B2BOrderError(
+        "Crypto payments are temporarily unavailable. Please contact admin at cs@eztopup.io.",
+        503,
+        "CRYPTO_UNAVAILABLE",
+      );
+    }
+  } else if (!(await isResellerPakasirEnabledForCheckout())) {
+    throw new B2BOrderError(
+      "Payments are temporarily unavailable. Please contact admin at cs@eztopup.io.",
+      503,
+      "PAKASIR_UNAVAILABLE",
+    );
   }
   const ownerTier = organization.tier;
 
@@ -295,12 +311,12 @@ export async function createB2BOrder(params: {
         },
         paymentIntent: {
           create: {
-            provider: "pakasir",
+            provider: params.paymentMethod === "CRYPTO" ? "cryptomus" : "pakasir",
             status: "PENDING",
             expiresAt: new Date(Date.now() + PAYMENT_WINDOW_MINUTES * 60_000),
             amountIDR: BigInt(payload.totalIDR),
             amountUSDCents: BigInt(totalUSDCents),
-            currency: "IDR",
+            currency: params.paymentMethod === "CRYPTO" ? "USD" : "IDR",
             usdIdrRate: new Prisma.Decimal(rate.usdIdrRate),
             fxSource: rate.source,
           },
@@ -320,19 +336,49 @@ export async function createB2BOrder(params: {
     resellerUrl.pathname = "/";
   }
 
-  const payment = await createPakasirPayment({
-    orderId: order.id,
-    amountIDR: payload.totalIDR,
-    redirectUrl: resellerUrl.toString(),
-    appUrl: resellerUrl.origin,
-  });
-  const paymentUrl = payment.paymentUrl;
-  const providerPaymentId = payment.txnId;
-  const provider = "pakasir";
+  let paymentUrl: string;
+  let providerPaymentId: string;
+  let provider: "cryptomus" | "pakasir";
+  let providerExpiresAt: Date | null = null;
+
+  if (params.paymentMethod === "CRYPTO") {
+    const invoice = await createPaymentInvoice({
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      amountUSD: totalUSDCents / 100,
+      description: `Reseller order ${order.orderNumber}`,
+      customerEmail: deliveryEmail,
+      // The B2B callback reconciles by providerPaymentId on the B2B intent.
+      callbackUrl: `${appUrl}/api/payment/b2b/webhook`,
+      successUrl: resellerUrl.toString(),
+      cancelUrl: resellerUrl.toString(),
+    });
+    paymentUrl = invoice.paymentUrl;
+    providerPaymentId = invoice.providerPaymentId;
+    provider = "cryptomus";
+    providerExpiresAt = invoice.expiresAt ?? null;
+  } else {
+    const payment = await createPakasirPayment({
+      orderId: order.id,
+      amountIDR: payload.totalIDR,
+      redirectUrl: resellerUrl.toString(),
+      appUrl: resellerUrl.origin,
+    });
+    paymentUrl = payment.paymentUrl;
+    providerPaymentId = payment.txnId;
+    provider = "pakasir";
+  }
+
   await prisma.$transaction([
     prisma.b2BPaymentIntent.update({
       where: { orderId: order.id },
-      data: { provider, providerPaymentId, providerInvoiceId: providerPaymentId, paymentUrl },
+      data: {
+        provider,
+        providerPaymentId,
+        providerInvoiceId: providerPaymentId,
+        paymentUrl,
+        ...(providerExpiresAt ? { expiresAt: providerExpiresAt } : {}),
+      },
     }),
     prisma.b2BOrder.update({
       where: { id: order.id },

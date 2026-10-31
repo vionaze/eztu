@@ -89,6 +89,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [pakasirEnabled, setPakasirEnabled] = useState(false);
   const [cryptoEnabled, setCryptoEnabled] = useState(true);
+  const [paymentsLoaded, setPaymentsLoaded] = useState(false);
   const [pakasirDisplayPrices, setPakasirDisplayPrices] = useState<
     Record<string, PakasirDisplayPrice>
   >({});
@@ -310,17 +311,24 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
         const pakasirAvailable = Boolean(data.pakasir?.enabled);
         setCryptoEnabled(cryptoAvailable);
         setPakasirEnabled(pakasirAvailable);
-        if (!cryptoAvailable) {
-          setPaymentMethod((current) =>
-            current === "crypto" ? (pakasirAvailable ? "pakasir" : null) : current,
-          );
+        if (!cryptoAvailable || !pakasirAvailable) {
+          setPaymentMethod((current) => {
+            if (current === "crypto" && !cryptoAvailable) {
+              return pakasirAvailable ? "pakasir" : null;
+            }
+            if (current === "pakasir" && !pakasirAvailable) {
+              return cryptoAvailable ? "crypto" : null;
+            }
+            return current;
+          });
         }
       })
       .catch((error) => {
         if (!(error instanceof DOMException && error.name === "AbortError")) {
           console.error("[Payment Methods]", error);
         }
-      });
+      })
+      .finally(() => setPaymentsLoaded(true));
     return () => controller.abort();
   }, []);
 
@@ -450,6 +458,8 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
   const requiresPaymentChoice = Boolean(
     variant && (!liveQuote || liveQuote.totalUSDCents > 0)
   );
+  const paymentsUnavailable =
+    paymentsLoaded && requiresPaymentChoice && !cryptoEnabled && !pakasirEnabled;
   const checkoutDisabled =
     isCheckingOut ||
     isQuoteLoading ||
@@ -719,9 +729,22 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
             {requiresPaymentChoice ? (
               <FadeUp delay={0.33}>
                 <div ref={paymentSectionRef} className="scroll-mt-24 space-y-3">
+                  {paymentsUnavailable ? (
+                    <div className="rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-sm leading-relaxed text-red-200">
+                      There&apos;s an error on your account. Please contact admin{" "}
+                      <a
+                        href="mailto:cs@eztopup.io"
+                        className="font-medium underline underline-offset-2"
+                      >
+                        cs@eztopup.io
+                      </a>
+                      .
+                    </div>
+                  ) : (
+                    <>
                   <div>
                     <p className="text-sm font-medium text-text-secondary">
-                      Choose payment method
+                      Available payment method
                     </p>
                     <p className="mt-0.5 text-xs text-text-muted">
                       A fresh final quote is generated and verified by the server.
@@ -795,6 +818,8 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                       </span>
                     </button>
                   </div>
+                    </>
+                  )}
                 </div>
               </FadeUp>
             ) : null}
@@ -868,7 +893,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                     on Pakasir&apos;s secure hosted payment page.
                   </div>
                 ) : null}
-                {quoteError && (
+                {quoteError && !paymentsUnavailable && (
                   <p className="mt-2 text-right text-xs text-red-300">{quoteError}</p>
                 )}
               </Card>
@@ -913,8 +938,10 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                     <CurrencyBtc size={18} weight="bold" />
                     Pay with Crypto
                   </>
+                ) : paymentsUnavailable ? (
+                  <>Payments unavailable</>
                 ) : (
-                  <>Choose Payment Method</>
+                  <>Available payment method</>
                 )}
               </Button>
               {requiresGameAccount && !gameAccountReady && (

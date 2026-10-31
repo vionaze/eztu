@@ -16,7 +16,7 @@ import {
   getDetectedMarketCode,
   isProductExcludedFromMarket,
 } from "@/lib/product-availability";
-import { getCryptoAvailability } from "@/lib/payment-settings";
+import { getCryptoAvailability, isPakasirEnabledForCheckout } from "@/lib/payment-settings";
 
 export async function GET(request: NextRequest) {
   try {
@@ -79,6 +79,19 @@ export async function GET(request: NextRequest) {
           { status: 400 },
         );
       }
+    }
+
+    if (
+      paymentMethod === "pakasir" &&
+      !(await isPakasirEnabledForCheckout())
+    ) {
+      return NextResponse.json(
+        {
+          error: "Pakasir is currently unavailable. Please choose Crypto.",
+          code: "PAKASIR_UNAVAILABLE",
+        },
+        { status: 400 },
+      );
     }
 
     const freshPricing = await getFreshVariantPricing(variant, paymentMethod);

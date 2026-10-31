@@ -2,12 +2,20 @@
 
 import { useState } from "react";
 import { Button, Input } from "@kupon/ui";
-import { CurrencyBtc, FloppyDisk, WarningCircle } from "@phosphor-icons/react";
+import {
+  CreditCard,
+  CurrencyBtc,
+  FloppyDisk,
+  WarningCircle,
+} from "@phosphor-icons/react";
 
 type Initial = {
   enabled: boolean;
   disabledCountries: string;
   disabledUntil: string | null;
+  pakasirEnabled: boolean;
+  resellerCryptoEnabled: boolean;
+  resellerPakasirEnabled: boolean;
 };
 
 function toLocalInput(iso: string | null) {
@@ -24,13 +32,30 @@ function daysFromNow(days: number) {
 
 export default function PaymentsSettingsForm({ initial }: { initial: Initial }) {
   const [enabled, setEnabled] = useState(initial.enabled);
+  const [pakasirEnabled, setPakasirEnabled] = useState(initial.pakasirEnabled);
+  const [resellerCryptoEnabled, setResellerCryptoEnabled] = useState(
+    initial.resellerCryptoEnabled,
+  );
+  const [resellerPakasirEnabled, setResellerPakasirEnabled] = useState(
+    initial.resellerPakasirEnabled,
+  );
   const [countries, setCountries] = useState(initial.disabledCountries);
   const [until, setUntil] = useState(toLocalInput(initial.disabledUntil));
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const save = async () => {
+  const persist = async (
+    payload: {
+      enabled: boolean;
+      pakasirEnabled: boolean;
+      resellerCryptoEnabled: boolean;
+      resellerPakasirEnabled: boolean;
+      countries: string;
+      until: string;
+    },
+    revert?: () => void,
+  ) => {
     setSaving(true);
     setMessage("");
     setError("");
@@ -39,9 +64,12 @@ export default function PaymentsSettingsForm({ initial }: { initial: Initial }) 
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          enabled,
-          disabledCountries: countries,
-          disabledUntil: until ? new Date(until).toISOString() : "",
+          enabled: payload.enabled,
+          pakasirEnabled: payload.pakasirEnabled,
+          resellerCryptoEnabled: payload.resellerCryptoEnabled,
+          resellerPakasirEnabled: payload.resellerPakasirEnabled,
+          disabledCountries: payload.countries,
+          disabledUntil: payload.until ? new Date(payload.until).toISOString() : "",
         }),
       });
       const data = (await response.json().catch(() => ({}))) as {
@@ -50,12 +78,87 @@ export default function PaymentsSettingsForm({ initial }: { initial: Initial }) 
       };
       if (!response.ok) throw new Error(data.error || "Save failed");
       setCountries((data.settings?.disabledCountries || []).join(","));
-      setMessage("Payment settings saved.");
+      setMessage("Tersimpan.");
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Save failed");
+      revert?.();
     } finally {
       setSaving(false);
     }
+  };
+
+  const save = () =>
+    persist({
+      enabled,
+      pakasirEnabled,
+      resellerCryptoEnabled,
+      resellerPakasirEnabled,
+      countries,
+      until,
+    });
+
+  const toggleCrypto = () => {
+    const next = !enabled;
+    setEnabled(next);
+    void persist(
+      {
+        enabled: next,
+        pakasirEnabled,
+        resellerCryptoEnabled,
+        resellerPakasirEnabled,
+        countries,
+        until,
+      },
+      () => setEnabled(enabled),
+    );
+  };
+
+  const togglePakasir = () => {
+    const next = !pakasirEnabled;
+    setPakasirEnabled(next);
+    void persist(
+      {
+        enabled,
+        pakasirEnabled: next,
+        resellerCryptoEnabled,
+        resellerPakasirEnabled,
+        countries,
+        until,
+      },
+      () => setPakasirEnabled(pakasirEnabled),
+    );
+  };
+
+  const toggleResellerCrypto = () => {
+    const next = !resellerCryptoEnabled;
+    setResellerCryptoEnabled(next);
+    void persist(
+      {
+        enabled,
+        pakasirEnabled,
+        resellerCryptoEnabled: next,
+        resellerPakasirEnabled,
+        countries,
+        until,
+      },
+      () => setResellerCryptoEnabled(resellerCryptoEnabled),
+    );
+  };
+
+  const toggleResellerPakasir = () => {
+    const next = !resellerPakasirEnabled;
+    setResellerPakasirEnabled(next);
+    void persist(
+      {
+        enabled,
+        pakasirEnabled,
+        resellerCryptoEnabled,
+        resellerPakasirEnabled: next,
+        countries,
+        until,
+      },
+      () => setResellerPakasirEnabled(resellerPakasirEnabled),
+    );
   };
 
   return (
@@ -66,9 +169,9 @@ export default function PaymentsSettingsForm({ initial }: { initial: Initial }) 
             <div className="flex items-center gap-2 min-w-0">
               <CurrencyBtc size={16} className="text-emerald-300 shrink-0" />
               <div>
-                <p className="admin-tile-title">Crypto checkout</p>
+                <p className="admin-tile-title">Crypto (retail)</p>
                 <p className="admin-tile-desc">
-                  Master switch — OFF memblokir crypto untuk semua negara.
+                  Hanya storefront. OFF memblokir crypto untuk semua negara.
                 </p>
               </div>
             </div>
@@ -76,7 +179,7 @@ export default function PaymentsSettingsForm({ initial }: { initial: Initial }) 
               type="button"
               role="switch"
               aria-checked={enabled}
-              onClick={() => setEnabled((value) => !value)}
+              onClick={toggleCrypto}
               className={`relative h-6 w-11 shrink-0 rounded-full transition-colors cursor-pointer ${
                 enabled ? "bg-emerald-500/80" : "bg-zinc-600"
               }`}
@@ -84,6 +187,90 @@ export default function PaymentsSettingsForm({ initial }: { initial: Initial }) 
               <span
                 className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
                   enabled ? "translate-x-5" : ""
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+        <div className="admin-tile border-sky-400/15">
+          <div className="admin-tile-header">
+            <div className="flex items-center gap-2 min-w-0">
+              <CreditCard size={16} className="text-sky-300 shrink-0" />
+              <div>
+                <p className="admin-tile-title">Pakasir (retail)</p>
+                <p className="admin-tile-desc">
+                  Hanya storefront. OFF menyembunyikan QRIS/VA. Env tetap syarat utama.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={pakasirEnabled}
+              onClick={togglePakasir}
+              className={`relative h-6 w-11 shrink-0 rounded-full transition-colors cursor-pointer ${
+                pakasirEnabled ? "bg-emerald-500/80" : "bg-zinc-600"
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+                  pakasirEnabled ? "translate-x-5" : ""
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+        <div className="admin-tile border-violet-400/15">
+          <div className="admin-tile-header">
+            <div className="flex items-center gap-2 min-w-0">
+              <CurrencyBtc size={16} className="text-violet-300 shrink-0" />
+              <div>
+                <p className="admin-tile-title">Crypto (reseller)</p>
+                <p className="admin-tile-desc">
+                  Portal reseller via Cryptomus. Terpisah dari switch retail.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={resellerCryptoEnabled}
+              onClick={toggleResellerCrypto}
+              className={`relative h-6 w-11 shrink-0 rounded-full transition-colors cursor-pointer ${
+                resellerCryptoEnabled ? "bg-emerald-500/80" : "bg-zinc-600"
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+                  resellerCryptoEnabled ? "translate-x-5" : ""
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+        <div className="admin-tile border-indigo-400/15">
+          <div className="admin-tile-header">
+            <div className="flex items-center gap-2 min-w-0">
+              <CreditCard size={16} className="text-indigo-300 shrink-0" />
+              <div>
+                <p className="admin-tile-title">Pakasir (reseller)</p>
+                <p className="admin-tile-desc">
+                  Portal reseller via QRIS/VA. Terpisah dari switch retail.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={resellerPakasirEnabled}
+              onClick={toggleResellerPakasir}
+              className={`relative h-6 w-11 shrink-0 rounded-full transition-colors cursor-pointer ${
+                resellerPakasirEnabled ? "bg-emerald-500/80" : "bg-zinc-600"
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+                  resellerPakasirEnabled ? "translate-x-5" : ""
                 }`}
               />
             </button>
@@ -134,7 +321,7 @@ export default function PaymentsSettingsForm({ initial }: { initial: Initial }) 
           </Button>
           <Button type="button" size="sm" onClick={save} disabled={saving}>
             <FloppyDisk size={14} />
-            {saving ? "Menyimpan…" : "Simpan"}
+            {saving ? "Menyimpan…" : "Simpan pembatasan"}
           </Button>
         </div>
         {message ? <p className="text-xs text-emerald-400">{message}</p> : null}
