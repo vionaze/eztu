@@ -88,6 +88,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
   const [isQuoteLoading, setIsQuoteLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [pakasirEnabled, setPakasirEnabled] = useState(false);
+  const [cryptoEnabled, setCryptoEnabled] = useState(true);
   const [pakasirDisplayPrices, setPakasirDisplayPrices] = useState<
     Record<string, PakasirDisplayPrice>
   >({});
@@ -302,9 +303,18 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
       .then(async (response) => {
         if (!response.ok) return;
         const data = (await response.json()) as {
+          crypto?: { enabled?: boolean };
           pakasir?: { enabled?: boolean };
         };
-        setPakasirEnabled(Boolean(data.pakasir?.enabled));
+        const cryptoAvailable = data.crypto?.enabled !== false;
+        const pakasirAvailable = Boolean(data.pakasir?.enabled);
+        setCryptoEnabled(cryptoAvailable);
+        setPakasirEnabled(pakasirAvailable);
+        if (!cryptoAvailable) {
+          setPaymentMethod((current) =>
+            current === "crypto" ? (pakasirAvailable ? "pakasir" : null) : current,
+          );
+        }
       })
       .catch((error) => {
         if (!(error instanceof DOMException && error.name === "AbortError")) {
@@ -721,6 +731,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                     <button
                       type="button"
                       onClick={() => {
+                        if (!cryptoEnabled) return;
                         setPaymentMethod("crypto");
                         trackProductEvent({
                           productId: product.id,
@@ -730,11 +741,14 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                           paymentMethod: "crypto",
                         });
                       }}
+                      disabled={!cryptoEnabled}
                       className={cn(
                         "rounded-xl border p-3 text-left transition-all",
                         paymentMethod === "crypto"
                           ? "border-accent bg-accent/10"
-                          : "border-border bg-bg-card hover:border-accent/40"
+                          : "border-border bg-bg-card hover:border-accent/40",
+                        !cryptoEnabled &&
+                          "cursor-not-allowed opacity-45 hover:border-border"
                       )}
                     >
                       <span className="flex items-center gap-2 font-medium text-text-primary">
@@ -742,7 +756,9 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                         Crypto
                       </span>
                       <span className="mt-1 block text-xs text-text-muted">
-                        USDT / USDC via Cryptomus
+                        {cryptoEnabled
+                          ? "USDT / USDC via Cryptomus"
+                          : "Currently unavailable in your region"}
                       </span>
                     </button>
                     <button

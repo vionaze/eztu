@@ -19,6 +19,7 @@ import {
   type FraudSeverity,
 } from "@/lib/fraud";
 import { findActiveAccessBlock } from "@/lib/access-block";
+import { getCryptoAvailability } from "@/lib/payment-settings";
 import {
   AccountBannedError,
   AuthenticationRequiredError,
@@ -254,6 +255,22 @@ export async function POST(request: NextRequest) {
         { error: "Product is not available in this market" },
         { status: 404 },
       );
+    }
+
+    if (paymentMethod === "crypto") {
+      const cryptoAvailability = await getCryptoAvailability(
+        detectedMarketCode || marketCode,
+      );
+      if (!cryptoAvailability.allowed) {
+        return NextResponse.json(
+          {
+            error:
+              "Crypto payment is unavailable in your region. Please choose Pakasir.",
+            code: "CRYPTO_UNAVAILABLE_REGION",
+          },
+          { status: 400 },
+        );
+      }
     }
 
     let freshPricing;

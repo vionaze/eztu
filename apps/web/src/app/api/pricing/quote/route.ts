@@ -16,6 +16,7 @@ import {
   getDetectedMarketCode,
   isProductExcludedFromMarket,
 } from "@/lib/product-availability";
+import { getCryptoAvailability } from "@/lib/payment-settings";
 
 export async function GET(request: NextRequest) {
   try {
@@ -62,6 +63,22 @@ export async function GET(request: NextRequest) {
         { error: "Product is not available in this market" },
         { status: 404 },
       );
+    }
+
+    if (paymentMethod === "crypto") {
+      const cryptoAvailability = await getCryptoAvailability(
+        detectedMarketCode || marketCode,
+      );
+      if (!cryptoAvailability.allowed) {
+        return NextResponse.json(
+          {
+            error:
+              "Crypto payment is unavailable in your region. Please choose Pakasir.",
+            code: "CRYPTO_UNAVAILABLE_REGION",
+          },
+          { status: 400 },
+        );
+      }
     }
 
     const freshPricing = await getFreshVariantPricing(variant, paymentMethod);

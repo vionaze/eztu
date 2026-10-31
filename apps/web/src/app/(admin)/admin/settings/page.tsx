@@ -2,13 +2,18 @@ import {
   DEFAULT_BLOG_AI_SYSTEM_PROMPT,
   getBlogAiSettings,
 } from "@/lib/settings";
+import { getCryptoCheckoutSettings } from "@/lib/payment-settings";
 import BlogAiSettingsForm from "./BlogAiSettingsForm";
+import PaymentsSettingsForm from "./PaymentsSettingsForm";
 import { Key, Bell, Globe } from "@phosphor-icons/react/dist/ssr";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminSettingsPage() {
-  const ai = await getBlogAiSettings();
+  const [ai, crypto] = await Promise.all([
+    getBlogAiSettings(),
+    getCryptoCheckoutSettings(),
+  ]);
   const key = ai.apiKey;
   const masked =
     key.length > 8
@@ -39,6 +44,14 @@ export default async function AdminSettingsPage() {
           lastRunAt: ai.lastRunAt,
           intervalOptions: [1, 2, 4, 8, 12],
           countOptions: [1, 2, 5, 6, 7, 8, 10, 12],
+        }}
+      />
+
+      <PaymentsSettingsForm
+        initial={{
+          enabled: crypto.enabled,
+          disabledCountries: crypto.disabledCountries.join(","),
+          disabledUntil: crypto.disabledUntil,
         }}
       />
 
