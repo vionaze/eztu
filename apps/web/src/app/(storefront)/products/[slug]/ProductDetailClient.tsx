@@ -311,17 +311,19 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
         const pakasirAvailable = Boolean(data.pakasir?.enabled);
         setCryptoEnabled(cryptoAvailable);
         setPakasirEnabled(pakasirAvailable);
-        if (!cryptoAvailable || !pakasirAvailable) {
-          setPaymentMethod((current) => {
-            if (current === "crypto" && !cryptoAvailable) {
-              return pakasirAvailable ? "pakasir" : null;
-            }
-            if (current === "pakasir" && !pakasirAvailable) {
-              return cryptoAvailable ? "crypto" : null;
-            }
-            return current;
-          });
-        }
+        setPaymentMethod((current) => {
+          if (current === "crypto" && !cryptoAvailable) {
+            return pakasirAvailable ? "pakasir" : null;
+          }
+          if (current === "pakasir" && !pakasirAvailable) {
+            return cryptoAvailable ? "crypto" : null;
+          }
+          if (!current) {
+            if (cryptoAvailable && !pakasirAvailable) return "crypto";
+            if (pakasirAvailable && !cryptoAvailable) return "pakasir";
+          }
+          return current;
+        });
       })
       .catch((error) => {
         if (!(error instanceof DOMException && error.name === "AbortError")) {
@@ -750,7 +752,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                       A fresh final quote is generated and verified by the server.
                     </p>
                   </div>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div className={cn("grid grid-cols-1 gap-2", cryptoEnabled && pakasirEnabled && "sm:grid-cols-2")}>
                     <button
                       type="button"
                       onClick={() => {
@@ -765,6 +767,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                         });
                       }}
                       disabled={!cryptoEnabled}
+                      hidden={!cryptoEnabled}
                       className={cn(
                         "rounded-xl border p-3 text-left transition-all",
                         paymentMethod === "crypto"
@@ -798,6 +801,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                         });
                       }}
                       disabled={!pakasirEnabled}
+                      hidden={!pakasirEnabled}
                       className={cn(
                         "rounded-xl border p-3 text-left transition-all",
                         paymentMethod === "pakasir"

@@ -158,35 +158,31 @@ export function OrderModal({
     }
   }
 
-  const orderedMethods: ("CRYPTO" | "PAKASIR")[] =
-    ["PAKASIR", "CRYPTO"];
+  const orderedMethods: ("CRYPTO" | "PAKASIR")[] = (
+    ["PAKASIR", "CRYPTO"] as ("CRYPTO" | "PAKASIR")[]
+  ).filter((method) => (method === "CRYPTO" ? cryptoAvailable : pakasirAvailable));
   const methodButtons = (
-    <div className="grid gap-2 sm:grid-cols-2">
+    <div className={cn("grid gap-2", orderedMethods.length > 1 && "sm:grid-cols-2")}>
       {orderedMethods.map((method) => {
         const isDefault = method === (defaultMethod === "CRYPTO" ? "PAKASIR" : defaultMethod);
-        const methodAvailable = method === "CRYPTO" ? cryptoAvailable : pakasirAvailable;
         return (
           <button
             key={method}
             type="button"
-            disabled={!methodAvailable || busy || lines.length === 0}
+            disabled={busy || lines.length === 0}
             onClick={() => void placeOrder(method)}
             className={
-              isDefault && methodAvailable
+              isDefault
                 ? primaryClass
                 : "inline-flex h-11 items-center justify-center rounded-md border border-border/60 text-sm font-medium text-text-muted transition hover:text-text-secondary disabled:cursor-not-allowed disabled:opacity-50"
             }
           >
             {method === "CRYPTO"
-              ? cryptoAvailable
-                ? "Pay with Crypto"
-                : "Crypto unavailable"
-              : pakasirAvailable
-                ? busy
-                  ? "Creating…"
-                  : "Pay with Pakasir"
-                : "Pakasir unavailable"}
-            {isDefault && methodAvailable ? <span className="ml-1 text-[10px] font-normal opacity-80">(primary)</span> : null}
+              ? "Pay with Crypto"
+              : busy
+                ? "Creating…"
+                : "Pay with Pakasir"}
+            {isDefault ? <span className="ml-1 text-[10px] font-normal opacity-80">(primary)</span> : null}
           </button>
         );
       })}
