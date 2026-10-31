@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import { FadeUp, StaggerReveal, StaggerItem } from "@/components/motion/StaggerReveal";
 import { Badge, Card } from "@kupon/ui";
 import { Clock, CalendarBlank, ArrowRight } from "@phosphor-icons/react/dist/ssr";
 import {
@@ -34,17 +33,15 @@ export default async function BlogPage({
   return (
     <div className="min-h-[100dvh] pt-28 pb-20">
       <div className="max-w-[1400px] mx-auto px-4 md:px-8">
-        <FadeUp>
-          <div className="mb-10">
-            <h1 className="text-3xl md:text-5xl font-bold tracking-tighter text-text-primary">
-              Blog
-            </h1>
-            <p className="text-base text-text-secondary mt-3 max-w-[55ch] leading-relaxed">
-              Practical guides for game top-ups, USDT/USDC payments, and digital
-              vouchers — written for real shoppers, not keyword spam.
-            </p>
-          </div>
-        </FadeUp>
+        <div className="mb-10 animate-fade-up">
+          <h1 className="text-3xl md:text-5xl font-bold tracking-tighter text-text-primary">
+            Blog
+          </h1>
+          <p className="text-base text-text-secondary mt-3 max-w-[55ch] leading-relaxed">
+            Practical guides for game top-ups, USDT/USDC payments, and digital
+            vouchers — written for real shoppers, not keyword spam.
+          </p>
+        </div>
 
         {posts.length === 0 ? (
           <Card padding="lg" className="text-center text-sm text-text-muted">
@@ -54,77 +51,80 @@ export default async function BlogPage({
         ) : (
           <>
             {featured ? (
-              <FadeUp delay={0.05}>
-                <Link
-                  href={`/blog/${featured.slug}`}
-                  className="block mb-10"
+              <Link
+                href={`/blog/${featured.slug}`}
+                className="block mb-10 animate-fade-up"
+                style={{ animationDelay: "60ms" }}
+              >
+                <Card
+                  variant="interactive"
+                  padding="none"
+                  className="overflow-hidden"
                 >
-                  <Card
-                    variant="interactive"
-                    padding="none"
-                    className="overflow-hidden"
-                  >
-                    <div className="grid md:grid-cols-2 gap-0">
-                      <div className="relative aspect-[16/10] md:aspect-auto md:min-h-[280px] bg-bg-elevated">
-                        {(featured.coverImage || featured.thumbnailImage) && (
-                          <Image
-                            src={
-                              featured.coverImage ||
-                              featured.thumbnailImage ||
-                              ""
-                            }
-                            alt={featured.title}
-                            fill
-                            className="object-cover"
-                            sizes="(max-width: 768px) 100vw, 50vw"
-                            priority
-                          />
-                        )}
-                      </div>
-                      <div className="p-6 md:p-8 flex flex-col justify-center">
-                        <div className="flex items-center gap-2 mb-3">
-                          {featured.category ? (
-                            <Badge variant="accent">{featured.category}</Badge>
-                          ) : null}
-                          <span className="text-xs text-text-muted font-mono">
-                            {featured.countryCode}
-                          </span>
-                        </div>
-                        <h2 className="text-xl md:text-2xl font-bold text-text-primary tracking-tight">
-                          {featured.title}
-                        </h2>
-                        {featured.excerpt ? (
-                          <p className="text-sm text-text-secondary mt-3 line-clamp-3 leading-relaxed">
-                            {featured.excerpt}
-                          </p>
+                  <div className="grid md:grid-cols-2 gap-0">
+                    <div className="relative aspect-[16/10] md:aspect-auto md:min-h-[280px] bg-bg-elevated">
+                      {(featured.coverImage || featured.thumbnailImage) && (
+                        <Image
+                          src={
+                            featured.coverImage ||
+                            featured.thumbnailImage ||
+                            ""
+                          }
+                          alt={featured.title}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 768px) 100vw, 50vw"
+                          priority
+                        />
+                      )}
+                    </div>
+                    <div className="p-6 md:p-8 flex flex-col justify-center">
+                      <div className="flex items-center gap-2 mb-3">
+                        {featured.category ? (
+                          <Badge variant="accent">{featured.category}</Badge>
                         ) : null}
-                        <div className="flex items-center gap-3 mt-4 text-xs text-text-muted">
-                          <span className="inline-flex items-center gap-1">
-                            <CalendarBlank size={12} />
-                            {formatBlogDate(
-                              featured.publishedAt || featured.createdAt
-                            )}
-                          </span>
-                          <span className="inline-flex items-center gap-1">
-                            <Clock size={12} />
-                            {estimateReadTime(featured.content)}
-                          </span>
-                          <span className="inline-flex items-center gap-1 text-accent ml-auto">
-                            Read <ArrowRight size={12} />
-                          </span>
-                        </div>
+                        <span className="text-xs text-text-muted font-mono">
+                          {featured.countryCode}
+                        </span>
+                      </div>
+                      <h2 className="text-xl md:text-2xl font-bold text-text-primary tracking-tight">
+                        {featured.title}
+                      </h2>
+                      {featured.excerpt ? (
+                        <p className="text-sm text-text-secondary mt-3 line-clamp-3 leading-relaxed">
+                          {featured.excerpt}
+                        </p>
+                      ) : null}
+                      <div className="flex items-center gap-3 mt-4 text-xs text-text-muted">
+                        <span className="inline-flex items-center gap-1">
+                          <CalendarBlank size={12} />
+                          {formatBlogDate(
+                            featured.publishedAt || featured.createdAt
+                          )}
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                          <Clock size={12} />
+                          {estimateReadTime(featured.content)}
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-accent ml-auto">
+                          Read <ArrowRight size={12} />
+                        </span>
                       </div>
                     </div>
-                  </Card>
-                </Link>
-              </FadeUp>
+                  </div>
+                </Card>
+              </Link>
             ) : null}
 
-            <StaggerReveal className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {rest.map((post) => {
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {rest.map((post, index) => {
                 const img = post.thumbnailImage || post.coverImage;
                 return (
-                  <StaggerItem key={post.id}>
+                  <div
+                    key={post.id}
+                    className="animate-fade-up"
+                    style={{ animationDelay: `${120 + Math.min(index, 9) * 40}ms` }}
+                  >
                     <Link href={`/blog/${post.slug}`} className="block h-full">
                       <Card
                         variant="interactive"
@@ -171,10 +171,10 @@ export default async function BlogPage({
                         </div>
                       </Card>
                     </Link>
-                  </StaggerItem>
+                  </div>
                 );
               })}
-            </StaggerReveal>
+            </div>
 
             {totalPages > 1 ? (
               <nav className="mt-12 flex items-center justify-between gap-4">
