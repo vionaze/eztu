@@ -8,35 +8,6 @@ import {
 } from "@/lib/supplier";
 import { isProductionRuntime, safeEqualSecret } from "@/lib/security";
 
-const DEFAULT_CALLBACK_HEALTHCHECK_IPS = ["161.97.130.68"];
-
-function getCallbackHealthcheckIps() {
-  const configured = process.env.ORDER_CALLBACK_HEALTHCHECK_IPS;
-  const source = configured === undefined
-    ? DEFAULT_CALLBACK_HEALTHCHECK_IPS.join(",")
-    : configured;
-
-  return new Set(
-    source
-      .split(",")
-      .map((ip) => ip.trim())
-      .filter(Boolean)
-  );
-}
-
-function isTrustedCallbackHealthcheck(requestContext: {
-  ip: string;
-  userAgent: string;
-}) {
-  const healthcheckIps = getCallbackHealthcheckIps();
-  const userAgent = requestContext.userAgent.toLowerCase();
-
-  return (
-    healthcheckIps.has(requestContext.ip) &&
-    (userAgent.startsWith("curl/") || userAgent.startsWith("wget/"))
-  );
-}
-
 function isValidCallbackToken(request: NextRequest) {
   const expected =
     process.env.ORDER_STATUS_CALLBACK_TOKEN?.trim() ||
@@ -62,15 +33,18 @@ export async function POST(request: NextRequest) {
 
   try {
     if (!isValidCallbackToken(request)) {
-      if (!isTrustedCallbackHealthcheck(requestContext)) {
-        await notifySecurityEvent({
-          eventType: "supplier_callback_invalid_token",
-          severity: "high",
-          action: "blocked",
-          reasons: ["Order callback token is missing or invalid"],
-          requestContext,
-        });
-      }
+      // No IP / User-Agent exemption. Client IPs are header-derived and
+      // spoofable when the origin is reached directly, so a "trusted IP" bypass
+      // is replayable by anyone (see docs/audits/2026-10-31-security-audit.md).
+      // The token is the only proof of authenticity — healthchecks must send it
+      // like every other caller.
+      await notifySecurityEvent({
+        eventType: "supplier_callback_invalid_token",
+        severity: "high",
+        action: "blocked",
+        reasons: ["Order callback token is missing or invalid"],
+        requestContext,
+      });
 
       return NextResponse.json({ message: "FORBIDDEN" }, { status: 403 });
     }

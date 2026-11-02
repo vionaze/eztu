@@ -5,6 +5,7 @@ import {
   type DiscordFraudSeverity,
   sendDiscordFraudAlert,
 } from "@/lib/discord";
+import { takeAlertSlot } from "@/lib/alert-throttle";
 import {
   BULK_PURCHASE_THRESHOLD,
   MAX_SELF_SERVICE_QUANTITY,
@@ -243,29 +244,42 @@ export async function notifySecurityEvent(alert: SecurityAlertInput): Promise<vo
   ];
 
   if (shouldNotifyDiscord(alert)) {
-    tasks.push(
-      sendDiscordFraudAlert({
-        event: alert.eventType,
-        severity: alert.severity,
-        action: alert.action,
-        reasons: alert.reasons,
-        ip: alert.requestContext.ip,
-        userAgent: alert.requestContext.userAgent,
-        route: alert.requestContext.path,
-        method: alert.requestContext.method,
-        origin: alert.requestContext.origin,
-        referer: alert.requestContext.referer,
-        email: alert.email,
-        productId: alert.productId,
-        variantId: alert.variantId,
-        product: alert.product,
-        variant: alert.variant,
-        userId: alert.userId,
-        clerkUserId: alert.clerkUserId,
-        orderId: alert.orderId,
-        metadata: alert.metadata,
-      })
-    );
+    // One bot repeating the same blocked request is still written to the DB
+    // above, but should not produce a wall of Discord messages.
+    const slot = takeAlertSlot({
+      eventType: alert.eventType,
+      ip: alert.requestContext.ip,
+    });
+
+    if (slot === "send") {
+      tasks.push(
+        sendDiscordFraudAlert({
+          event: alert.eventType,
+          severity: alert.severity,
+          action: alert.action,
+          reasons: alert.reasons,
+          ip: alert.requestContext.ip,
+          userAgent: alert.requestContext.userAgent,
+          route: alert.requestContext.path,
+          method: alert.requestContext.method,
+          origin: alert.requestContext.origin,
+          referer: alert.requestContext.referer,
+          email: alert.email,
+          productId: alert.productId,
+          variantId: alert.variantId,
+          product: alert.product,
+          variant: alert.variant,
+          userId: alert.userId,
+          clerkUserId: alert.clerkUserId,
+          orderId: alert.orderId,
+          metadata: alert.metadata,
+        })
+      );
+    } else {
+      console.warn(
+        `[Fraud] Discord alert suppressed (${slot}) for ${alert.eventType} from ${alert.requestContext.ip}`
+      );
+    }
   }
 
   await Promise.allSettled(tasks);
