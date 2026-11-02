@@ -3,6 +3,8 @@ Tanggal: 2026-10-31
 Cakupan: codebase `apps/web` (53 route handler, 5 paket) + prosedur VPS.
 Metode: pembacaan kode statis; pemeriksaan VPS lewat `docs/audits/vps-audit.sh` (read-only, hasil menyusul).
 
+> **Status (2026-11-03):** Temuan #1 (bypass token callback) sudah diperbaiki di commit `4b1f49b` — token sekarang selalu wajib, tanpa pengecualian IP. Rincian insiden dan hardening: [2026-11-02-security-incident-hardening.md](../session-notes/2026-11-02-security-incident-hardening.md).
+
 ---
 
 ## Ringkasan
