@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { prisma } from "@kupon/db";
 import {
   AuthenticationRequiredError,
@@ -108,22 +108,10 @@ async function loadOrders(userId: string) {
 export default async function PurchaseHistoryPage() {
   let accountEmail: string | null = null;
   let purchaseOrders: PurchaseHistoryOrder[] = [];
+  let authFailure: unknown = null;
 
   try {
-    let authenticatedUser;
-    try {
-      authenticatedUser = await requireClerkUser();
-    } catch (error) {
-      if (error instanceof AuthenticationRequiredError) {
-        redirect("/login?redirect_url=/account/purchases");
-      }
-      console.error("[PurchaseHistory] auth/sync failed", error);
-      // Authenticated session may exist but DB sync failed — still show empty shell
-      return (
-        <PurchaseHistoryClient accountEmail={null} orders={[]} />
-      );
-    }
-
+    const authenticatedUser = await requireClerkUser();
     accountEmail = authenticatedUser.email;
 
     try {
@@ -134,9 +122,20 @@ export default async function PurchaseHistoryPage() {
       purchaseOrders = [];
     }
   } catch (error) {
-    // Never surface a hard 500 for this account page — empty state is preferred.
-    console.error("[PurchaseHistory] unexpected failure", error);
-    return <PurchaseHistoryClient accountEmail={null} orders={[]} />;
+    // redirect() works by throwing NEXT_REDIRECT — never treat it as a failure.
+    unstable_rethrow(error);
+    authFailure = error;
+  }
+
+  if (authFailure instanceof AuthenticationRequiredError) {
+    redirect("/login?redirect_url=/account/purchases");
+  }
+
+  if (authFailure) {
+    // Authenticated session may exist but DB sync failed — still show empty shell
+    console.error("[PurchaseHistory] auth/sync failed", authFailure);
+    accountEmail = null;
+    purchaseOrders = [];
   }
 
   return (
