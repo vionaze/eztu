@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import BlogPostContent from "./BlogPostContent";
 import BlogViewTracker from "./BlogViewTracker";
 import {
@@ -70,7 +70,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function BlogPostPage({ params }: Props) {
-  redirect("/");
   const { slug } = await params;
   const post = await getPublishedPostBySlug(slug);
   if (!post) notFound();
