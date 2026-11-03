@@ -146,7 +146,7 @@ export default function HeroSection({ products }: { products: Product[] }) {
               <div className="flex items-center gap-6 pt-2">
                 <div>
                   <p className="text-2xl font-bold text-text-primary font-[family-name:var(--font-geist-mono)]">
-                    50K+
+                    2K+
                   </p>
                   <p className="text-xs text-text-muted mt-0.5">Transactions</p>
                 </div>
