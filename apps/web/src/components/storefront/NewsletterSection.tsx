@@ -21,7 +21,7 @@ const faqs = [
   {
     question: "Which payment methods are supported?",
     answer:
-      "Checkout is crypto-first via Cryptomus. We accept USDT and USDC stablecoins when enabled in checkout.",
+      "Choose from the payment options shown at checkout, then receive your digital voucher by email after payment confirmation.",
   },
   {
     question: "Why do you only ask for email?",
@@ -29,7 +29,7 @@ const faqs = [
       "Most products are voucher-code based, so we do not need a game ID. The email is used to deliver the secure voucher link and receipt. Direct top-up products may also ask for User ID / Zone.",
   },
   {
-    question: "What happens if my crypto payment is delayed?",
+    question: "What happens if my payment is delayed?",
     answer:
       "Your order stays pending until the payment provider confirms it. Once confirmed, the order status syncs and fulfillment continues.",
   },

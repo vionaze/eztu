@@ -9,15 +9,15 @@ export const metadata: Metadata = {
     template: "%s | EZTopUp",
   },
   description:
-    "Buy digital vouchers and e-vouchers with crypto at eztopup.io. Secure payments, competitive prices, and fast delivery.",
-  keywords: ["digital voucher", "e-voucher", "crypto", "marketplace", "game voucher", "eztopup"],
+    "Shop digital vouchers, game top-ups, and e-vouchers at EZTopUp. Enjoy secure checkout, competitive prices, and fast digital delivery.",
+  keywords: ["digital voucher", "e-voucher", "game top-up", "marketplace", "game voucher", "eztopup"],
   openGraph: {
     type: "website",
     locale: "id_ID",
     siteName: "EZTopUp",
     title: "EZTopUp — Digital Voucher Marketplace",
     description:
-      "Buy digital vouchers and e-vouchers with crypto at eztopup.io. Secure payments, competitive prices, and fast delivery.",
+      "Shop digital vouchers, game top-ups, and e-vouchers at EZTopUp. Enjoy secure checkout, competitive prices, and fast digital delivery.",
   },
 };
 
