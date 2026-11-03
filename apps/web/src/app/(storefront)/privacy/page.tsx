@@ -51,9 +51,9 @@ const sections: { title: string; body: ReactNode }[] = [
           </li>
           <li>
             <span className="text-text-primary font-medium">Payment data</span>{" "}
-            — payment status, provider references, and crypto transaction
+            — payment status, provider references, and transaction
             metadata from payment partners. We do not store full card numbers;
-            crypto wallet details are handled by the payment provider.
+            wallet details are handled by the payment provider.
           </li>
           <li>
             <span className="text-text-primary font-medium">
@@ -123,7 +123,7 @@ const sections: { title: string; body: ReactNode }[] = [
         </p>
         <ul className="list-disc pl-5 space-y-1.5">
           <li>Authentication / identity (e.g. Clerk)</li>
-          <li>Payment processors (e.g. crypto payment partners)</li>
+          <li>Payment processors</li>
           <li>Product suppliers for voucher issuance or top-up fulfillment</li>
           <li>Hosting, database, email, and operational tooling</li>
           <li>Security and anti-fraud tooling</li>

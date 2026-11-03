@@ -35,14 +35,14 @@ const sections: { title: string; body: ReactNode }[] = [
       <>
         <p>
           EZTopUp is a digital marketplace for game vouchers, e-vouchers, and
-          related digital products. We may offer crypto payment options and
+          related digital products. We may offer multiple payment options and
           deliver product codes or fulfill top-ups through third-party
           suppliers and payment providers.
         </p>
         <p>
           Product availability, pricing, and delivery methods may change
           without prior notice. Displayed prices may be shown in local currency
-          estimates and in USD for crypto checkout.
+          estimates and in USD for some checkout options.
         </p>
       </>
     ),
@@ -71,7 +71,7 @@ const sections: { title: string; body: ReactNode }[] = [
       <>
         <p>
           When you place an order, you authorize payment of the stated amount
-          through the selected payment method (including cryptocurrency via our
+          through the selected payment method (including digital currency via our
           payment partners). An order is only processed after payment is
           confirmed according to the payment provider&apos;s rules.
         </p>
@@ -170,7 +170,7 @@ const sections: { title: string; body: ReactNode }[] = [
           not be fulfilled, or we cancel the order.
         </p>
         <p>
-          Crypto refunds, if approved, may be subject to network fees and may
+          Digital currency refunds, if approved, may be subject to network fees and may
           differ from the original network path or asset depending on the payment
           provider. We do not guarantee exchange-rate recovery for currency
           fluctuations.

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { Badge, Card } from "@kupon/ui";
@@ -14,7 +15,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Blog",
   description:
-    "Digital voucher, crypto payment, and gaming commerce guides from EZTopUp.",
+    "Digital voucher and gaming commerce guides from EZTopUp.",
 };
 
 export default async function BlogPage({
@@ -22,6 +23,7 @@ export default async function BlogPage({
 }: {
   searchParams: Promise<{ page?: string | string[] }>;
 }) {
+  redirect("/");
   const params = await searchParams;
   const rawPage = Array.isArray(params.page) ? params.page[0] : params.page;
   const { posts, page, totalPages, total } = await getPublishedPostsPage(

@@ -8,7 +8,7 @@ import VouchersPageClient from "./VouchersPageClient";
 export const metadata: Metadata = {
   title: "All Vouchers",
   description:
-    "Browse all game top-ups, digital vouchers, and e-vouchers. Fast delivery with local and crypto payments.",
+    "Browse all game top-ups, digital vouchers, and e-vouchers. Fast delivery with secure payment options.",
 };
 
 export const dynamic = "force-dynamic";

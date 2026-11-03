@@ -59,7 +59,7 @@ export default function ContactPage() {
               Contact us
             </h1>
             <p className="text-base text-text-secondary mt-3 leading-relaxed">
-              Need help with a purchase, voucher delivery, or crypto payment?
+              Need help with a purchase, voucher delivery, or payment?
               Reach EZTopUp support by email — we will get back to you as soon
               as we can.
             </p>

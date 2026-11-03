@@ -359,7 +359,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
       return;
     }
     if (!isFree && !paymentMethod) {
-      alert("Please choose Crypto or Pakasir.");
+      alert("Please choose a payment method.");
       return;
     }
 
@@ -661,7 +661,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
 
             {paymentMethod === "crypto" && minimumQuantity > 1 && (
               <p className="text-sm text-amber-200">
-                Crypto minimum: Rp45,000 and $2.50 at the current rate. Quantity is
+                Minimum pembayaran: Rp45,000 and $2.50 at the current rate. Quantity is
                 automatically increased to at least {minimumQuantity} units.
                 Review the total below before paying.
               </p>
@@ -779,11 +779,11 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                     >
                       <span className="flex items-center gap-2 font-medium text-text-primary">
                         <CurrencyBtc size={18} />
-                        Crypto
+                        Digital currency
                       </span>
                       <span className="mt-1 block text-xs text-text-muted">
                         {cryptoEnabled
-                          ? "USDT / USDC via Cryptomus"
+                          ? "USDT / USDC"
                           : "Currently unavailable in your region"}
                       </span>
                     </button>
@@ -877,7 +877,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                     <p>
                       Pay exactly <strong>${liveQuote.totalUSD} USDT/USDC</strong>.
                       Blockchain gas/network fee is paid separately by you and depends
-                      on the selected crypto chain.
+                      on the selected network.
                     </p>
                     <p className="mt-1 text-text-muted">
                       Rate Rp{Math.round(liveQuote.usdIdrRate).toLocaleString("id-ID")}/USD
@@ -940,7 +940,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                 ) : paymentMethod === "crypto" ? (
                   <>
                     <CurrencyBtc size={18} weight="bold" />
-                    Pay with Crypto
+                    Pay with digital currency
                   </>
                 ) : paymentsUnavailable ? (
                   <>Payments unavailable</>
@@ -957,7 +957,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
               )}
               {usesCryptoCheckout && gameAccountReady && (
                 <p className="text-center text-xs text-text-muted mt-2">
-                  Powered by Cryptomus · USDT / USDC checkout
+                  Secure USDT / USDC checkout
                 </p>
               )}
               {paymentMethod === "pakasir" && gameAccountReady ? (

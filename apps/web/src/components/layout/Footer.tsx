@@ -13,7 +13,6 @@ const footerLinks = {
   ],
   company: [
     { label: "About Us", href: "/" },
-    { label: "Blog", href: "/blog" },
     { label: "Contact", href: "/contact" },
   ],
   support: [
@@ -58,8 +57,7 @@ export default function Footer() {
             </Link>
             <p className="text-sm text-text-secondary leading-relaxed max-w-[35ch]">
               EZTopUp is a digital voucher and e-voucher marketplace at
-              eztopup.io. Buy securely with crypto and receive voucher codes
-              fast.
+              eztopup.io. Buy securely and receive digital voucher codes fast.
             </p>
             {/* Social */}
             <div className="flex items-center gap-2 pt-2">

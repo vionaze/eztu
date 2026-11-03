@@ -21,7 +21,6 @@ import CountrySelector from "@/components/ui/CountrySelector";
 
 const navLinks = [
   { label: "Vouchers", href: "/vouchers" },
-  { label: "Blog", href: "/blog" },
 ];
 
 function AccountUserButton({ isAdmin }: { isAdmin: boolean }) {
