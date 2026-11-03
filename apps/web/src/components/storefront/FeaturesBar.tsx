@@ -22,8 +22,8 @@ const features = [
   },
   {
     icon: CurrencyCircleDollar,
-    title: "USDT / USDC",
-    description: "Stablecoin crypto checkout",
+    title: "Flexible Payments",
+    description: "Choose a secure checkout option",
   },
   {
     icon: Clock,

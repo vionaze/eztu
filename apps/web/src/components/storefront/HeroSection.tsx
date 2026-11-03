@@ -104,17 +104,17 @@ export default function HeroSection({ products }: { products: Product[] }) {
 
             <FadeUp delay={0.1}>
               <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tighter leading-none text-text-primary">
-                Digital vouchers
+                Game vouchers
                 <br />
-                <span className="gradient-text">paid in crypto</span>
+                <span className="gradient-text">ready in moments</span>
               </h1>
             </FadeUp>
 
             <FadeUp delay={0.2}>
               <p className="text-base md:text-lg text-text-secondary leading-relaxed max-w-[45ch]">
-                EZTopUp sells digital vouchers and e-vouchers for global gaming
-                platforms. Pay with crypto at eztopup.io and receive voucher
-                codes fast.
+                Shop game top-ups, gift cards, and digital vouchers for your
+                favorite gaming platforms. Enjoy secure checkout and get your
+                voucher codes delivered fast with EZTopUp.
               </p>
             </FadeUp>
 
