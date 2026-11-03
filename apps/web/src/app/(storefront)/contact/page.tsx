@@ -59,9 +59,8 @@ export default function ContactPage() {
               Contact us
             </h1>
             <p className="text-base text-text-secondary mt-3 leading-relaxed">
-              Need help with a purchase, voucher delivery, or payment?
-              Reach EZTopUp support by email — we will get back to you as soon
-              as we can.
+              Need help with a game top-up, digital voucher, or order? Contact
+              EZTopUp support by email and our team will be glad to help.
             </p>
           </div>
         </FadeUp>

@@ -56,8 +56,8 @@ export default function Footer() {
               </div>
             </Link>
             <p className="text-sm text-text-secondary leading-relaxed max-w-[35ch]">
-              EZTopUp is a digital voucher and e-voucher marketplace at
-              eztopup.io. Buy securely and receive digital voucher codes fast.
+              Shop game top-ups, gaming gift cards, and digital vouchers at
+              EZTopUp. Enjoy secure checkout and fast delivery of your codes.
             </p>
             {/* Social */}
             <div className="flex items-center gap-2 pt-2">

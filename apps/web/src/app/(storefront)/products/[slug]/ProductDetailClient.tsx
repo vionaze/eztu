@@ -661,9 +661,9 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
 
             {paymentMethod === "crypto" && minimumQuantity > 1 && (
               <p className="text-sm text-amber-200">
-                Minimum pembayaran: Rp45,000 and $2.50 at the current rate. Quantity is
-                automatically increased to at least {minimumQuantity} units.
-                Review the total below before paying.
+                Minimum order: Rp45,000 and $2.50 at the current rate. Your
+                quantity is adjusted to {minimumQuantity} units so checkout can
+                proceed. Review your total before payment.
               </p>
             )}
 
@@ -779,11 +779,11 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                     >
                       <span className="flex items-center gap-2 font-medium text-text-primary">
                         <CurrencyBtc size={18} />
-                        Digital currency
+                        Pay with stablecoins
                       </span>
                       <span className="mt-1 block text-xs text-text-muted">
                         {cryptoEnabled
-                          ? "USDT / USDC"
+                          ? "USDT or USDC · fast online checkout"
                           : "Currently unavailable in your region"}
                       </span>
                     </button>
