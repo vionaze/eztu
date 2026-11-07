@@ -143,6 +143,21 @@ Cek setelah deploy:
 4. **Aktifkan crypto**: cukup buka akses PG crypto di setting pembayaran.
    Markup 7,3% sudah tersimpan di varian; tidak perlu perubahan katalog.
 
+## Homepage ordering (follow-up)
+
+Permintaan lanjutan: produk baru harus tampil paling depan di homepage.
+
+- Homepage sekarang mengurutkan `getStorefrontProducts()` berdasarkan
+  `createdAt` terbaru sebelum filter `featured`, jadi produk yang baru diimpor
+  memimpin **Popular Products** dan carousel **Game Vouchers**.
+- Perubahan hanya di `apps/web/src/app/(storefront)/page.tsx`; urutan halaman
+  `/vouchers` tidak diubah.
+- Verifikasi lokal: payload homepage berurutan
+  `phantom-blade-zero`, `xbox-pc-game-pass`, `nintendo-eshop`, dst.
+- `pnpm --filter @kupon/web typecheck` dan production build lulus.
+
+Commit: `94879be` — *Show newest products first on homepage*.
+
 ## Aturan docs-first (ditambahkan sesi ini)
 
 Supaya konteks tidak hilang saat ganti model/harness:
