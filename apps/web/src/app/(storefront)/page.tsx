@@ -8,7 +8,10 @@ import FAQSection from "@/components/storefront/NewsletterSection";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const products = await getStorefrontProducts();
+  // Newly added games should lead the homepage sections.
+  const products = [...(await getStorefrontProducts())].sort(
+    (left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt),
+  );
   const featured = products.filter((p) => p.featured);
   const popular = featured.length > 0 ? featured : products;
   const voucherProducts = products;
