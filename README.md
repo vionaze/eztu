@@ -12,6 +12,13 @@ Kupon is managed as a pnpm workspace.
 - `packages/ui` - Shared low-level UI primitives used by the web app.
 - `packages/payments` - Cryptomus invoice creation and webhook signature verification.
 
+## Documentation
+
+Start with [`docs/README.md`](docs/README.md). Before any work session, read the
+latest relevant note in [`docs/session-notes/`](docs/session-notes/). Every work
+session must leave a session note; use
+[`docs/session-notes/_template.md`](docs/session-notes/_template.md).
+
 ## Common Commands
 
 Run from the monorepo root:

@@ -1,0 +1,753 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  >
+  <meta
+    name="description"
+    content="ceritAIn AI Film Festival 2026 — ruang bagi sineas, kreator, dan eksperimenter untuk mengeksplorasi masa depan sinema bersama kecerdasan buatan."
+  >
+  <meta name="theme-color" content="#090a08">
+
+  <title>ceritAIn — AI Film Festival 2026</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@400;500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;1,500;1,600&display=swap"
+    rel="stylesheet"
+  >
+
+  <style>
+    :root {
+      --background: #090a08;
+      --surface: #11120f;
+      --paper: #eee9df;
+      --muted: #9a968e;
+      --line: #292a26;
+      --line-bright: #3d3d36;
+      --orange: #ff5735;
+      --lime: #ceff31;
+      --page-width: 1480px;
+      --sans: "Archivo Narrow", sans-serif;
+      --serif: "Cormorant Garamond", serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      background: var(--background);
+      color-scheme: dark;
+      scroll-behavior: smooth;
+      overflow-x: hidden;
+    }
+
+    body {
+      min-width: 0;
+      min-height: 100vh;
+      margin: 0;
+      overflow-x: hidden;
+      background:
+        linear-gradient(var(--line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--line) 1px, transparent 1px),
+        var(--background);
+      background-size: 80px 80px;
+      background-position: center top;
+      color: var(--paper);
+      font-family: var(--sans);
+    }
+
+    body::before {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      content: "";
+      pointer-events: none;
+      background:
+        radial-gradient(
+          circle at 82% 34%,
+          rgba(255, 87, 53, 0.08),
+          transparent 25%
+        ),
+        linear-gradient(
+          90deg,
+          rgba(9, 10, 8, 0.96),
+          rgba(9, 10, 8, 0.78) 45%,
+          rgba(9, 10, 8, 0.94)
+        );
+    }
+
+    img {
+      display: block;
+      max-width: 100%;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .skip-link {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      z-index: 100;
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: var(--lime);
+      color: #080908;
+      font-weight: 700;
+      transform: translateY(-160%);
+    }
+
+    .skip-link:focus {
+      transform: translateY(0);
+    }
+
+    .site-shell {
+      width: min(calc(100% - 48px), var(--page-width));
+      margin-inline: auto;
+    }
+
+    .site-header {
+      display: flex;
+      min-width: 0;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 26px 4px 24px;
+      border-bottom: 1px solid var(--line-bright);
+      animation: reveal 700ms ease both;
+    }
+
+    .brand {
+      display: inline-flex;
+      min-width: 0;
+      align-items: center;
+      text-decoration: none;
+    }
+
+    .brand-logo {
+      width: clamp(145px, 13vw, 205px);
+      max-width: 48vw;
+      height: auto;
+      object-fit: contain;
+    }
+
+    .status {
+      display: inline-flex;
+      flex: 0 0 auto;
+      align-items: center;
+      gap: 9px;
+      min-height: 34px;
+      padding: 8px 14px;
+      border: 1px solid var(--line-bright);
+      border-radius: 999px;
+      color: #c4c0b7;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.17em;
+      line-height: 1;
+      text-transform: uppercase;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--orange);
+      box-shadow: 0 0 0 5px rgba(255, 87, 53, 0.12);
+      animation: pulse 2.6s ease-in-out infinite;
+    }
+
+    main {
+      min-width: 0;
+    }
+
+    .hero {
+      display: grid;
+      min-width: 0;
+      grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
+      align-items: end;
+      gap: clamp(42px, 7vw, 112px);
+      padding: clamp(76px, 9vw, 138px) 0 clamp(72px, 8vw, 120px);
+    }
+
+    .hero-copy,
+    .frame-column {
+      min-width: 0;
+    }
+
+    .eyebrow {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin: 0 0 34px;
+      color: var(--lime);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.19em;
+      line-height: 1.25;
+      text-transform: uppercase;
+      animation: reveal 700ms 100ms ease both;
+    }
+
+    .eyebrow::before {
+      width: 54px;
+      height: 2px;
+      flex: 0 0 auto;
+      content: "";
+      background: var(--lime);
+    }
+
+    .festival-title {
+      max-width: 900px;
+      margin: 0;
+      font-family: var(--serif);
+      font-weight: 500;
+      letter-spacing: -0.075em;
+      line-height: 0.72;
+      animation: reveal 800ms 170ms ease both;
+    }
+
+    .festival-title span {
+      display: block;
+    }
+
+    .festival-title .ai-film {
+      color: var(--paper);
+      font-size: clamp(88px, 10vw, 174px);
+    }
+
+    .festival-title .festival {
+      margin-top: 0.11em;
+      margin-left: 0.05em;
+      color: var(--orange);
+      font-size: clamp(86px, 9.4vw, 162px);
+      font-style: italic;
+      font-weight: 500;
+    }
+
+    .festival-title .year {
+      margin-top: 0.04em;
+      color: transparent;
+      font-size: clamp(116px, 14vw, 232px);
+      font-weight: 400;
+      letter-spacing: -0.09em;
+      line-height: 0.85;
+      -webkit-text-stroke: 1px #55564f;
+    }
+
+    .intro {
+      max-width: 730px;
+      margin: clamp(34px, 5vw, 70px) 0 0;
+      color: #b7b2a8;
+      font-family: var(--serif);
+      font-size: clamp(20px, 1.75vw, 28px);
+      line-height: 1.55;
+      animation: reveal 800ms 250ms ease both;
+    }
+
+    .intro strong {
+      color: var(--paper);
+      font-weight: 600;
+    }
+
+    .program-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+      margin: 30px 0 0;
+      padding: 0;
+      list-style: none;
+      animation: reveal 800ms 320ms ease both;
+    }
+
+    .program-list li {
+      padding: 8px 12px;
+      border: 1px solid var(--line-bright);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.11em;
+      line-height: 1;
+      text-transform: uppercase;
+    }
+
+    .frame-column {
+      width: 100%;
+      max-width: 500px;
+      justify-self: end;
+      animation: reveal 900ms 260ms ease both;
+    }
+
+    .frame-card {
+      position: relative;
+      display: flex;
+      min-height: clamp(500px, 48vw, 680px);
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+      padding: clamp(30px, 4vw, 56px);
+      border: 1px solid #4e372f;
+      background:
+        linear-gradient(
+          135deg,
+          rgba(255, 87, 53, 0.12),
+          transparent 42%
+        ),
+        var(--surface);
+    }
+
+    .frame-card::before {
+      position: absolute;
+      inset: 20px;
+      content: "";
+      pointer-events: none;
+      border: 1px solid var(--line-bright);
+    }
+
+    .frame-card::after {
+      position: absolute;
+      top: 55%;
+      right: 20px;
+      left: 20px;
+      height: 1px;
+      content: "";
+      background: var(--lime);
+      opacity: 0.72;
+    }
+
+    .frame-number,
+    .frame-title,
+    .frame-footer {
+      position: relative;
+      z-index: 1;
+    }
+
+    .frame-number {
+      margin: 0;
+      color: var(--orange);
+      font-family: var(--serif);
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .frame-title {
+      max-width: 370px;
+      margin: 60px 0;
+      font-family: var(--serif);
+      font-size: clamp(48px, 5vw, 78px);
+      font-weight: 500;
+      letter-spacing: -0.055em;
+      line-height: 0.88;
+    }
+
+    .frame-title span {
+      display: block;
+      margin-top: 0.08em;
+      color: var(--lime);
+      font-style: italic;
+    }
+
+    .frame-footer {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 24px;
+      color: var(--muted);
+    }
+
+    .frame-footer p {
+      max-width: 260px;
+      margin: 0;
+      font-size: 12px;
+      letter-spacing: 0.07em;
+      line-height: 1.5;
+      text-transform: uppercase;
+    }
+
+    .recording {
+      display: inline-flex;
+      flex: 0 0 auto;
+      align-items: center;
+      gap: 7px;
+      color: var(--paper);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+    }
+
+    .recording::before {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      content: "";
+      background: var(--orange);
+    }
+
+    .info-rail {
+      display: grid;
+      min-width: 0;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 26px;
+      animation: reveal 800ms 380ms ease both;
+    }
+
+    .ticker {
+      display: flex;
+      min-width: 0;
+      align-items: center;
+      justify-content: space-around;
+      gap: 22px;
+      min-height: 48px;
+      padding: 12px 20px;
+      overflow: hidden;
+      background: var(--lime);
+      color: #090a08;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+
+    .ticker span {
+      white-space: nowrap;
+    }
+
+    .ticker-mark {
+      font-size: 8px;
+    }
+
+    .copyright,
+    .announcement {
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.13em;
+      line-height: 1.4;
+      text-transform: uppercase;
+    }
+
+    .copyright {
+      white-space: nowrap;
+    }
+
+    .announcement {
+      max-width: 240px;
+    }
+
+    .site-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 24px 4px 34px;
+      border-top: 1px solid var(--line-bright);
+      color: #6f706a;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .site-footer a {
+      color: #aaa69e;
+      text-decoration: none;
+    }
+
+    .site-footer a:hover {
+      color: var(--lime);
+    }
+
+    @keyframes reveal {
+      from {
+        opacity: 0;
+        transform: translateY(22px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes pulse {
+      0%,
+      100% {
+        opacity: 0.65;
+      }
+
+      50% {
+        opacity: 1;
+      }
+    }
+
+    @media (max-width: 980px) {
+      .hero {
+        grid-template-columns: minmax(0, 1fr);
+        align-items: start;
+      }
+
+      .frame-column {
+        max-width: 680px;
+        justify-self: start;
+      }
+
+      .frame-card {
+        min-height: 570px;
+      }
+
+      .info-rail {
+        grid-template-columns: minmax(0, 1fr) auto;
+      }
+
+      .announcement {
+        grid-column: 1 / -1;
+        max-width: none;
+        padding-top: 4px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      body {
+        background-size: 44px 44px;
+      }
+
+      .site-shell {
+        width: min(calc(100% - 30px), var(--page-width));
+      }
+
+      .site-header {
+        gap: 14px;
+        padding-block: 20px;
+      }
+
+      .brand-logo {
+        width: 145px;
+        max-width: 50vw;
+      }
+
+      .status {
+        min-height: 30px;
+        padding: 7px 10px;
+        font-size: 9px;
+        letter-spacing: 0.11em;
+      }
+
+      .status-dot {
+        width: 7px;
+        height: 7px;
+        box-shadow: 0 0 0 4px rgba(255, 87, 53, 0.12);
+      }
+
+      .hero {
+        gap: 48px;
+        padding: 66px 0 70px;
+      }
+
+      .eyebrow {
+        align-items: flex-start;
+        margin-bottom: 28px;
+        font-size: 10px;
+      }
+
+      .eyebrow::before {
+        width: 34px;
+        margin-top: 5px;
+      }
+
+      .festival-title {
+        letter-spacing: -0.065em;
+      }
+
+      .festival-title .ai-film {
+        font-size: clamp(65px, 23vw, 104px);
+      }
+
+      .festival-title .festival {
+        font-size: clamp(62px, 21vw, 96px);
+      }
+
+      .festival-title .year {
+        font-size: clamp(92px, 30vw, 138px);
+      }
+
+      .intro {
+        font-size: 20px;
+      }
+
+      .frame-card {
+        min-height: 520px;
+        padding: 36px 30px;
+      }
+
+      .frame-card::before {
+        inset: 14px;
+      }
+
+      .frame-card::after {
+        right: 14px;
+        left: 14px;
+      }
+
+      .frame-title {
+        font-size: clamp(48px, 15vw, 68px);
+      }
+
+      .frame-footer {
+        gap: 14px;
+      }
+
+      .frame-footer p {
+        font-size: 10px;
+      }
+
+      .info-rail {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 16px;
+      }
+
+      .ticker {
+        justify-content: space-between;
+        padding-inline: 14px;
+        font-size: 9px;
+      }
+
+      .ticker span:nth-child(3),
+      .ticker span:nth-child(4) {
+        display: none;
+      }
+
+      .copyright {
+        white-space: normal;
+      }
+
+      .site-footer {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 10px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html {
+        scroll-behavior: auto;
+      }
+
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <a class="skip-link" href="#main-content">Lewati ke konten utama</a>
+
+  <div class="site-shell">
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="ceritAIn beranda">
+        <img
+          class="brand-logo"
+          src="/public/ceritain-logo.png"
+          alt="ceritAIn"
+          width="1610"
+          height="473"
+        >
+      </a>
+
+      <div class="status" aria-label="Situs segera hadir">
+        <span class="status-dot" aria-hidden="true"></span>
+        Coming soon
+      </div>
+    </header>
+
+    <main id="main-content">
+      <section class="hero" aria-labelledby="festival-heading">
+        <div class="hero-copy">
+          <p class="eyebrow">Cinema × Artificial Intelligence</p>
+
+          <h1
+            id="festival-heading"
+            class="festival-title"
+            aria-label="AI Film Festival 2026"
+          >
+            <span class="ai-film" aria-hidden="true">AI FILM</span>
+            <span class="festival" aria-hidden="true">Festival</span>
+            <span class="year" aria-hidden="true">2026</span>
+          </h1>
+
+          <p class="intro">
+            <strong>ceritAIn AI Film Festival 2026</strong> adalah ruang bagi
+            sineas, kreator, dan eksperimenter untuk menjelajahi bagaimana
+            kecerdasan buatan membuka cara baru dalam menulis, membayangkan,
+            dan menciptakan sinema.
+          </p>
+
+          <ul class="program-list" aria-label="Program festival">
+            <li>Open submission</li>
+            <li>Film screening</li>
+            <li>Creative talks</li>
+            <li>AI experiments</li>
+          </ul>
+        </div>
+
+        <aside class="frame-column" aria-label="Pengumuman festival">
+          <div class="frame-card">
+            <p class="frame-number">Frame 001 / Coming soon</p>
+
+            <h2 class="frame-title">
+              The next frame
+              <span>hasn't been imagined yet.</span>
+            </h2>
+
+            <div class="frame-footer">
+              <p>
+                Program, tanggal, lokasi, dan open submission akan segera
+                diumumkan.
+              </p>
+
+              <span class="recording">REC</span>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <section class="info-rail" aria-label="Informasi singkat">
+        <div class="ticker">
+          <span class="ticker-mark">◆</span>
+          <span>ceritAIn AI Film Festival 2026</span>
+          <span>Human imagination</span>
+          <span class="ticker-mark">◆</span>
+        </div>
+
+        <div class="copyright">
+          © 2026<br>
+          ceritain.xyz
+        </div>
+
+        <div class="announcement">
+          Program lengkap segera diumumkan.
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <span>Stories shaped by humans, expanded by machines.</span>
+      <a href="mailto:hello@ceritain.xyz">hello@ceritain.xyz</a>
+    </footer>
+  </div>
+</body>
+</html>
