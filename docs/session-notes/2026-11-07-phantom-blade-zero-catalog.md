@@ -142,3 +142,18 @@ Cek setelah deploy:
    tier terkait lebih dulu jika memang ingin re-seed.
 4. **Aktifkan crypto**: cukup buka akses PG crypto di setting pembayaran.
    Markup 7,3% sudah tersimpan di varian; tidak perlu perubahan katalog.
+
+## Aturan docs-first (ditambahkan sesi ini)
+
+Supaya konteks tidak hilang saat ganti model/harness:
+
+- `AGENTS.md` sekarang mewajibkan: baca `docs/README.md` + session note terbaru
+  sebelum kerja, tulis session note sebelum sesi selesai, dan jangan klaim live
+  tanpa verifikasi produksi.
+- `docs/README.md` menjadi index docs + checklist awal sesi.
+- `docs/session-notes/_template.md` menjadi format baku session note.
+- `docs/history/` dan handoff `2026-10-07-harness-handoff.md` yang sebelumnya
+  untracked ikut di-commit agar tidak hilang.
+
+Commit: `78cb6d8` — *Make docs-first session workflow mandatory*.
+
