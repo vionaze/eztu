@@ -17,6 +17,7 @@
     "db:migrate": "pnpm --filter @kupon/db db:migrate",
     "db:seed": "pnpm --filter @kupon/db db:seed",
     "products:import:eztopup": "pnpm --filter @kupon/db products:import:eztopup",
+    "products:seed:reseller-pricing": "pnpm --filter @kupon/db products:seed:reseller-pricing",
     "products:sync:supplier": "pnpm --filter @kupon/db products:sync:supplier",
     "reseller-pricing:import": "pnpm --filter @kupon/db reseller-pricing:import",
     "test:db": "pnpm --filter @kupon/db test",

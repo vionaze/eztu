@@ -187,6 +187,14 @@ const PRODUCTS: Record<string, ProductDefinition> = {
     requiresServerId: false,
     allowMissingSupplierCost: true,
   },
+  PBZCDK: {
+    key: "phantom-blade-zero",
+    name: "Phantom Blade Zero",
+    image: "/phantom-blade.webp",
+    categorySlug: "game-vouchers",
+    fulfillmentType: "VOUCHER",
+    requiresServerId: false,
+  },
 };
 
 const PRODUCT_CODE_PREFIXES = Object.keys(PRODUCTS).sort(

@@ -32,3 +32,18 @@ test("rejects region fallback and conflicting supplier rows before writes", () =
   assert.equal(result.summary[0].unpriced, 1);
   assert.throws(() => buildSupplierExpansion(products, [{ countryCode: "id", rows: [{ ...sentinel, status: "available" }] }]), /out of range/);
 });
+
+test("keeps approved-market products inside their supplier country allowlist", () => {
+  const phantom = { id: "pbz", slug: "phantom-blade-zero", variants: [
+    { ...variant, id: "pbz-id", supplierSku: "PBZCDKSE-S22", countryCode: "id" },
+  ] };
+  const phantomRow = { code: "PBZCDKSE-S22", name: "Phantom Blade Zero: Standard Edition",
+    price: 720840, status: "available", category_code: "PBZCDK", country_code: "id" };
+  const foreignRow = { ...phantomRow, code: "PBZCDKSE-S22-my", country_code: "my" };
+  const result = buildSupplierExpansion([phantom], [
+    { countryCode: "id", rows: [phantomRow] },
+    { countryCode: "my", rows: [foreignRow] },
+  ]);
+  assert.deepEqual(result.changes.map(change => change.countryCode), ["id"]);
+  assert.deepEqual(result.summary[0], { productId: "pbz", slug: "phantom-blade-zero", total: 1, available: 1, added: 0, unpriced: 0 });
+});

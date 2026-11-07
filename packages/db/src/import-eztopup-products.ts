@@ -67,6 +67,8 @@ function getWorkbookPaths() {
       resolve(repoRoot, "data/roblox riot lol.xlsx"),
     process.env.EZTOPUP_BINANCE_PRODUCTS_XLSX ||
       resolve(repoRoot, "data/BINANCE-GIFTCARD.xlsx"),
+    process.env.EZTOPUP_PHANTOM_BLADE_PRODUCTS_XLSX ||
+      resolve(repoRoot, "data/phantom blade steam.xlsx"),
   ];
 }
 

@@ -342,6 +342,64 @@ test("parses Binance gift card SKU with live supplier cost and exact margins", (
   });
 });
 
+test("parses Phantom Blade Zero Steam CD keys with separate non-crypto and crypto margins", () => {
+  const rows = [
+    [
+      "Country",
+      "Category Code",
+      "Category Name",
+      "Variant",
+      "Group Product Code",
+      "Product Code",
+      "Product Name",
+      "B2B Price NON CRYPTO",
+      "B2C Price NON CRYPTO",
+      "Reseller Price",
+      "Status",
+      "SLA In Mins",
+      "MARGIN NON CRYPTO",
+      "MARGIN CRYPTO",
+    ],
+    [
+      "Indonesia",
+      "PBZCDK",
+      "Phantom Blade Zero CD Keys",
+      "VOUCHER",
+      "PBZCDKSE",
+      "PBZCDKSE-S22",
+      "Phantom Blade Zero: Standard Edition",
+      739_581.84,
+      759_044.52,
+      720_840,
+      "available",
+      "INSTANT",
+      0.053,
+      0.073,
+    ],
+  ];
+
+  const result = parseCatalogSheetRows("phantom blade steam", rows);
+
+  assert.equal(result.items.length, 1);
+  assert.deepEqual(result.items[0], {
+    productKey: "phantom-blade-zero",
+    productName: "Phantom Blade Zero",
+    productImage: "/phantom-blade.webp",
+    categorySlug: "game-vouchers",
+    fulfillmentType: "VOUCHER",
+    requiresServerId: false,
+    globalAvailability: false,
+    unavailableMarketCodes: [],
+    countryCode: "id",
+    supplierSku: "PBZCDKSE-S22",
+    variantName: "Phantom Blade Zero: Standard Edition",
+    supplierCostIDR: 720_840,
+    supplierStatus: "available",
+    nonCryptoMarkupBps: 530,
+    cryptoMarkupBps: 730,
+  });
+});
+
 test("keeps Riot rows without workbook margins inactive", () => {
   const rows = [
     [

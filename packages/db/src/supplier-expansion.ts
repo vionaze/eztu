@@ -11,12 +11,18 @@ export const PRODUCT_SUPPLIER_CATEGORIES: Record<string, readonly string[]> = {
   "mobile-legends": ["ML"],
   "mobile-legends-global": ["MLGLO"],
   "nintendo-eshop": ["NTD"],
+  "phantom-blade-zero": ["PBZCDK"],
   "playstation-store": ["VPSN"],
   "riot-points-gift-card": ["RPGC"],
   "roblox-gift-card": ["ROB"],
   steam: ["VSTEAM"],
   valorant: ["VAL"],
   "xbox-pc-game-pass": ["VXBOX", "PCGP"],
+};
+
+/** Products whose supplier rows must not expand beyond approved markets. */
+export const PRODUCT_SUPPLIER_COUNTRIES: Record<string, readonly string[]> = {
+  "phantom-blade-zero": ["id"],
 };
 
 type Variant = {
@@ -67,6 +73,8 @@ export function buildSupplierExpansion(products: ExpansionProduct[], catalogs: C
     for (const row of rows) {
       const product = categories.get(row.category_code || "");
       if (!product) continue;
+      const allowedCountries = PRODUCT_SUPPLIER_COUNTRIES[product.slug];
+      if (allowedCountries && !allowedCountries.includes(countryCode)) continue;
       if (row.country_code !== countryCode) throw new Error(`Supplier country mismatch for ${countryCode}:${row.code}`);
       if (!row.code || !row.name || !row.status || !Number.isSafeInteger(row.price) || row.price <= 0 || row.price > MAX_DATABASE_PRICE_IDR) throw new Error(`Invalid supplier row ${row.code}`);
       const key = `${countryCode}:${row.code}`;
