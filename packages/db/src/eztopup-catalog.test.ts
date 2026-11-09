@@ -383,7 +383,7 @@ test("parses Phantom Blade Zero Steam CD keys with separate non-crypto and crypt
   assert.equal(result.items.length, 1);
   assert.deepEqual(result.items[0], {
     productKey: "phantom-blade-zero",
-    productName: "Phantom Blade Zero",
+    productName: "Phantom Blade Zero (steam)",
     productImage: "/phantom-blade.webp",
     categorySlug: "game-vouchers",
     fulfillmentType: "VOUCHER",

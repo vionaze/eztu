@@ -189,7 +189,7 @@ const PRODUCTS: Record<string, ProductDefinition> = {
   },
   PBZCDK: {
     key: "phantom-blade-zero",
-    name: "Phantom Blade Zero",
+    name: "Phantom Blade Zero (steam)",
     image: "/phantom-blade.webp",
     categorySlug: "game-vouchers",
     fulfillmentType: "VOUCHER",
