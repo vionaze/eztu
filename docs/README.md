@@ -40,6 +40,7 @@ menulis "sudah live" tanpa verifikasi di production.
 
 ## Session notes terbaru
 
+- [2026-11-10 — Grand Theft Auto VI (PlayStation) catalog](session-notes/2026-11-10-gta-vi-playstation-catalog.md)
 - [2026-11-09 — Label Phantom Blade Zero (steam)](session-notes/2026-11-09-phantom-blade-zero-steam-label.md)
 - [2026-11-07 — Phantom Blade Zero catalog](session-notes/2026-11-07-phantom-blade-zero-catalog.md)
 - [2026-11-02 — Security incident hardening](session-notes/2026-11-02-security-incident-hardening.md)

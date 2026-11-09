@@ -69,6 +69,8 @@ function getWorkbookPaths() {
       resolve(repoRoot, "data/BINANCE-GIFTCARD.xlsx"),
     process.env.EZTOPUP_PHANTOM_BLADE_PRODUCTS_XLSX ||
       resolve(repoRoot, "data/phantom blade steam.xlsx"),
+    process.env.EZTOPUP_GTA_PRODUCTS_XLSX ||
+      resolve(repoRoot, "data/gta vi ps5.xlsx"),
   ];
 }
 

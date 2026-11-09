@@ -195,6 +195,14 @@ const PRODUCTS: Record<string, ProductDefinition> = {
     fulfillmentType: "VOUCHER",
     requiresServerId: false,
   },
+  GTAVI: {
+    key: "gta-vi",
+    name: "Grand Theft Auto VI (PlayStation)",
+    image: "/gta-vi.webp",
+    categorySlug: "game-vouchers",
+    fulfillmentType: "VOUCHER",
+    requiresServerId: false,
+  },
 };
 
 const PRODUCT_CODE_PREFIXES = Object.keys(PRODUCTS).sort(

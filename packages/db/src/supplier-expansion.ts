@@ -6,6 +6,7 @@ export const PRODUCT_SUPPLIER_CATEGORIES: Record<string, readonly string[]> = {
   "binance-gift-card": ["BNGC"],
   "call-of-duty-mobile": ["CODM"],
   "free-fire": ["FF", "FFGLOBAL"],
+  "gta-vi": ["GTAVI"],
   "honor-of-kings": ["HOK"],
   "league-of-legends-pc": ["LOLPC"],
   "mobile-legends": ["ML"],
@@ -22,6 +23,7 @@ export const PRODUCT_SUPPLIER_CATEGORIES: Record<string, readonly string[]> = {
 
 /** Products whose supplier rows must not expand beyond approved markets. */
 export const PRODUCT_SUPPLIER_COUNTRIES: Record<string, readonly string[]> = {
+  "gta-vi": ["id", "my", "th", "sg"],
   "phantom-blade-zero": ["id"],
 };
 

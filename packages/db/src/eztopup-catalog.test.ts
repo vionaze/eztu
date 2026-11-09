@@ -342,6 +342,69 @@ test("parses Binance gift card SKU with live supplier cost and exact margins", (
   });
 });
 
+test("parses Grand Theft Auto VI PlayStation keys with web2 and web3 margins", () => {
+  const rows = [
+    [
+      "Country",
+      "Category Code",
+      "Category Name",
+      "Variant",
+      "Group Product Code",
+      "Product Code",
+      "Product Name",
+      "Recommended Price",
+      "Reseller Price",
+      "Status",
+      "SLA In Mins",
+      "MARGIN NON CRYPTO",
+      "MARGIN CRYPTO",
+    ],
+    [
+      "Indonesia",
+      "GTAVI",
+      "GTA VI PS5 Keys",
+      "VOUCHER",
+      "GTAVISE",
+      "GTAVISE-S22PO",
+      "Grand Theft Auto VI Standard Edition",
+      1_178_100,
+      1_115_750,
+      "available",
+      "INSTANT",
+      0.055,
+      0.065,
+    ],
+    [
+      "Malaysia",
+      "GTAVI",
+      "GTA VI PS5 Keys",
+      "VOUCHER",
+      "GTAVISE",
+      "GTAVISE-S22PO-my",
+      "Grand Theft Auto VI Standard Edition",
+      294.93,
+      1_165_710,
+      "available",
+      "INSTANT",
+      0.055,
+      0.065,
+    ],
+  ];
+
+  const result = parseCatalogSheetRows("GTA BARU", rows);
+
+  assert.equal(result.items.length, 2);
+  assert.equal(result.items[0].productKey, "gta-vi");
+  assert.equal(result.items[0].productName, "Grand Theft Auto VI (PlayStation)");
+  assert.equal(result.items[0].productImage, "/gta-vi.webp");
+  assert.equal(result.items[0].countryCode, "id");
+  assert.equal(result.items[0].supplierCostIDR, 1_115_750);
+  assert.equal(result.items[0].nonCryptoMarkupBps, 550);
+  assert.equal(result.items[0].cryptoMarkupBps, 650);
+  assert.equal(result.items[1].countryCode, "my");
+  assert.equal(result.items[1].supplierCostIDR, 1_165_710);
+});
+
 test("parses Phantom Blade Zero Steam CD keys with separate non-crypto and crypto margins", () => {
   const rows = [
     [
