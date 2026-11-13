@@ -120,6 +120,31 @@ ada di sisi WinPay: izinkan IP server, atau konfirmasi aturan WAF-nya. Kode suda
 ditambah `User-Agent` eksplisit dan kini menampilkan cuplikan body agar bukti blokir
 terlihat langsung.
 
+Konfirmasi tambahan (`pnpm winpay:status` di VPS, commit `81faa77`):
+
+```
+✓ PASS WINPAY_ENABLED — true
+✓ PASS WINPAY_KEY — terisi (12 char)
+✓ PASS WINPAY_SECRET_KEY — terisi (40 char)
+✓ PASS GET /api/payment/methods — retail winpay=true, reseller winpay=true, pakasir=true
+✓ PASS POST /api/payment/winpay/callback — 409 sesuai harapan
+✗ FAIL checkout API — HTTP 403 non-JSON, cf-ray a59b68efbf6ed369-FRA
+✗ FAIL SNAP API — HTTP 403 non-JSON, cf-ray a59b68f01a6fe7b8-FRA
+```
+
+Dua temuan penting:
+
+1. **Blokir berlaku di kedua host** (`checkout.winpay.id` *dan* `snap.winpay.id`),
+   sehingga berpindah ke SNAP API tidak akan menolong. Blokir bersifat IP/ASN,
+   bukan per-endpoint: dari IP publik Indonesia kedua host membalas JSON
+   (`4010100` dan `4002700`).
+2. App-side sudah sehat sepenuhnya (methods + callback). Satu-satunya blocker
+   adalah edge block di sisi WinPay.
+
+Catatan: `WINPAY_KEY` hanya 12 karakter, jauh lebih pendek dari contoh
+`X-PARTNER-ID` di dokumentasi (UUID 36 karakter). Jangan diubah dulu — setelah
+blokir dibuka, kegagalan auth akan terlihat jelas sebagai `4010100`.
+
 Langkah deploy berikutnya:
 
 ```bash
