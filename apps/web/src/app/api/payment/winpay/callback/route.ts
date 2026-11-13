@@ -44,6 +44,12 @@ export async function POST(request: NextRequest) {
     }
 
     const notification = parseWinpayCallback(rawBody);
+    // A payload with no reference at all is a malformed probe (health checks,
+    // scanners), not evidence of an attack: answer without a HIGH alert so the
+    // security channel keeps its signal.
+    if (!notification.ref && !notification.invoiceRef) {
+      return NextResponse.json({ error: "Missing invoice reference" }, { status: 409 });
+    }
     // Docs show `ref` and `invoice.ref` carrying different values; try both.
     const orderId =
       (await resolveOrderId(notification.ref)) ||

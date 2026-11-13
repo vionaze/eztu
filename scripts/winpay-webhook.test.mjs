@@ -231,3 +231,13 @@ test("an unknown order reference is rejected and reported", async () => {
     securityEvents.some((event) => event.eventType === "winpay_callback_unknown_order"),
   );
 });
+
+test("a probe without any order reference is rejected without a security alert", async () => {
+  const { route, applied, verified, securityEvents } = loadRoute();
+  const response = await route.POST(callback({}));
+
+  assert.equal(response.status, 409);
+  assert.equal(applied.length, 0);
+  assert.deepEqual(verified, []);
+  assert.deepEqual(securityEvents, []);
+});

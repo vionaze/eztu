@@ -73,13 +73,14 @@ kredensial WinPay + pengaturan URL callback di dashboard mereka.
 | `scripts/winpay-webhook.test.mjs` | 7 test integrasi route callback (pakai pola VM-stub `pakasir-webhook.test.mjs`) |
 | `scripts/winpay-preflight.mjs` + root scripts | Preflight kredensial: buat 1 invoice lalu baca ulang, tanpa menagih siapa pun |
 | `apps/web/src/lib/winpay-payment.ts` | Tidak berubah pada pass ini; dipakai apa adanya oleh test integrasi |
+| `apps/web/src/app/api/payment/winpay/callback/route.ts` (pass 3) | Payload tanpa `ref`/`invoice.ref` (probe health-check) dibalas 409 tanpa security event HIGH, supaya alert tidak bisa dibanjiri siapa pun |
 
 ## Verifikasi
 
 | Cek | Hasil |
 |---|---|
 | `pnpm --filter @kupon/payments test` | Lulus 20 test (13 di antaranya WinPay, termasuk clamp `interval` dan body callback non-objek) |
-| `pnpm test:webhooks` | Lulus 9 test (2 Pakasir + 7 WinPay): ACCEPTED hanya setelah invoice terbukti `PAID`, 503 saat belum dibayar, 409 saat nominal/ref salah, fallback `invoice.ref`, jalur B2B, order tak dikenal |
+| `pnpm test:webhooks` | Lulus 10 test (2 Pakasir + 8 WinPay): ACCEPTED hanya setelah invoice terbukti `PAID`, 503 saat belum dibayar, 409 saat nominal/ref salah, fallback `invoice.ref`, jalur B2B, order tak dikenal, dan probe tanpa referensi tidak memicu alert |
 | `node --experimental-strip-types --test src/lib/*.test.ts` (web) | 78/79 lulus; 1 gagal **pre-existing** (`b2b-delivery-export.test.ts` tidak bisa resolve paket `server-only` di luar bundler Next) |
 | `pnpm typecheck` (payments + web) | Lulus, tanpa error |
 | `pnpm lint` | 0 error di file yang diubah (dicek juga per-file dengan eslint); 6 error **pre-existing** di `Navbar.tsx`, `LoginClient.tsx`, `CookieConsent.tsx`, `(admin)/layout.tsx`, `CategoriesManager.tsx` |
