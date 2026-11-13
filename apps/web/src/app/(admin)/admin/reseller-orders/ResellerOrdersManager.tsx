@@ -147,7 +147,7 @@ export default function ResellerOrdersManager() {
               <div className="min-w-0">
                 <p className="font-[family-name:var(--font-geist-mono)] text-sm font-semibold">{order.orderNumber}</p>
                 <p className="mt-0.5 text-xs text-text-muted">
-                  {order.organizationName} · {new Date(order.createdAt).toLocaleString("en-GB")} · {order.paymentMethod === "CRYPTO" ? "Crypto" : "Pakasir"}
+                  {order.organizationName} · {new Date(order.createdAt).toLocaleString("en-GB")} · {order.paymentMethod === "CRYPTO" ? "Crypto" : order.paymentMethod === "WINPAY" ? "WinPay" : "Pakasir"}
                 </p>
                 {order.manualReviewReason ? (
                   <p className="mt-1 break-words text-xs text-orange-200">Review: {order.manualReviewReason}</p>

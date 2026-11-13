@@ -71,6 +71,28 @@ export async function POST(request: NextRequest) {
       notification,
       requestContext,
       source: "webhook",
+    }).catch(async (error: unknown) => {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      const unavailable =
+        message.includes("WinPay API error") ||
+        message.includes("aborted") ||
+        message.includes("timeout");
+      // A provider/transport failure must stay retryable for WinPay.
+      if (unavailable) throw error;
+      // Anything else is an integrity rejection: retrying cannot fix it.
+      await notifySecurityEvent({
+        eventType: "winpay_callback_rejected",
+        severity: "high",
+        action: "blocked",
+        reasons: [message],
+        requestContext,
+        orderId,
+        metadata: {
+          invoiceId: notification.invoiceId,
+          amountIDR: notification.amountIDR,
+        },
+      });
+      return { ok: false as const, status: 409, error: "Callback verification failed" };
     });
 
     if (!result.ok) {

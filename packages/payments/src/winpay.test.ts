@@ -323,3 +323,48 @@ test("fails closed on ref, amount, or status mismatch", () => {
     /ref, amount, status/,
   );
 });
+
+test("clamps the invoice interval into the range WinPay accepts", async () => {
+  const previous = {
+    key: process.env.WINPAY_KEY,
+    secret: process.env.WINPAY_SECRET_KEY,
+    fetch: globalThis.fetch,
+  };
+  process.env.WINPAY_KEY = "client-key";
+  process.env.WINPAY_SECRET_KEY = "secret-key";
+  const intervals: number[] = [];
+  globalThis.fetch = async (_input, init) => {
+    intervals.push(JSON.parse(String(init?.body)).interval);
+    return Response.json({
+      responseCode: "2010300",
+      responseData: {
+        id: "invoice-1",
+        ref: "cm-order_1",
+        redirect_url: "https://checkout.winpay.id/token",
+      },
+    });
+  };
+  const base = {
+    orderId: "cm-order_1",
+    productName: "x",
+    amountIDR: 10_000,
+    customerName: "Buyer",
+    customerEmail: "buyer@example.com",
+    customerPhone: "08000000000",
+    backUrl: "https://eztopup.io/order/success",
+  };
+  try {
+    await createWinpayInvoice({ ...base, expiryMinutes: 1 });
+    await createWinpayInvoice({ ...base, expiryMinutes: 5_000 });
+    assert.deepEqual(intervals, [5, 1440]);
+  } finally {
+    globalThis.fetch = previous.fetch;
+    restoreEnv("WINPAY_KEY", previous.key);
+    restoreEnv("WINPAY_SECRET_KEY", previous.secret);
+  }
+});
+
+test("rejects a callback body that is not a JSON object", () => {
+  assert.throws(() => parseWinpayCallback("[]"), /must be a JSON object/);
+  assert.throws(() => parseWinpayCallback("not-json"), SyntaxError);
+});

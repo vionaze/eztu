@@ -5,6 +5,7 @@ import { Button } from "@kupon/ui";
 import { FadeUp } from "@/components/motion/StaggerReveal";
 import { useLocale } from "@/context/LocaleContext";
 import { cn, formatPrice } from "@/lib/utils";
+import { paymentProviderLabel } from "@/lib/payment-provider";
 import CopyVoucherButton from "./CopyVoucherButton";
 import {
   ArrowSquareOut,
@@ -643,7 +644,7 @@ export default function PurchaseHistoryClient({
                             <dl>
                               <DetailRow
                                 label={labels.provider}
-                                value={formatNullable(order.paymentProvider)}
+                                value={paymentProviderLabel(order.paymentProvider)}
                               />
                               <DetailRow
                                 label={labels.currency}
