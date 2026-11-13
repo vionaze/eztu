@@ -103,6 +103,7 @@ test("creates an invoice with signed headers and a single price line", async () 
 
     const headers = new Headers(init?.headers);
     assert.equal(headers.get("X-Winpay-Key"), "client-key");
+    assert.equal(headers.get("User-Agent"), "EZTopUp/1.0 (+https://eztopup.io)");
     const timestamp = headers.get("X-Winpay-Timestamp") || "";
     assert.match(timestamp, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+07:00$/);
     assert.equal(
@@ -367,4 +368,63 @@ test("clamps the invoice interval into the range WinPay accepts", async () => {
 test("rejects a callback body that is not a JSON object", () => {
   assert.throws(() => parseWinpayCallback("[]"), /must be a JSON object/);
   assert.throws(() => parseWinpayCallback("not-json"), SyntaxError);
+});
+
+test("surfaces an edge block instead of hiding it behind Unknown API error", async () => {
+  const previous = {
+    key: process.env.WINPAY_KEY,
+    secret: process.env.WINPAY_SECRET_KEY,
+    fetch: globalThis.fetch,
+  };
+  process.env.WINPAY_KEY = "client-key";
+  process.env.WINPAY_SECRET_KEY = "secret-key";
+  globalThis.fetch = async () =>
+    new Response("<html><body><h1>Forbidden</h1></body></html>", {
+      status: 403,
+      headers: { "content-type": "text/html" },
+    });
+  try {
+    await assert.rejects(
+      () => findWinpayInvoice({ invoiceId: "a3ef3f93-7fcb-439a-889e-14976a46492e" }),
+      (error) =>
+        error instanceof Error &&
+        error.message.startsWith("WinPay API error: 403") &&
+        error.message.includes("Forbidden"),
+    );
+  } finally {
+    globalThis.fetch = previous.fetch;
+    restoreEnv("WINPAY_KEY", previous.key);
+    restoreEnv("WINPAY_SECRET_KEY", previous.secret);
+  }
+});
+
+test("surfaces a JSON rejection envelope with its response code", async () => {
+  const previous = {
+    key: process.env.WINPAY_KEY,
+    secret: process.env.WINPAY_SECRET_KEY,
+    fetch: globalThis.fetch,
+  };
+  process.env.WINPAY_KEY = "client-key";
+  process.env.WINPAY_SECRET_KEY = "secret-key";
+  globalThis.fetch = async () =>
+    Response.json(
+      {
+        responseCode: "4010100",
+        responseMessage: "Your have no access to this resource",
+      },
+      { status: 401 },
+    );
+  try {
+    await assert.rejects(
+      () => findWinpayInvoice({ invoiceId: "a3ef3f93-7fcb-439a-889e-14976a46492e" }),
+      (error) =>
+        error instanceof Error &&
+        error.message ===
+          "WinPay API error: 4010100 Your have no access to this resource",
+    );
+  } finally {
+    globalThis.fetch = previous.fetch;
+    restoreEnv("WINPAY_KEY", previous.key);
+    restoreEnv("WINPAY_SECRET_KEY", previous.secret);
+  }
 });

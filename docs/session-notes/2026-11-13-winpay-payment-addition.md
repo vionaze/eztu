@@ -74,12 +74,14 @@ kredensial WinPay + pengaturan URL callback di dashboard mereka.
 | `scripts/winpay-preflight.mjs` + root scripts | Preflight kredensial: buat 1 invoice lalu baca ulang, tanpa menagih siapa pun |
 | `apps/web/src/lib/winpay-payment.ts` | Tidak berubah pada pass ini; dipakai apa adanya oleh test integrasi |
 | `apps/web/src/app/api/payment/winpay/callback/route.ts` (pass 3) | Payload tanpa `ref`/`invoice.ref` (probe health-check) dibalas 409 tanpa security event HIGH, supaya alert tidak bisa dibanjiri siapa pun |
+| `packages/payments/src/winpay.ts` (pass 4) | Kirim `User-Agent` eksplisit (Cloudflare menandai request tanpa UA) dan tampilkan status + cuplikan body saat respons bukan JSON, bukan lagi `Unknown API error` |
+| `scripts/winpay-preflight.mjs` (pass 4) | Hint otomatis untuk `403` (blokir edge) dan `4010100/4010300` (credential ditolak) |
 
 ## Verifikasi
 
 | Cek | Hasil |
 |---|---|
-| `pnpm --filter @kupon/payments test` | Lulus 20 test (13 di antaranya WinPay, termasuk clamp `interval` dan body callback non-objek) |
+| `pnpm --filter @kupon/payments test` | Lulus 22 test (15 di antaranya WinPay, termasuk clamp `interval`, body callback non-objek, blokir edge 403, dan envelope 4010100) |
 | `pnpm test:webhooks` | Lulus 10 test (2 Pakasir + 8 WinPay): ACCEPTED hanya setelah invoice terbukti `PAID`, 503 saat belum dibayar, 409 saat nominal/ref salah, fallback `invoice.ref`, jalur B2B, order tak dikenal, dan probe tanpa referensi tidak memicu alert |
 | `node --experimental-strip-types --test src/lib/*.test.ts` (web) | 78/79 lulus; 1 gagal **pre-existing** (`b2b-delivery-export.test.ts` tidak bisa resolve paket `server-only` di luar bundler Next) |
 | `pnpm typecheck` (payments + web) | Lulus, tanpa error |
@@ -98,6 +100,22 @@ kredensial WinPay + pengaturan URL callback di dashboard mereka.
   lebih dulu (shadow deploy).
 - Blocker: `WINPAY_KEY` + `WINPAY_SECRET_KEY` dari dashboard WinPay, dan URL
   callback yang harus diset di sana.
+
+### Temuan produksi 2026-11-13 (belum tuntas)
+
+Setelah deploy `c963a47`, `POST /api/payment/create` dengan WinPay masih gagal
+dan customer melihat "WinPay checkout is temporarily unavailable". Diagnosis:
+
+- `pnpm winpay:preflight` **di VPS** → `WinPay API error: 403 Unknown API error`
+  (body non-JSON).
+- Probe dari IP lain tanpa kredensial → `HTTP 401` JSON
+  `{"responseCode":"4010100","responseMessage":"Your have no access to this resource"}`.
+
+Artinya endpoint dan signature tidak salah: **Cloudflare di depan WinPay memblokir
+request dari IP VPS** (403 halaman HTML), bukan penolakan API. Langkah berikutnya
+ada di sisi WinPay: izinkan IP server, atau konfirmasi aturan WAF-nya. Kode sudah
+ditambah `User-Agent` eksplisit dan kini menampilkan cuplikan body agar bukti blokir
+terlihat langsung.
 
 Langkah deploy berikutnya:
 

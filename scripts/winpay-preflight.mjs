@@ -63,7 +63,21 @@ let baseUrl;
 try {
   baseUrl = getWinpayBaseUrl();
 } catch (error) {
-  fail(error instanceof Error ? error.message : String(error));
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(`✗ ${message}`);
+  if (message.includes("WinPay API error: 403")) {
+    console.error(
+      "\nHint: 403 dengan body non-JSON adalah blokir edge (Cloudflare) terhadap\n" +
+        "IP/klien ini, bukan penolakan API. Minta WinPay mengizinkan IP server ini\n" +
+        "(atau jalankan dari IP yang sudah di-whitelist), lalu sertakan body 403 di atas.",
+    );
+  } else if (message.includes("4010100") || message.includes("4010300")) {
+    console.error(
+      "\nHint: credential ditolak. Pastikan WINPAY_KEY berisi Key (bukan Secret Key),\n" +
+        "tanpa spasi di akhir, dan akun aktif untuk produk Checkout Page (bukan hanya SNAP).",
+    );
+  }
+  process.exit(1);
 }
 
 const orderId = `preflight-${Date.now()}`;
@@ -94,5 +108,19 @@ try {
       "recognize to \"pending\", and the docs only document \"PAID\".",
   );
 } catch (error) {
-  fail(error instanceof Error ? error.message : String(error));
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(`✗ ${message}`);
+  if (message.includes("WinPay API error: 403")) {
+    console.error(
+      "\nHint: 403 dengan body non-JSON adalah blokir edge (Cloudflare) terhadap\n" +
+        "IP/klien ini, bukan penolakan API. Minta WinPay mengizinkan IP server ini\n" +
+        "(atau jalankan dari IP yang sudah di-whitelist), lalu sertakan body 403 di atas.",
+    );
+  } else if (message.includes("4010100") || message.includes("4010300")) {
+    console.error(
+      "\nHint: credential ditolak. Pastikan WINPAY_KEY berisi Key (bukan Secret Key),\n" +
+        "tanpa spasi di akhir, dan akun aktif untuk produk Checkout Page (bukan hanya SNAP).",
+    );
+  }
+  process.exit(1);
 }

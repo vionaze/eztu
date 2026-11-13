@@ -5,6 +5,8 @@ const WINPAY_SANDBOX_ORIGIN = "https://sandbox-checkout.winpay.id";
 const WINPAY_ALLOWED_ORIGINS = [WINPAY_PRODUCTION_ORIGIN, WINPAY_SANDBOX_ORIGIN];
 const WINPAY_REQUEST_TIMEOUT_MS = 10_000;
 const WINPAY_MAX_RESPONSE_BYTES = 64 * 1024;
+// WinPay sits behind Cloudflare, which flags requests that carry no user agent.
+const WINPAY_USER_AGENT = "EZTopUp/1.0 (+https://eztopup.io)";
 const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
 const WINPAY_ID_PATTERN = /^[A-Za-z0-9_-]{3,64}$/;
 const WINPAY_REF_PATTERN = /^[A-Za-z0-9_-]{3,64}$/;
@@ -190,6 +192,7 @@ async function requestWinpay(
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
+      "User-Agent": WINPAY_USER_AGENT,
       "X-Winpay-Timestamp": timestamp,
       "X-Winpay-Signature": createWinpaySignature(
         timestamp,
@@ -216,7 +219,16 @@ async function requestWinpay(
     data = null;
   }
   if (!response.ok || !data) {
-    throw new Error(`WinPay API error: ${response.status} Unknown API error`);
+    // Keep a short body snippet: an edge block (Cloudflare) answers with HTML,
+    // while a real API rejection answers with a responseCode JSON envelope.
+    const snippet = responseText.replace(/\s+/g, " ").trim().slice(0, 160);
+    const cfRay = response.headers.get("cf-ray");
+    const code = data ? optionalString(data, "responseCode") : null;
+    const message = data ? optionalString(data, "responseMessage") : null;
+    const detail = data
+      ? `${code || response.status} ${message || "Unknown API error"}`
+      : `${response.status} ${snippet || "empty body"}${cfRay ? ` (cf-ray ${cfRay})` : ""}`;
+    throw new Error(`WinPay API error: ${detail}`);
   }
   const responseCode = optionalString(data, "responseCode") || "";
   if (!responseCode.startsWith("2")) {
