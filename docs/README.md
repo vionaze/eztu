@@ -52,6 +52,9 @@ menulis "sudah live" tanpa verifikasi di production.
 - Deploy VPS: [`../README.md`](../README.md) bagian *Production deploy (VPS)*,
   script `scripts/deploy-vps.sh`.
 - Reseller/B2B: [`operations/reseller-phase2-deployment.md`](operations/reseller-phase2-deployment.md).
+- WinPay: [`operations/winpay-rollout-checklist.md`](operations/winpay-rollout-checklist.md)
+  — jalankan `pnpm winpay:status` (read-only) lalu `pnpm winpay:preflight`
+  sebelum menyatakan kanal ini siap.
 - Katalog produk: `data/*.xlsx` + `packages/db/src/import-eztopup-products.ts`;
   cek session note terakhir sebelum menambah game/produk.
 - Jangan menulis credential, token, atau password ke dokumentasi.

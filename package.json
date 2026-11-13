@@ -23,6 +23,7 @@
     "test:db": "pnpm --filter @kupon/db test",
     "test:webhooks": "node --experimental-strip-types --test scripts/pakasir-webhook.test.mjs scripts/winpay-webhook.test.mjs",
     "winpay:preflight": "node --experimental-strip-types scripts/winpay-preflight.mjs",
+    "winpay:status": "node --experimental-strip-types scripts/winpay-status.mjs",
     "prisma:generate": "pnpm --filter @kupon/db prisma:generate",
     "prisma:validate": "pnpm --filter @kupon/db prisma:validate",
     "deploy:vps": "bash scripts/deploy-vps.sh"

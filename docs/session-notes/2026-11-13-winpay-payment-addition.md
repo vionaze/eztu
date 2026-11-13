@@ -76,6 +76,9 @@ kredensial WinPay + pengaturan URL callback di dashboard mereka.
 | `apps/web/src/app/api/payment/winpay/callback/route.ts` (pass 3) | Payload tanpa `ref`/`invoice.ref` (probe health-check) dibalas 409 tanpa security event HIGH, supaya alert tidak bisa dibanjiri siapa pun |
 | `packages/payments/src/winpay.ts` (pass 4) | Kirim `User-Agent` eksplisit (Cloudflare menandai request tanpa UA) dan tampilkan status + cuplikan body saat respons bukan JSON, bukan lagi `Unknown API error` |
 | `scripts/winpay-preflight.mjs` (pass 4) | Hint otomatis untuk `403` (blokir edge) dan `4010100/4010300` (credential ditolak) |
+| `scripts/winpay-status.mjs` + `pnpm winpay:status` (pass 5) | Pemeriksaan read-only menyeluruh: env (dimask), `/api/payment/methods`, route callback, jangkauan kedua host WinPay |
+| `docs/operations/winpay-rollout-checklist.md` (pass 5) | Runbook verifikasi berurutan: repo, VPS, DB, E2E manual, kriteria go/no-go, peta gejala → aksi |
+| `package.json` (pass 5) | Skrip `winpay:status` dan `test:webhooks` |
 
 ## Verifikasi
 
