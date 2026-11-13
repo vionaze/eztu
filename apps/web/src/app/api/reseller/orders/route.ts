@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     const organizationId = typeof body.organizationId === "string" ? body.organizationId.trim() : "";
     const quoteToken = typeof body.quoteToken === "string" ? body.quoteToken : "";
     const idempotencyKey = typeof body.idempotencyKey === "string" ? body.idempotencyKey.trim() : "";
-    const paymentMethod = body.paymentMethod === "CRYPTO" || body.paymentMethod === "PAKASIR" ? body.paymentMethod : null;
+    const paymentMethod = body.paymentMethod === "CRYPTO" || body.paymentMethod === "PAKASIR" || body.paymentMethod === "WINPAY" ? body.paymentMethod : null;
     if (!organizationId || !quoteToken || !/^[A-Za-z0-9_-]{8,120}$/.test(idempotencyKey) || !paymentMethod) {
       return resellerJson({ error: "Invalid order request." }, 400);
     }

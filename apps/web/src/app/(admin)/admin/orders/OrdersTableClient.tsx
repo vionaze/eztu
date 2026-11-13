@@ -1,5 +1,6 @@
 "use client";
 
+import { paymentProviderLabel } from "@/lib/payment-provider";
 import { useMemo, useState } from "react";
 import { formatPrice, cn, formatAdminDateTime } from "@/lib/utils";
 import { Badge, Button, Card } from "@kupon/ui";
@@ -56,9 +57,7 @@ const statusStyles: Record<string, string> = {
 };
 
 function gatewayLabel(provider: string | null) {
-  if (provider === "cryptomus") return "Cryptomus";
-  if (provider === "pakasir") return "Pakasir";
-  return "—";
+  return paymentProviderLabel(provider);
 }
 
 function isRealGameId(gameId: string, fulfillmentType: string | null) {

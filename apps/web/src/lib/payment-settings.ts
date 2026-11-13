@@ -1,5 +1,5 @@
 import "server-only";
-import { isPakasirCheckoutEnabled } from "@kupon/payments";
+import { isPakasirCheckoutEnabled, isWinpayCheckoutEnabled } from "@kupon/payments";
 import { getSetting, setSetting } from "@/lib/settings";
 import {
   evaluateCryptoAvailability,
@@ -14,8 +14,10 @@ export const PAYMENT_SETTING_KEYS = {
   CRYPTO_DISABLED_COUNTRIES: "payments.crypto.disabledCountries",
   CRYPTO_DISABLED_UNTIL: "payments.crypto.disabledUntil",
   PAKASIR_ENABLED: "payments.pakasir.enabled",
+  WINPAY_ENABLED: "payments.winpay.enabled",
   RESELLER_CRYPTO_ENABLED: "payments.reseller.crypto.enabled",
   RESELLER_PAKASIR_ENABLED: "payments.reseller.pakasir.enabled",
+  RESELLER_WINPAY_ENABLED: "payments.reseller.winpay.enabled",
 } as const;
 
 export type CryptoCheckoutSettings = CryptoAvailabilitySettings;
@@ -57,6 +59,20 @@ export async function isPakasirEnabledForCheckout(): Promise<boolean> {
   return getPakasirAdminEnabled();
 }
 
+/**
+ * WinPay runs alongside Pakasir during the migration. The same rule applies:
+ * the env gate stays authoritative and the admin switch can only turn it off.
+ */
+export async function getWinpayAdminEnabled(): Promise<boolean> {
+  const raw = await getSetting(PAYMENT_SETTING_KEYS.WINPAY_ENABLED, "true");
+  return raw.trim().toLowerCase() !== "false";
+}
+
+export async function isWinpayEnabledForCheckout(): Promise<boolean> {
+  if (!isWinpayCheckoutEnabled()) return false;
+  return getWinpayAdminEnabled();
+}
+
 /** Reseller (B2B) checkout is gated separately from the retail storefront. */
 export async function getResellerCryptoAdminEnabled(): Promise<boolean> {
   const raw = await getSetting(
@@ -81,6 +97,19 @@ export async function isResellerCryptoEnabledForCheckout(): Promise<boolean> {
 export async function isResellerPakasirEnabledForCheckout(): Promise<boolean> {
   if (!isPakasirCheckoutEnabled()) return false;
   return getResellerPakasirAdminEnabled();
+}
+
+export async function getResellerWinpayAdminEnabled(): Promise<boolean> {
+  const raw = await getSetting(
+    PAYMENT_SETTING_KEYS.RESELLER_WINPAY_ENABLED,
+    "true",
+  );
+  return raw.trim().toLowerCase() !== "false";
+}
+
+export async function isResellerWinpayEnabledForCheckout(): Promise<boolean> {
+  if (!isWinpayCheckoutEnabled()) return false;
+  return getResellerWinpayAdminEnabled();
 }
 
 export async function saveCryptoCheckoutSettings(input: {

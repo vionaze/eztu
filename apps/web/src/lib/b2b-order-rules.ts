@@ -6,7 +6,7 @@ export const B2B_QUOTE_TTL_MINUTES = 15;
 /** Maximum number of distinct packages in one order. */
 export const MAX_B2B_ORDER_LINES = 10;
 
-export type B2BPaymentMethodValue = "CRYPTO" | "PAKASIR";
+export type B2BPaymentMethodValue = "CRYPTO" | "PAKASIR" | "WINPAY";
 
 export type B2BQuoteLine = {
   variantId: string;

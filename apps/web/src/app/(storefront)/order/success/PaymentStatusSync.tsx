@@ -60,7 +60,7 @@ export default function PaymentStatusSync() {
     if (!hasReference) return;
 
     let cancelled = false;
-    let pakasirSyncAttempted = false;
+    const idrSyncAttempted = new Set<string>();
     let timer: number | null = null;
 
     async function syncPaymentStatus() {
@@ -84,15 +84,19 @@ export default function PaymentStatusSync() {
         }
 
         let verified = data;
+        const idrProvider =
+          data.paymentProvider === "winpay" || data.paymentProvider === "pakasir"
+            ? data.paymentProvider
+            : null;
         if (
           orderId &&
-          data.paymentProvider === "pakasir" &&
-          !pakasirSyncAttempted &&
+          idrProvider &&
+          !idrSyncAttempted.has(idrProvider) &&
           data.status &&
           !SUCCESS_STATUSES.has(data.status)
         ) {
-          pakasirSyncAttempted = true;
-          const syncResponse = await fetch("/api/payment/pakasir/sync", {
+          idrSyncAttempted.add(idrProvider);
+          const syncResponse = await fetch(`/api/payment/${idrProvider}/sync`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ orderId }),

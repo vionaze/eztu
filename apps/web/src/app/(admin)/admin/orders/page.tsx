@@ -17,7 +17,7 @@ export default async function AdminOrdersPage({
   const orders = await prisma.order.findMany({
     where: {
       ...(status !== "ALL" ? { status: status as never } : {}),
-      ...(gateway === "cryptomus" || gateway === "pakasir"
+      ...(gateway === "cryptomus" || gateway === "pakasir" || gateway === "winpay"
         ? { paymentProvider: gateway }
         : {}),
       ...(q

@@ -153,6 +153,7 @@ enum B2BOrderStatus {
 enum B2BPaymentMethod {
   CRYPTO
   PAKASIR
+  WINPAY
 }
 
 enum B2BPaymentIntentStatus {

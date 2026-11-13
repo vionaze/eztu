@@ -21,6 +21,7 @@ import { findActiveAccessBlock } from "@/lib/access-block";
 import {
   getCryptoAvailability,
   isPakasirEnabledForCheckout,
+  isWinpayEnabledForCheckout,
 } from "@/lib/payment-settings";
 import {
   AccountBannedError,
@@ -65,6 +66,10 @@ function getPaymentErrorMessage(error: unknown) {
     return "Pakasir checkout is temporarily unavailable. Please choose crypto or try again.";
   }
 
+  if (error.message.includes("WinPay") || error.message.includes("WINPAY_")) {
+    return "WinPay checkout is temporarily unavailable. Please choose another method or try again.";
+  }
+
   return "Failed to create payment";
 }
 
@@ -98,7 +103,9 @@ export async function POST(request: NextRequest) {
     const quoteToken =
       typeof body.quoteToken === "string" ? body.quoteToken.trim() : "";
     const paymentMethod =
-      body.paymentMethod === "crypto" || body.paymentMethod === "pakasir"
+      body.paymentMethod === "crypto" ||
+      body.paymentMethod === "pakasir" ||
+      body.paymentMethod === "winpay"
         ? body.paymentMethod
         : null;
     const marketCode =
@@ -188,7 +195,7 @@ export async function POST(request: NextRequest) {
 
     if (!paymentMethod) {
       return NextResponse.json(
-        { error: "Please choose Crypto or Pakasir as your payment method." },
+        { error: "Please choose Crypto, Pakasir, or WinPay as your payment method." },
         { status: 400 },
       );
     }
@@ -267,7 +274,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             error:
-              "Crypto payment is unavailable in your region. Please choose Pakasir.",
+              "Crypto payment is unavailable in your region. Please choose Pakasir or WinPay.",
             code: "CRYPTO_UNAVAILABLE_REGION",
           },
           { status: 400 },
@@ -417,6 +424,13 @@ export async function POST(request: NextRequest) {
       !(await isPakasirEnabledForCheckout())
     ) {
       return NextResponse.json({ error: "Pakasir is currently unavailable. Please choose Crypto.", code: "PAKASIR_UNAVAILABLE" }, { status: 503 });
+    }
+    if (
+      quote.totalUSDCents > 0 &&
+      paymentMethod === "winpay" &&
+      !(await isWinpayEnabledForCheckout())
+    ) {
+      return NextResponse.json({ error: "WinPay is currently unavailable. Please choose another method.", code: "WINPAY_UNAVAILABLE" }, { status: 503 });
     }
     return NextResponse.json(await createCheckoutOrder({
       userId: authenticatedUser.dbUserId, email, gameId, serverId, productId,

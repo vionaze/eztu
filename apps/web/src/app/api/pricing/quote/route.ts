@@ -16,7 +16,7 @@ import {
   getDetectedMarketCode,
   isProductExcludedFromMarket,
 } from "@/lib/product-availability";
-import { getCryptoAvailability, isPakasirEnabledForCheckout } from "@/lib/payment-settings";
+import { getCryptoAvailability, isPakasirEnabledForCheckout, isWinpayEnabledForCheckout } from "@/lib/payment-settings";
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,10 +24,15 @@ export async function GET(request: NextRequest) {
     const quantity = Number(request.nextUrl.searchParams.get("quantity") || "1");
     const marketCode =
       request.nextUrl.searchParams.get("marketCode")?.trim().toLowerCase() || "";
+    const requestedMethod =
+      request.nextUrl.searchParams.get("paymentMethod")?.trim() || "";
+    // WinPay and Pakasir are both IDR rails; crypto is the only USD rail.
     const paymentMethod =
-      request.nextUrl.searchParams.get("paymentMethod") === "crypto"
+      requestedMethod === "crypto"
         ? "crypto"
-        : "pakasir";
+        : requestedMethod === "winpay"
+          ? "winpay"
+          : "pakasir";
     if (
       !variantId ||
       !Number.isInteger(quantity) ||
@@ -89,6 +94,19 @@ export async function GET(request: NextRequest) {
         {
           error: "Pakasir is currently unavailable. Please choose Crypto.",
           code: "PAKASIR_UNAVAILABLE",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (
+      paymentMethod === "winpay" &&
+      !(await isWinpayEnabledForCheckout())
+    ) {
+      return NextResponse.json(
+        {
+          error: "WinPay is currently unavailable. Please choose another method.",
+          code: "WINPAY_UNAVAILABLE",
         },
         { status: 400 },
       );

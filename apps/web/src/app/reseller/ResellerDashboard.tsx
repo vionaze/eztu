@@ -26,7 +26,7 @@ import { CartButton, OrderModal, OrdersPanel, type CartLine, type ResellerOrder 
 
 type Variant = { id: string; name: string; countryCode: string | null; priceIDR: number };
 type Product = { id: string; name: string; slug: string; image: string | null; variants: Variant[] };
-type Catalog = { products: Product[]; quotedAt: string; orderingEnabled?: boolean; defaultPaymentMethod?: "CRYPTO" | "PAKASIR" };
+type Catalog = { products: Product[]; quotedAt: string; orderingEnabled?: boolean; defaultPaymentMethod?: "CRYPTO" | "PAKASIR" | "WINPAY" };
 type Quote = { variantId: string; unitPriceIDR: number; totalIDR: number; quantity: number; quotedAt: string };
 
 const money = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });

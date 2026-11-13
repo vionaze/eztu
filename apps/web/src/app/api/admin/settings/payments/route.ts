@@ -6,6 +6,8 @@ import {
   getPakasirAdminEnabled,
   getResellerCryptoAdminEnabled,
   getResellerPakasirAdminEnabled,
+  getResellerWinpayAdminEnabled,
+  getWinpayAdminEnabled,
   PAYMENT_SETTING_KEYS,
   saveCryptoCheckoutSettings,
 } from "@/lib/payment-settings";
@@ -24,20 +26,30 @@ export async function GET() {
   }
 
   try {
-    const [crypto, pakasirEnabled, resellerCryptoEnabled, resellerPakasirEnabled] =
-      await Promise.all([
-        getCryptoCheckoutSettings(),
-        getPakasirAdminEnabled(),
-        getResellerCryptoAdminEnabled(),
-        getResellerPakasirAdminEnabled(),
-      ]);
+    const [
+      crypto,
+      pakasirEnabled,
+      winpayEnabled,
+      resellerCryptoEnabled,
+      resellerPakasirEnabled,
+      resellerWinpayEnabled,
+    ] = await Promise.all([
+      getCryptoCheckoutSettings(),
+      getPakasirAdminEnabled(),
+      getWinpayAdminEnabled(),
+      getResellerCryptoAdminEnabled(),
+      getResellerPakasirAdminEnabled(),
+      getResellerWinpayAdminEnabled(),
+    ]);
     return NextResponse.json(
       {
         settings: {
           ...crypto,
           pakasirEnabled,
+          winpayEnabled,
           resellerCryptoEnabled,
           resellerPakasirEnabled,
+          resellerWinpayEnabled,
         },
       },
       { headers: { "Cache-Control": "no-store" } },
@@ -64,8 +76,10 @@ export async function PUT(request: Request) {
       disabledCountries?: unknown;
       disabledUntil?: unknown;
       pakasirEnabled?: unknown;
+      winpayEnabled?: unknown;
       resellerCryptoEnabled?: unknown;
       resellerPakasirEnabled?: unknown;
+      resellerWinpayEnabled?: unknown;
     };
     const current = await getCryptoCheckoutSettings();
 
@@ -98,6 +112,18 @@ export async function PUT(request: Request) {
       );
     }
 
+    const winpayEnabled =
+      typeof body.winpayEnabled === "boolean"
+        ? body.winpayEnabled
+        : await getWinpayAdminEnabled();
+
+    if (typeof body.winpayEnabled === "boolean") {
+      await setSetting(
+        PAYMENT_SETTING_KEYS.WINPAY_ENABLED,
+        winpayEnabled ? "true" : "false",
+      );
+    }
+
     const resellerCryptoEnabled =
       typeof body.resellerCryptoEnabled === "boolean"
         ? body.resellerCryptoEnabled
@@ -122,12 +148,26 @@ export async function PUT(request: Request) {
       );
     }
 
+    const resellerWinpayEnabled =
+      typeof body.resellerWinpayEnabled === "boolean"
+        ? body.resellerWinpayEnabled
+        : await getResellerWinpayAdminEnabled();
+
+    if (typeof body.resellerWinpayEnabled === "boolean") {
+      await setSetting(
+        PAYMENT_SETTING_KEYS.RESELLER_WINPAY_ENABLED,
+        resellerWinpayEnabled ? "true" : "false",
+      );
+    }
+
     return NextResponse.json({
       settings: {
         ...settings,
         pakasirEnabled,
+        winpayEnabled,
         resellerCryptoEnabled,
         resellerPakasirEnabled,
+        resellerWinpayEnabled,
       },
     });
   } catch (error) {

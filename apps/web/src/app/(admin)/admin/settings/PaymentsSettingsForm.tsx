@@ -14,8 +14,21 @@ type Initial = {
   disabledCountries: string;
   disabledUntil: string | null;
   pakasirEnabled: boolean;
+  winpayEnabled: boolean;
   resellerCryptoEnabled: boolean;
   resellerPakasirEnabled: boolean;
+  resellerWinpayEnabled: boolean;
+};
+
+type FormState = {
+  enabled: boolean;
+  pakasirEnabled: boolean;
+  winpayEnabled: boolean;
+  resellerCryptoEnabled: boolean;
+  resellerPakasirEnabled: boolean;
+  resellerWinpayEnabled: boolean;
+  countries: string;
+  until: string;
 };
 
 function toLocalInput(iso: string | null) {
@@ -33,11 +46,15 @@ function daysFromNow(days: number) {
 export default function PaymentsSettingsForm({ initial }: { initial: Initial }) {
   const [enabled, setEnabled] = useState(initial.enabled);
   const [pakasirEnabled, setPakasirEnabled] = useState(initial.pakasirEnabled);
+  const [winpayEnabled, setWinpayEnabled] = useState(initial.winpayEnabled);
   const [resellerCryptoEnabled, setResellerCryptoEnabled] = useState(
     initial.resellerCryptoEnabled,
   );
   const [resellerPakasirEnabled, setResellerPakasirEnabled] = useState(
     initial.resellerPakasirEnabled,
+  );
+  const [resellerWinpayEnabled, setResellerWinpayEnabled] = useState(
+    initial.resellerWinpayEnabled,
   );
   const [countries, setCountries] = useState(initial.disabledCountries);
   const [until, setUntil] = useState(toLocalInput(initial.disabledUntil));
@@ -45,17 +62,22 @@ export default function PaymentsSettingsForm({ initial }: { initial: Initial }) 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
+  const current = (): FormState => ({
+    enabled,
+    pakasirEnabled,
+    winpayEnabled,
+    resellerCryptoEnabled,
+    resellerPakasirEnabled,
+    resellerWinpayEnabled,
+    countries,
+    until,
+  });
+
   const persist = async (
-    payload: {
-      enabled: boolean;
-      pakasirEnabled: boolean;
-      resellerCryptoEnabled: boolean;
-      resellerPakasirEnabled: boolean;
-      countries: string;
-      until: string;
-    },
+    overrides: Partial<FormState>,
     revert?: () => void,
   ) => {
+    const payload = { ...current(), ...overrides };
     setSaving(true);
     setMessage("");
     setError("");
@@ -66,8 +88,10 @@ export default function PaymentsSettingsForm({ initial }: { initial: Initial }) 
         body: JSON.stringify({
           enabled: payload.enabled,
           pakasirEnabled: payload.pakasirEnabled,
+          winpayEnabled: payload.winpayEnabled,
           resellerCryptoEnabled: payload.resellerCryptoEnabled,
           resellerPakasirEnabled: payload.resellerPakasirEnabled,
+          resellerWinpayEnabled: payload.resellerWinpayEnabled,
           disabledCountries: payload.countries,
           disabledUntil: payload.until ? new Date(payload.until).toISOString() : "",
         }),
@@ -161,6 +185,21 @@ export default function PaymentsSettingsForm({ initial }: { initial: Initial }) 
     );
   };
 
+  const toggleWinpay = () => {
+    const next = !winpayEnabled;
+    setWinpayEnabled(next);
+    void persist({ winpayEnabled: next }, () => setWinpayEnabled(winpayEnabled));
+  };
+
+  const toggleResellerWinpay = () => {
+    const next = !resellerWinpayEnabled;
+    setResellerWinpayEnabled(next);
+    void persist(
+      { resellerWinpayEnabled: next },
+      () => setResellerWinpayEnabled(resellerWinpayEnabled),
+    );
+  };
+
   return (
     <div className="space-y-3">
       <div className="admin-bento admin-bento-2">
@@ -220,6 +259,34 @@ export default function PaymentsSettingsForm({ initial }: { initial: Initial }) 
             </button>
           </div>
         </div>
+        <div className="admin-tile border-teal-400/15">
+          <div className="admin-tile-header">
+            <div className="flex items-center gap-2 min-w-0">
+              <CreditCard size={16} className="text-teal-300 shrink-0" />
+              <div>
+                <p className="admin-tile-title">WinPay (retail)</p>
+                <p className="admin-tile-desc">
+                  Hanya storefront. OFF menyembunyikan QRIS/VA/e-wallet WinPay. Env tetap syarat utama.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={winpayEnabled}
+              onClick={toggleWinpay}
+              className={`relative h-6 w-11 shrink-0 rounded-full transition-colors cursor-pointer ${
+                winpayEnabled ? "bg-emerald-500/80" : "bg-zinc-600"
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+                  winpayEnabled ? "translate-x-5" : ""
+                }`}
+              />
+            </button>
+          </div>
+        </div>
         <div className="admin-tile border-violet-400/15">
           <div className="admin-tile-header">
             <div className="flex items-center gap-2 min-w-0">
@@ -271,6 +338,34 @@ export default function PaymentsSettingsForm({ initial }: { initial: Initial }) 
               <span
                 className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
                   resellerPakasirEnabled ? "translate-x-5" : ""
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+        <div className="admin-tile border-cyan-400/15">
+          <div className="admin-tile-header">
+            <div className="flex items-center gap-2 min-w-0">
+              <CreditCard size={16} className="text-cyan-300 shrink-0" />
+              <div>
+                <p className="admin-tile-title">WinPay (reseller)</p>
+                <p className="admin-tile-desc">
+                  Portal reseller via QRIS/VA WinPay. Terpisah dari switch retail.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={resellerWinpayEnabled}
+              onClick={toggleResellerWinpay}
+              className={`relative h-6 w-11 shrink-0 rounded-full transition-colors cursor-pointer ${
+                resellerWinpayEnabled ? "bg-emerald-500/80" : "bg-zinc-600"
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+                  resellerWinpayEnabled ? "translate-x-5" : ""
                 }`}
               />
             </button>

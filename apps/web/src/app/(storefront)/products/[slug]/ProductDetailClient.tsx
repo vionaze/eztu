@@ -25,6 +25,7 @@ import {
   Clock,
   CurrencyBtc,
   CreditCard,
+  Bank,
   Check,
   User,
   Minus,
@@ -57,7 +58,7 @@ type LiveQuote = {
   expiresAt: string;
 };
 
-type PaymentMethod = "crypto" | "pakasir";
+type PaymentMethod = "crypto" | "pakasir" | "winpay";
 
 type PakasirDisplayPrice = {
   priceIDR: number;
@@ -88,6 +89,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
   const [isQuoteLoading, setIsQuoteLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [pakasirEnabled, setPakasirEnabled] = useState(false);
+  const [winpayEnabled, setWinpayEnabled] = useState(false);
   const [cryptoEnabled, setCryptoEnabled] = useState(true);
   const [paymentsLoaded, setPaymentsLoaded] = useState(false);
   const [pakasirDisplayPrices, setPakasirDisplayPrices] = useState<
@@ -132,6 +134,12 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
   const selectedPakasirDisplayPrice = variant
     ? pakasirDisplayPrices[variant.id]
     : undefined;
+  const enabledMethodCount =
+    Number(cryptoEnabled) + Number(pakasirEnabled) + Number(winpayEnabled);
+  // Both hosted IDR rails share the same copy and amount display.
+  const isIdrMethod =
+    paymentMethod === "pakasir" || paymentMethod === "winpay";
+  const idrMethodLabel = paymentMethod === "winpay" ? "WinPay" : "Pakasir";
   const quotedVariantId = liveQuote?.variantId;
   const loginEmail = user?.primaryEmailAddress?.emailAddress || "";
   const recipientEmail = emailWasEdited ? email : loginEmail;
@@ -306,23 +314,23 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
         const data = (await response.json()) as {
           crypto?: { enabled?: boolean };
           pakasir?: { enabled?: boolean };
+          winpay?: { enabled?: boolean };
         };
         const cryptoAvailable = data.crypto?.enabled !== false;
         const pakasirAvailable = Boolean(data.pakasir?.enabled);
+        const winpayAvailable = Boolean(data.winpay?.enabled);
         setCryptoEnabled(cryptoAvailable);
         setPakasirEnabled(pakasirAvailable);
+        setWinpayEnabled(winpayAvailable);
+        const available = [
+          cryptoAvailable ? "crypto" : null,
+          pakasirAvailable ? "pakasir" : null,
+          winpayAvailable ? "winpay" : null,
+        ].filter((method): method is PaymentMethod => method !== null);
         setPaymentMethod((current) => {
-          if (current === "crypto" && !cryptoAvailable) {
-            return pakasirAvailable ? "pakasir" : null;
-          }
-          if (current === "pakasir" && !pakasirAvailable) {
-            return cryptoAvailable ? "crypto" : null;
-          }
-          if (!current) {
-            if (cryptoAvailable && !pakasirAvailable) return "crypto";
-            if (pakasirAvailable && !cryptoAvailable) return "pakasir";
-          }
-          return current;
+          if (current && available.includes(current)) return current;
+          // Preserve the old behaviour: auto-select only when there is no choice.
+          return available.length === 1 ? available[0] : null;
         });
       })
       .catch((error) => {
@@ -461,7 +469,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
     variant && (!liveQuote || liveQuote.totalUSDCents > 0)
   );
   const paymentsUnavailable =
-    paymentsLoaded && requiresPaymentChoice && !cryptoEnabled && !pakasirEnabled;
+    paymentsLoaded && requiresPaymentChoice && !cryptoEnabled && !pakasirEnabled && !winpayEnabled;
   const checkoutDisabled =
     isCheckingOut ||
     isQuoteLoading ||
@@ -752,7 +760,13 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                       A fresh final quote is generated and verified by the server.
                     </p>
                   </div>
-                  <div className={cn("grid grid-cols-1 gap-2", cryptoEnabled && pakasirEnabled && "sm:grid-cols-2")}>
+                  <div
+                    className={cn(
+                      "grid grid-cols-1 gap-2",
+                      enabledMethodCount >= 2 && "sm:grid-cols-2",
+                      enabledMethodCount >= 3 && "lg:grid-cols-3",
+                    )}
+                  >
                     <button
                       type="button"
                       onClick={() => {
@@ -818,6 +832,40 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                       <span className="mt-1 block text-xs text-text-muted">
                         {pakasirEnabled
                           ? "QRIS and Indonesian Virtual Accounts"
+                          : "Currently unavailable"}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!winpayEnabled) return;
+                        setPaymentMethod("winpay");
+                        trackProductEvent({
+                          productId: product.id,
+                          variantId: variant?.id,
+                          eventType: "PAYMENT_METHOD_SELECTED",
+                          countryCode: country.supplierCode,
+                          paymentMethod: "winpay",
+                        });
+                      }}
+                      disabled={!winpayEnabled}
+                      hidden={!winpayEnabled}
+                      className={cn(
+                        "rounded-xl border p-3 text-left transition-all",
+                        paymentMethod === "winpay"
+                          ? "border-accent bg-accent/10"
+                          : "border-border bg-bg-card hover:border-accent/40",
+                        !winpayEnabled &&
+                          "cursor-not-allowed opacity-45 hover:border-border"
+                      )}
+                    >
+                      <span className="flex items-center gap-2 font-medium text-text-primary">
+                        <Bank size={18} />
+                        WinPay
+                      </span>
+                      <span className="mt-1 block text-xs text-text-muted">
+                        {winpayEnabled
+                          ? "QRIS, VA, and e-wallet"
                           : "Currently unavailable"}
                       </span>
                     </button>
@@ -891,10 +939,10 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                     </p>
                   </div>
                 )}
-                {liveQuote && paymentMethod === "pakasir" ? (
+                {liveQuote && isIdrMethod ? (
                   <div className="mt-3 rounded-xl border border-sky-400/20 bg-sky-400/5 p-3 text-xs leading-relaxed text-sky-100/90">
                     Pay exactly <strong>{formatPrice(liveQuote.totalIDR)}</strong>{" "}
-                    on Pakasir&apos;s secure hosted payment page.
+                    on {idrMethodLabel}&apos;s secure hosted payment page.
                   </div>
                 ) : null}
                 {quoteError && !paymentsUnavailable && (
@@ -932,10 +980,10 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                     <Check size={18} weight="bold" />
                     Claim for Free
                   </>
-                ) : paymentMethod === "pakasir" ? (
+                ) : isIdrMethod ? (
                   <>
                     <CreditCard size={18} weight="bold" />
-                    Pay with Pakasir
+                    Pay with {idrMethodLabel}
                   </>
                 ) : paymentMethod === "crypto" ? (
                   <>
@@ -960,7 +1008,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                   Secure USDT / USDC checkout
                 </p>
               )}
-              {paymentMethod === "pakasir" && gameAccountReady ? (
+              {isIdrMethod && gameAccountReady ? (
                 <p className="mt-2 text-center text-xs text-text-muted">
                   Secure hosted checkout · QRIS and Indonesian Virtual Accounts
                 </p>

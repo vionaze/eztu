@@ -95,6 +95,7 @@ export default function OrdersFilterClient({
           ["all", "All"],
           ["cryptomus", "Cryptomus"],
           ["pakasir", "Pakasir"],
+          ["winpay", "WinPay"],
         ].map(([value, label]) => (
           <button
             key={value}

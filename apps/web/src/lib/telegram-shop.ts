@@ -2,7 +2,7 @@ import "server-only";
 import { PurchaseCooldownError, enforcePurchaseCooldown } from "@/lib/purchase-cooldown";
 import { randomBytes, randomUUID } from "node:crypto";
 import { prisma, type Prisma } from "@kupon/db";
-import { isPakasirCheckoutEnabled } from "@kupon/payments";
+import { isPakasirCheckoutEnabled, isWinpayCheckoutEnabled } from "@kupon/payments";
 import { createCheckoutOrder } from "@/lib/checkout-order";
 import { createPricingQuote, getUsdIdrRate, signPricingQuote, verifyPricingQuote } from "@/lib/fx";
 import { getFreshVariantPricing } from "@/lib/supplier-pricing";
@@ -76,17 +76,19 @@ async function methods(chatId: string, state: ShopState) {
   await save(chatId, state);
   const rows = [[button("Crypto · Cryptomus", `pay:${state.nonce}:crypto`)]];
   if (isPakasirCheckoutEnabled()) rows.unshift([button("QRIS / VA · Pakasir", `pay:${state.nonce}:pakasir`)]);
+  if (isWinpayCheckoutEnabled()) rows.unshift([button("QRIS / VA · WinPay", `pay:${state.nonce}:winpay`)]);
   await shopMessage(chatId, "Select a payment method. Supplier pricing and availability will be checked. For crypto, the quantity is automatically increased to reach at least IDR 45,000 and $2.50.", rows);
 }
 
-async function showQuote(chatId: string, state: ShopState, paymentMethod: "crypto" | "pakasir") {
+async function showQuote(chatId: string, state: ShopState, paymentMethod: "crypto" | "pakasir" | "winpay") {
   if (paymentMethod === "pakasir" && !isPakasirCheckoutEnabled()) return methods(chatId, state);
+  if (paymentMethod === "winpay" && !isWinpayCheckoutEnabled()) return methods(chatId, state);
   const variant = await selectedVariant(state);
   const fresh = await getFreshVariantPricing(variant, paymentMethod);
   const rate = await getUsdIdrRate();
   const quantity = Math.max(state.quantity || 1, paymentMethod === "crypto" ? getCryptoMinimumQuantity(fresh.unitPriceIDR, rate.usdIdrRate) : 1);
   if (quantity > MAX_SELF_SERVICE_QUANTITY) {
-    await shopMessage(chatId, "This SKU requires more than 20 units to meet the crypto minimum. Choose Pakasir or contact /support.");
+    await shopMessage(chatId, "This SKU requires more than 20 units to meet the crypto minimum. Choose an IDR payment method or contact /support.");
     return methods(chatId, state);
   }
   const quote = createPricingQuote({ variantId: variant.id, quantity, paymentMethod,
@@ -99,7 +101,7 @@ async function showQuote(chatId: string, state: ShopState, paymentMethod: "crypt
   // Store payment method in the server-signed quote, not in callback input.
   await save(chatId, state);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://eztopup.io";
-  await shopMessage(chatId, `${variant.product.name}\n${variant.name}\nRegion: ${state.market?.toUpperCase()}\n${variant.product.fulfillmentType === "TOP_UP" ? `ID: ${state.gameId}${state.serverId ? ` (${state.serverId})` : ""}\n` : ""}Email: ${state.email}\nQuantity: ${quantity}\nUnit price: ${money(quote.unitPriceIDR)}\nTotal: ${money(quote.totalIDR)} / $${(quote.totalUSDCents / 100).toFixed(2)}\nPayment: ${paymentMethod === "crypto" ? "Cryptomus (network fees are separate)" : "Pakasir QRIS / VA"}\nValid until ${new Date(quote.expiresAt).toLocaleTimeString("en-GB", { timeZone: "Asia/Jakarta" })} (UTC+7).\nCheck the account ID and quantity before confirming. By continuing, you agree to our terms: ${appUrl}/terms`, [
+  await shopMessage(chatId, `${variant.product.name}\n${variant.name}\nRegion: ${state.market?.toUpperCase()}\n${variant.product.fulfillmentType === "TOP_UP" ? `ID: ${state.gameId}${state.serverId ? ` (${state.serverId})` : ""}\n` : ""}Email: ${state.email}\nQuantity: ${quantity}\nUnit price: ${money(quote.unitPriceIDR)}\nTotal: ${money(quote.totalIDR)} / $${(quote.totalUSDCents / 100).toFixed(2)}\nPayment: ${paymentMethod === "crypto" ? "Cryptomus (network fees are separate)" : paymentMethod === "winpay" ? "WinPay QRIS / VA" : "Pakasir QRIS / VA"}\nValid until ${new Date(quote.expiresAt).toLocaleTimeString("en-GB", { timeZone: "Asia/Jakarta" })} (UTC+7).\nCheck the account ID and quantity before confirming. By continuing, you agree to our terms: ${appUrl}/terms`, [
     [button("Confirm & pay", `confirm:${state.orderId}`)],
     [button("Change payment method", `methods:${state.orderId}`)],
   ]);
@@ -178,7 +180,7 @@ async function processUpdate(chatId: string, update: TelegramUpdate) {
   }
   if (state.stage === "payment" && data.startsWith(`pay:${state.nonce}:`)) {
     const method = data.split(":")[2];
-    if (method === "crypto" || method === "pakasir") return showQuote(chatId, state, method);
+    if (method === "crypto" || method === "pakasir" || method === "winpay") return showQuote(chatId, state, method);
   }
   if (state.stage === "confirm" && data === `methods:${state.orderId}`) return methods(chatId, state);
   if (state.stage === "confirm" && data === `confirm:${state.orderId}` && state.quoteToken && state.orderId) {
@@ -191,7 +193,7 @@ async function processUpdate(chatId: string, update: TelegramUpdate) {
     // Decode only to select the pricing tier. Verification below authenticates every field.
     const rawQuote = JSON.parse(Buffer.from(state.quoteToken.split(".")[0], "base64url").toString());
     const method = rawQuote.paymentMethod;
-    if (method !== "crypto" && method !== "pakasir") throw new Error("Invalid method");
+    if (method !== "crypto" && method !== "pakasir" && method !== "winpay") throw new Error("Invalid method");
     const fresh = await getFreshVariantPricing(variant, method);
     let quote;
     try {

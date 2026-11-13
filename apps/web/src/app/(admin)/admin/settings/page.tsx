@@ -7,6 +7,8 @@ import {
   getPakasirAdminEnabled,
   getResellerCryptoAdminEnabled,
   getResellerPakasirAdminEnabled,
+  getResellerWinpayAdminEnabled,
+  getWinpayAdminEnabled,
 } from "@/lib/payment-settings";
 import BlogAiSettingsForm from "./BlogAiSettingsForm";
 import PaymentsSettingsForm from "./PaymentsSettingsForm";
@@ -19,14 +21,18 @@ export default async function AdminSettingsPage() {
     ai,
     crypto,
     pakasirEnabled,
+    winpayEnabled,
     resellerCryptoEnabled,
     resellerPakasirEnabled,
+    resellerWinpayEnabled,
   ] = await Promise.all([
     getBlogAiSettings(),
     getCryptoCheckoutSettings(),
     getPakasirAdminEnabled(),
+    getWinpayAdminEnabled(),
     getResellerCryptoAdminEnabled(),
     getResellerPakasirAdminEnabled(),
+    getResellerWinpayAdminEnabled(),
   ]);
   const key = ai.apiKey;
   const masked =
@@ -67,8 +73,10 @@ export default async function AdminSettingsPage() {
           disabledCountries: crypto.disabledCountries.join(","),
           disabledUntil: crypto.disabledUntil,
           pakasirEnabled,
+          winpayEnabled,
           resellerCryptoEnabled,
           resellerPakasirEnabled,
+          resellerWinpayEnabled,
         }}
       />
 
@@ -95,6 +103,18 @@ export default async function AdminSettingsPage() {
             <code className="text-text-secondary">PAKASIR_ENABLED</code>, {" "}
             <code className="text-text-secondary">PAKASIR_PROJECT_SLUG</code>,
             dan <code className="text-text-secondary">PAKASIR_API_KEY</code>.
+          </p>
+        </div>
+        <div className="admin-tile">
+          <div className="flex items-center gap-2">
+            <Key size={16} className="text-teal-400 shrink-0" />
+            <p className="admin-tile-title">WinPay</p>
+          </div>
+          <p className="admin-tile-desc">
+            Dikontrol hanya dari env VPS: {" "}
+            <code className="text-text-secondary">WINPAY_ENABLED</code>, {" "}
+            <code className="text-text-secondary">WINPAY_KEY</code>, dan{" "}
+            <code className="text-text-secondary">WINPAY_SECRET_KEY</code>.
           </p>
         </div>
         <div className="admin-tile">

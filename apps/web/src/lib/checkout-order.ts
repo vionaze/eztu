@@ -2,10 +2,16 @@ import "server-only";
 import { enforcePurchaseCooldown } from "@/lib/purchase-cooldown";
 import { randomUUID } from "node:crypto";
 import { prisma } from "@kupon/db";
-import { createPakasirPayment, createPaymentInvoice, isPakasirCheckoutEnabled } from "@kupon/payments";
+import {
+  createPakasirPayment,
+  createPaymentInvoice,
+  createWinpayInvoice,
+  isPakasirCheckoutEnabled,
+  isWinpayCheckoutEnabled,
+} from "@kupon/payments";
 import { sendOrderNotification } from "@/lib/telegram";
 import { writeAppLog } from "@/lib/app-log";
-import { resolvePaymentExpiresAt } from "@/lib/payment-expiry";
+import { getPaymentInvoiceExpiryMinutes, resolvePaymentExpiresAt } from "@/lib/payment-expiry";
 import { usdCentsToAmount } from "@/lib/money";
 import type { PricingQuote } from "@/lib/fx";
 import type { getFreshVariantPricing } from "@/lib/supplier-pricing";
@@ -24,6 +30,11 @@ function generateOrderNumber(): string {
   return `KPN-${random}`;
 }
 
+/** Crypto settles through Cryptomus; both IDR rails keep their own provider id. */
+function providerForMethod(paymentMethod: "crypto" | "pakasir" | "winpay") {
+  return paymentMethod === "crypto" ? "cryptomus" : paymentMethod;
+}
+
 // Called only after channel-specific authentication, availability and quote verification.
 export async function createCheckoutOrder(params: {
   userId: string;
@@ -33,7 +44,7 @@ export async function createCheckoutOrder(params: {
   productId: string;
   variantId: string;
   quantity: number;
-  paymentMethod: "crypto" | "pakasir";
+  paymentMethod: "crypto" | "pakasir" | "winpay";
   quote: PricingQuote;
   freshPricing: Awaited<ReturnType<typeof getFreshVariantPricing>>;
   variant: { name: string; product: { name: string } };
@@ -55,6 +66,13 @@ export async function createCheckoutOrder(params: {
     !isPakasirCheckoutEnabled()
   ) {
     throw new Error("Pakasir is currently unavailable. Please choose Crypto.");
+  }
+  if (
+    !isFree &&
+    paymentMethod === "winpay" &&
+    !isWinpayCheckoutEnabled()
+  ) {
+    throw new Error("WinPay is currently unavailable. Please choose another method.");
   }
 
   if (telegramChatId) telegramReturnUrl();
@@ -92,8 +110,7 @@ export async function createCheckoutOrder(params: {
       fxQuoteExpiresAt: new Date(quote.expiresAt),
       promoCodeId: null,
       status: isFree ? "PAID" : "PENDING",
-      paymentProvider:
-        isFree ? null : paymentMethod === "pakasir" ? "pakasir" : "cryptomus",
+      paymentProvider: isFree ? null : providerForMethod(paymentMethod),
       paidAt: isFree ? now : null,
       expiresAt: isFree ? null : resolvePaymentExpiresAt({ createdAt: now }),
       items: {
@@ -121,7 +138,7 @@ export async function createCheckoutOrder(params: {
   }
   if (order.totalIDR !== totalIDR || order.totalUSDCents !== totalUSDCents ||
       order.email !== email || order.gameId !== gameId ||
-      order.paymentProvider !== (isFree ? null : paymentMethod === "pakasir" ? "pakasir" : "cryptomus")) {
+      order.paymentProvider !== (isFree ? null : providerForMethod(paymentMethod))) {
     throw new Error("Order quote mismatch");
   }
   if (order.expiresAt && order.expiresAt <= new Date()) throw new Error("Order expired");
@@ -177,6 +194,39 @@ export async function createCheckoutOrder(params: {
     });
     paymentUrl = payment.paymentUrl;
     checkout = { type: "redirect", url: payment.paymentUrl };
+  } else if (!isFree && paymentMethod === "winpay") {
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
+    if (!appUrl) throw new Error("NEXT_PUBLIC_APP_URL is required.");
+    const expiryMinutes = getPaymentInvoiceExpiryMinutes();
+    const invoice = await createWinpayInvoice({
+      orderId: order.id,
+      productName: `${variant.product.name} - ${variant.name}`,
+      amountIDR: totalIDR,
+      customerName: email.split("@")[0] || "EZTopUp Customer",
+      customerEmail: email,
+      // WinPay requires a phone number; the app does not collect one.
+      customerPhone: "08000000000",
+      backUrl: telegramChatId
+        ? telegramReturnUrl()
+        : `${appUrl}/order/success?orderId=${encodeURIComponent(order.id)}`,
+      expiryMinutes,
+    });
+    await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        paymentProvider: "winpay",
+        paymentProviderPaymentId: invoice.id,
+        paymentProviderInvoiceId: invoice.id,
+        paymentCurrency: "IDR",
+        paymentUrl: invoice.redirectUrl,
+        expiresAt: resolvePaymentExpiresAt({
+          explicitExpiresAt: new Date(now.getTime() + expiryMinutes * 60_000),
+          createdAt: order.createdAt,
+        }),
+      },
+    });
+    paymentUrl = invoice.redirectUrl;
+    checkout = { type: "redirect", url: invoice.redirectUrl };
   }
 
   // Send Telegram notification
@@ -191,7 +241,7 @@ export async function createCheckoutOrder(params: {
     crypto:
       isFree
         ? "FREE/VOUCHER"
-        : paymentMethod === "pakasir"
+        : paymentMethod === "pakasir" || paymentMethod === "winpay"
           ? "IDR"
           : "pending",
     status: isFree ? "PAID" : "PENDING",
@@ -212,7 +262,7 @@ export async function createCheckoutOrder(params: {
       isFree,
       gameId,
       paymentGateway:
-        isFree ? null : paymentMethod === "pakasir" ? "pakasir" : "cryptomus",
+        isFree ? null : providerForMethod(paymentMethod),
     },
   });
 
