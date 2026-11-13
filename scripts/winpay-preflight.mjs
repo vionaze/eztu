@@ -65,11 +65,14 @@ try {
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
   console.error(`✗ ${message}`);
-  if (message.includes("WinPay API error: 403")) {
+  if (message.includes("Cloudflare") || message.includes("WinPay API error: 403")) {
     console.error(
-      "\nHint: 403 dengan body non-JSON adalah blokir edge (Cloudflare) terhadap\n" +
-        "IP/klien ini, bukan penolakan API. Minta WinPay mengizinkan IP server ini\n" +
-        "(atau jalankan dari IP yang sudah di-whitelist), lalu sertakan body 403 di atas.",
+      "\nHint: request ini diblokir Cloudflare di sisi WinPay, bukan ditolak API.\n" +
+        "Kumpulkan lalu kirim ke support WinPay:\n" +
+        "  - IP egress server ini : curl -4 -s https://ifconfig.me\n" +
+        "  - waktu (WIB), cf-ray, dan kode Error dari baris di atas\n" +
+        "Minta IP tersebut diizinkan (allowlist/WAF) untuk endpoint merchant.\n" +
+        "Pelanggan TIDAK bisa checkout sampai blokir ini dibuka.",
     );
   } else if (message.includes("4010100") || message.includes("4010300")) {
     console.error(
@@ -110,11 +113,14 @@ try {
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
   console.error(`✗ ${message}`);
-  if (message.includes("WinPay API error: 403")) {
+  if (message.includes("Cloudflare") || message.includes("WinPay API error: 403")) {
     console.error(
-      "\nHint: 403 dengan body non-JSON adalah blokir edge (Cloudflare) terhadap\n" +
-        "IP/klien ini, bukan penolakan API. Minta WinPay mengizinkan IP server ini\n" +
-        "(atau jalankan dari IP yang sudah di-whitelist), lalu sertakan body 403 di atas.",
+      "\nHint: request ini diblokir Cloudflare di sisi WinPay, bukan ditolak API.\n" +
+        "Kumpulkan lalu kirim ke support WinPay:\n" +
+        "  - IP egress server ini : curl -4 -s https://ifconfig.me\n" +
+        "  - waktu (WIB), cf-ray, dan kode Error dari baris di atas\n" +
+        "Minta IP tersebut diizinkan (allowlist/WAF) untuk endpoint merchant.\n" +
+        "Pelanggan TIDAK bisa checkout sampai blokir ini dibuka.",
     );
   } else if (message.includes("4010100") || message.includes("4010300")) {
     console.error(

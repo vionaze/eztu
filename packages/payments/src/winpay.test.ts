@@ -428,3 +428,35 @@ test("surfaces a JSON rejection envelope with its response code", async () => {
     restoreEnv("WINPAY_SECRET_KEY", previous.secret);
   }
 });
+
+test("names the Cloudflare block and its error code", async () => {
+  const previous = {
+    key: process.env.WINPAY_KEY,
+    secret: process.env.WINPAY_SECRET_KEY,
+    fetch: globalThis.fetch,
+  };
+  process.env.WINPAY_KEY = "client-key";
+  process.env.WINPAY_SECRET_KEY = "secret-key";
+  globalThis.fetch = async () =>
+    new Response(
+      '<!DOCTYPE html><html class="no-js ie6 oldie"><head><title>Access denied</title></head>' +
+        "<body><h1>Access denied</h1><p>Error 1020</p></body></html>",
+      {
+        status: 403,
+        headers: { "content-type": "text/html", "cf-ray": "a59b4f64ebaaa01e-FRA" },
+      },
+    );
+  try {
+    await assert.rejects(
+      () => findWinpayInvoice({ invoiceId: "a3ef3f93-7fcb-439a-889e-14976a46492e" }),
+      (error) =>
+        error instanceof Error &&
+        error.message ===
+          "WinPay API error: 403 Cloudflare Error 1020 (cf-ray a59b4f64ebaaa01e-FRA)",
+    );
+  } finally {
+    globalThis.fetch = previous.fetch;
+    restoreEnv("WINPAY_KEY", previous.key);
+    restoreEnv("WINPAY_SECRET_KEY", previous.secret);
+  }
+});

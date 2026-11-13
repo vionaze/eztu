@@ -219,15 +219,29 @@ async function requestWinpay(
     data = null;
   }
   if (!response.ok || !data) {
-    // Keep a short body snippet: an edge block (Cloudflare) answers with HTML,
-    // while a real API rejection answers with a responseCode JSON envelope.
-    const snippet = responseText.replace(/\s+/g, " ").trim().slice(0, 160);
+    // An edge block (Cloudflare) answers with an HTML page, while a real API
+    // rejection answers with a responseCode JSON envelope. Keep the diagnosis
+    // short enough for logs but specific enough to act on.
     const cfRay = response.headers.get("cf-ray");
     const code = data ? optionalString(data, "responseCode") : null;
     const message = data ? optionalString(data, "responseMessage") : null;
-    const detail = data
-      ? `${code || response.status} ${message || "Unknown API error"}`
-      : `${response.status} ${snippet || "empty body"}${cfRay ? ` (cf-ray ${cfRay})` : ""}`;
+    if (data) {
+      throw new Error(
+        `WinPay API error: ${code || response.status} ${message || "Unknown API error"}`,
+      );
+    }
+    const cfError = responseText.match(/Error\s+(\d{4})/i);
+    const blocked =
+      Boolean(response.headers.get("cf-mitigated")) ||
+      /cloudflare|cf-error|access denied|just a moment/i.test(responseText);
+    const plainText = responseText
+      .replace(/<[^>]*>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 120);
+    const detail = blocked
+      ? `${response.status} Cloudflare ${cfError ? `Error ${cfError[1]}` : "blocked"}${cfRay ? ` (cf-ray ${cfRay})` : ""}`
+      : `${response.status} ${plainText || "empty body"}${cfRay ? ` (cf-ray ${cfRay})` : ""}`;
     throw new Error(`WinPay API error: ${detail}`);
   }
   const responseCode = optionalString(data, "responseCode") || "";
