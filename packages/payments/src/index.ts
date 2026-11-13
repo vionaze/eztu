@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 
 const DEFAULT_CRYPTOMUS_API_URL = "https://api.cryptomus.com/v1";
 
-export type PaymentProvider = "cryptomus" | "pakasir";
+export type PaymentProvider = "cryptomus" | "pakasir" | "winpay";
 
 export type NormalizedPaymentStatus =
   | "pending"
@@ -442,3 +442,20 @@ export {
   type PakasirTransaction,
   type PakasirWebhookNotification,
 } from "./pakasir";
+
+export {
+  assertWinpayInvoiceMatches,
+  createWinpayInvoice,
+  createWinpaySignature,
+  findWinpayInvoice,
+  formatWinpayTimestamp,
+  getWinpayBaseUrl,
+  isWinpayCheckoutEnabled,
+  isWinpayConfigured,
+  isWinpayEnvironmentEnabled,
+  normalizeWinpayStatus,
+  parseWinpayCallback,
+  type WinpayCallbackNotification,
+  type WinpayInvoice,
+  type WinpayInvoiceStatus,
+} from "./winpay";
