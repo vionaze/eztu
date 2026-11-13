@@ -11,6 +11,10 @@ import {
 import { sendOrderNotification } from "@/lib/telegram";
 import { writeAppLog } from "@/lib/app-log";
 import {
+  paymentProviderLabel,
+  resolveProviderAmount,
+} from "@/lib/payment-provider";
+import {
   underpaidUSDCents,
   usdAmountToCents,
   usdCentsToAmount,
@@ -201,21 +205,22 @@ export async function applyPaymentEventToOrder(
     }
   }
 
-  // Cryptomus amounts are USD. Pakasir amounts are integer IDR.
-  const providerPriceAmount =
-    getRawNumber(event.raw, "price_amount") ??
-    getRawNumber(event.raw, "amount") ??
-    getRawNumber(event.raw, "payment_amount_usd");
-  if (event.status === "paid" && providerPriceAmount !== null) {
+  // Cryptomus amounts are USD; WinPay and legacy Pakasir amounts are integer IDR.
+  const providerAmount = resolveProviderAmount({
+    provider: event.provider,
+    raw: event.raw,
+    payAmount: event.payAmount,
+  });
+  if (event.status === "paid" && providerAmount) {
     const expectedAmount =
-      event.provider === "pakasir" ? order.totalIDR : order.totalUSD;
+      providerAmount.currency === "IDR" ? order.totalIDR : order.totalUSD;
     const amountMatches =
-      event.provider === "pakasir"
-        ? providerPriceAmount === expectedAmount
-        : Math.abs(providerPriceAmount - expectedAmount) <= 0.05;
+      providerAmount.currency === "IDR"
+        ? providerAmount.amount === expectedAmount
+        : Math.abs(providerAmount.amount - expectedAmount) <= 0.05;
     if (!amountMatches) {
       orderIntegrityReasons.push(
-        `Provider amount=${providerPriceAmount} does not match order ${event.provider === "pakasir" ? "totalIDR" : "totalUSD"}=${expectedAmount}`
+        `Provider amount=${providerAmount.amount} does not match order ${providerAmount.currency === "IDR" ? "totalIDR" : "totalUSD"}=${expectedAmount}`
       );
     }
   }
@@ -400,8 +405,7 @@ export async function applyPaymentEventToOrder(
         amountIDR: order.totalIDR,
         amountUSD: order.totalUSD,
         crypto: event.payCurrency || "unknown",
-        paymentGateway:
-          event.provider === "pakasir" ? "Pakasir" : "Cryptomus",
+        paymentGateway: paymentProviderLabel(event.provider),
         status: newStatus,
         email: order.email,
       };

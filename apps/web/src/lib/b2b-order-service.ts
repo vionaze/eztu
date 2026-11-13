@@ -338,7 +338,7 @@ export async function createB2BOrder(params: {
 
   let paymentUrl: string;
   let providerPaymentId: string;
-  let provider: "cryptomus" | "pakasir";
+  let provider: "cryptomus" | "pakasir" | "winpay";
   let providerExpiresAt: Date | null = null;
 
   if (params.paymentMethod === "CRYPTO") {
@@ -390,7 +390,7 @@ export async function createB2BOrder(params: {
 }
 
 export async function applyB2BPaymentEvent(params: {
-  provider: "cryptomus" | "pakasir";
+  provider: "cryptomus" | "pakasir" | "winpay";
   providerPaymentId: string;
   eventId: string;
   normalizedStatus: string;

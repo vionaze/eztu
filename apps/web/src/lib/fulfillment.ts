@@ -1,6 +1,7 @@
 import { notifyTelegramShopOrder } from "@/lib/telegram-shop-api";
 import { Prisma, prisma } from "@kupon/db";
 import { sendDiscordFulfillmentNotification } from "@/lib/discord";
+import { paymentProviderLabel } from "@/lib/payment-provider";
 import { notifySecurityEvent } from "@/lib/fraud";
 import { MAX_SELF_SERVICE_QUANTITY } from "@/lib/checkout-limits";
 import {
@@ -337,12 +338,7 @@ export async function applySupplierOrderSnapshot(
       amountIDR: order.totalIDR,
       amountUSD: order.totalUSD,
       crypto: order.paymentCurrency || "unknown",
-      paymentGateway:
-        order.paymentProvider === "pakasir"
-          ? "Pakasir"
-          : order.paymentProvider === "cryptomus"
-            ? "Cryptomus"
-            : "—",
+      paymentGateway: paymentProviderLabel(order.paymentProvider),
       status: "COMPLETED",
       supplierStatus: "FULFILLED",
       providerOrderId: snapshot.tid || order.supplierOrder?.providerOrderId,
