@@ -145,8 +145,43 @@ Rilis dinyatakan siap bila semua ini benar:
 | Order tetap `PENDING` setelah bayar | Callback tidak masuk / verifikasi gagal | cek `PaymentEvent`, lalu buka `/order/success` untuk memicu sync |
 | `PaymentEvent` menumpuk untuk satu invoice | Callback retry dari provider | normal bila status akhir benar; tidak normal bila ada dua baris dengan status berbeda |
 
-## 7. Referensi
+## 7. Jika IP server diblokir WAF WinPay
 
+Gejalanya: `pnpm winpay:status` gagal di baris `checkout API reachable` **dan**
+`SNAP API reachable`, keduanya `HTTP 403 non-JSON` dengan `cf-ray`. Uji dengan
+`curl` (bukan hanya Node) dan per family IP. Kalau `curl -4` **dan** `curl -6`
+sama-sama 403 di kedua host, maka:
+
+- blokir bersifat **IP/ASN**, bukan kredensial, signature, atau fingerprint klien;
+- **berpindah ke SNAP API tidak menolong** (host SNAP ikut diblokir);
+- hanya ada dua jalan: WinPay mengizinkan IP kita, atau kita memakai jalur egress
+  lain.
+
+Kasus nyata 2026-11-13: VPS `161.97.130.68` / `2a02:c207:2333:948::1`
+(AS51167 Contabo) diblokir di kedua host, sementara IP publik Indonesia mendapat
+JSON normal.
+
+Urutan remediasi:
+
+1. **Minta allowlist ke WinPay** (jalur utama). Sertakan: kedua IP, ASN, cf-ray,
+   waktu WIB, dan hasil pembanding dari IP Indonesia.
+2. **Coba field `Whitelist IP`** di dashboard (Setting API SNAP Credential) dengan
+   kedua IP, simpan, tunggu 1 menit, ulangi `pnpm winpay:status`. Kalau 403
+   berubah jadi `4010100`, field itu memang memberi izin di edge.
+3. **Jalur egress alternatif** bila WinPay tidak bisa membuka: proxy dengan IP yang
+   diizinkan (mis. VPS kecil di Indonesia). Implementasinya belum ada; rencananya
+   tambahkan env opsional `WINPAY_PROXY_URL` di `packages/payments/src/winpay.ts`
+   dan pakai `ProxyAgent` dari `undici` (perlu menambah dependency eksplisit).
+   Jangan diimplementasikan sebelum ada endpoint proxy yang terbukti lolos —
+   tanpa itu, kodenya tidak bisa diverifikasi.
+4. Jangan mematikan WinPay di admin settings sebagai "solusi": kartu pembayaran
+   memang sudah efektif tidak berguna selama invoice tidak bisa dibuat, tapi
+   mematikan gate hanya menyembunyikan gejala dari log.
+
+Kriteria selesai: `pnpm winpay:status` di VPS 0 FAIL, lalu `pnpm winpay:preflight`
+mencetak invoice + lookup sukses, baru lanjut bagian 4 (E2E).
+
+## 8. Referensi
 - Adapter: `packages/payments/src/winpay.ts`
 - Verifier: `apps/web/src/lib/winpay-payment.ts`
 - Callback route: `apps/web/src/app/api/payment/winpay/callback/route.ts`
