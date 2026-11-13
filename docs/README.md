@@ -40,6 +40,7 @@ menulis "sudah live" tanpa verifikasi di production.
 
 ## Session notes terbaru
 
+- [2026-11-13 — WinPay sebagai metode pembayaran ketiga](session-notes/2026-11-13-winpay-payment-addition.md)
 - [2026-11-10 — Grand Theft Auto VI (PlayStation) catalog](session-notes/2026-11-10-gta-vi-playstation-catalog.md)
 - [2026-11-09 — Label Phantom Blade Zero (steam)](session-notes/2026-11-09-phantom-blade-zero-steam-label.md)
 - [2026-11-07 — Phantom Blade Zero catalog](session-notes/2026-11-07-phantom-blade-zero-catalog.md)
