@@ -265,6 +265,7 @@ test("normalizes undocumented provider statuses defensively", () => {
   assert.equal(normalizeWinpayStatus("CANCELLED"), "failed");
   assert.equal(normalizeWinpayStatus("REFUNDED"), "refunded");
   assert.equal(normalizeWinpayStatus("UNPAID"), "pending");
+  assert.equal(normalizeWinpayStatus("unpaid"), "pending");
   assert.equal(normalizeWinpayStatus(undefined), "pending");
 });
 

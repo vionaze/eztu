@@ -174,6 +174,9 @@ export function normalizeWinpayStatus(status: string | undefined): WinpayInvoice
       return "failed";
     case "REFUNDED":
       return "refunded";
+    case "UNPAID":
+      // Observed on a freshly created invoice (production, 2026-11-16).
+      return "pending";
     default:
       return "pending";
   }

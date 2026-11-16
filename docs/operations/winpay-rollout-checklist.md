@@ -71,7 +71,9 @@ halaman HTML. HTML 403 = blokir Cloudflare (lihat bagian 6).
 cd /var/www/eztu && pnpm winpay:preflight
 ```
 
-Lulus bila mencetak `✓ Invoice created` + `✓ Invoice lookup`.
+Lulus bila mencetak `✓ Invoice created` + `✓ Invoice lookup`. Status invoice
+baru yang normal adalah **`UNPAID` → pending`** (teramati 2026-11-16); setelah
+dibayar harus berubah menjadi `PAID`.
 
 ## 3. Database
 

@@ -145,6 +145,38 @@ Catatan: `WINPAY_KEY` hanya 12 karakter, jauh lebih pendek dari contoh
 `X-PARTNER-ID` di dokumentasi (UUID 36 karakter). Jangan diubah dulu — setelah
 blokir dibuka, kegagalan auth akan terlihat jelas sebagai `4010100`.
 
+### Temuan produksi 2026-11-16 (blokir dibuka)
+
+`pnpm winpay:status` di VPS: **8 PASS, 0 FAIL**. Kedua host menjawab JSON
+(cf-ray `CDG` dan `FRA`), jadi WinPay sudah mengizinkan IP server.
+
+`pnpm winpay:preflight` di VPS juga sukses:
+
+```
+✓ Invoice created : f102230f-f8a4-411b-8f9f-fc636e40e81f
+  Hosted URL      : https://checkout.winpay.id/hh61hj6056w
+✓ Invoice lookup  : UNPAID → pending
+  Billed IDR      : 10000
+  Merchant nett   : n/a
+```
+
+Jawaban untuk pertanyaan terbuka di plan:
+
+- **Kredensial valid** — `WINPAY_KEY` 12 karakter ternyata benar (bukan UUID);
+  signature HMAC diterima, tidak ada `4010100`/`4010300`.
+- **`customer.phone` placeholder `08000000000` diterima** — tidak perlu field
+  telepon di checkout.
+- **`interval` 10 menit diterima**.
+- **Status invoice baru = `UNPAID`** (bukan `PENDING`). Normalisasi sudah
+  memetakannya ke `pending`; kini ditulis eksplisit di adapter + test.
+- **`payment.nett` belum terisi** sebelum pembayaran (`n/a`), jadi perilaku
+  `paidAmountIDR` untuk invoice lunas masih perlu diamati di pembayaran nyata.
+- **Status setelah dibayar belum teramati** — perlu satu transaksi nyata
+  (diasumsikan `PAID`, sesuai contoh dokumentasi).
+
+Langkah berikutnya: nyalakan toggle admin WinPay, lalu satu pembayaran nyata
+nominal terkecil, lalu periksa `PaymentEvent` + `pm2 logs`.
+
 Langkah deploy berikutnya:
 
 ```bash
