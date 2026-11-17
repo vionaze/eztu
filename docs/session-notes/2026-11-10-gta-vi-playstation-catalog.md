@@ -126,3 +126,43 @@ tersembunyi di storefront maupun reseller — itu aturan katalog, bukan masalah 
 Catatan terbuka: markup 1,5% berlaku seragam untuk semua varian, sehingga varian
 B2B (cost lebih tinggi) hanya mendapat margin ~1,5%; sesuaikan per-SKU di
 `/admin/resellers/<org>/pricing` bila jalur B2B memang butuh margin berbeda.
+
+## Update 2026-11-18 — harga baru dari `GTA BARU-UPDATE.xlsx`
+
+Sumber: `GTA BARU-UPDATE.xlsx`, sheet `GTA BARU`, baris kategori `GTAVI`
+(8 SKU) + catatan rumus di r131505–r131511. Kolom yang dipakai sebagai cost
+adalah **"Reseller Price"** (`COST_HEADERS` di `eztopup-catalog.ts`), bukan
+"Recommended Price".
+
+Rumus yang diminta file:
+
+| Jalur | Rumus | Contoh (cost 1.135.850) |
+|---|---|---:|
+| B2C web2 | reseller price +4% | 1.181.284 |
+| B2C crypto | reseller price +4,75% | 1.189.803 |
+| B2B web2 | reseller price +1,5% | 1.152.888 |
+| B2B crypto | reseller price +3,5% | 1.175.605 |
+
+Diterapkan lewat `packages/db/src/apply-gta-vi-price-update.ts` (dry-run default):
+
+- `nonCryptoMarkupBps` 550 → **400**, `cryptoMarkupBps` 650 → **475** untuk
+  seluruh 12 varian GTA VI.
+- `supplierCostIDR` + `supplierStatus` disetel dari file untuk 8 SKU yang ada;
+  4 varian di luar file (`GTAVISE-S22PO` ID dan `GTAVISEB2B-*` MY/TH/SG) hanya
+  diubah markup-nya.
+- Rule reseller tetap MARKUP 1,5% (TIER_1 & TIER_2 sudah lengkap, 0 dibuat).
+
+Harga hasil (cost dari file):
+
+| SKU | Cost | Retail | Retail crypto | Reseller |
+|---|---:|---:|---:|---:|
+| `GTAVISE-S22` (ID/MY/TH/SG) | 1.151.480 | 1.197.540 | 1.206.176 | 1.168.753 |
+| `GTAVISE-S22PO` (MY/TH/SG) | 1.165.710 | 1.212.339 | 1.221.082 | 1.183.196 |
+| `GTAVISEB2B-S22` (ID) | 1.135.850 | 1.181.284 | 1.189.803 | 1.152.888 |
+
+Catatan penting: harga retail dihitung dari **harga supplier live** saat quote
+(`getFreshVariantPricing`), dan quote itu menimpa `supplierCostIDR`. Harga
+reseller memakai `supplierCostIDR` tersimpan. Kalau harga live supplier berbeda
+dari angka file, harga retail (dan reseller setelah quote berikutnya) akan
+mengikuti harga live — markup-nya tetap 4% / 4,75%. B2B crypto 3,5% belum bisa
+karena model reseller hanya satu markup per tier.
