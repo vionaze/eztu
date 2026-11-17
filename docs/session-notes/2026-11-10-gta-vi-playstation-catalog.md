@@ -110,3 +110,19 @@ Cek setelah deploy:
    model pricing reseller.
 4. Buka pasar lain: tambah kode negara di
    `PRODUCT_SUPPLIER_COUNTRIES["gta-vi"]` lalu sync `--expand`.
+
+## Update 2026-11-18 — harga reseller varian B2B
+
+Produksi ternyata punya **12 varian** (4 tambahan: `GTAVISEB2B-S22`, `GTAVISEB2B-S22-my`,
+`-sg`, `-th`, cost 1.135.850), sedangkan rule reseller hanya ada untuk 8 varian
+non-B2B. Akibatnya 4 varian B2B hilang dari katalog reseller dan tampil
+"Unavailable" di editor harga admin.
+
+Perbaikan: `seed-product-reseller-pricing.ts --product gta-vi --markup 1.5 --apply`.
+Dry run setelah apply: `Rules to create: 0; existing rules kept: 24` (12 varian ×
+TIER_1/TIER_2). Varian yang `supplierStatus`-nya bukan `available` tetap
+tersembunyi di storefront maupun reseller — itu aturan katalog, bukan masalah harga.
+
+Catatan terbuka: markup 1,5% berlaku seragam untuk semua varian, sehingga varian
+B2B (cost lebih tinggi) hanya mendapat margin ~1,5%; sesuaikan per-SKU di
+`/admin/resellers/<org>/pricing` bila jalur B2B memang butuh margin berbeda.
