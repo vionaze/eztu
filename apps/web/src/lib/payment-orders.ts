@@ -205,7 +205,7 @@ export async function applyPaymentEventToOrder(
     }
   }
 
-  // Cryptomus amounts are USD; WinPay and legacy Pakasir amounts are integer IDR.
+  // Cryptomus amounts are USD; WinPay (and legacy Pakasir rows) settle in integer IDR.
   const providerAmount = resolveProviderAmount({
     provider: event.provider,
     raw: event.raw,

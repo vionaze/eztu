@@ -12,7 +12,7 @@ test("signed pricing quote round-trips and locks price", () => {
     variantId: "variant-1",
     quantity: 1,
     unitPriceIDR: 48_800,
-    paymentMethod: "pakasir",
+    paymentMethod: "winpay",
     supplierCostIDR: 44_363,
     supplierCountryCode: "id",
     pricingMarkupBps: 1000,
@@ -21,14 +21,14 @@ test("signed pricing quote round-trips and locks price", () => {
   });
   const token = signPricingQuote(quote, secret);
   assert.equal(quote.version, 2);
-  assert.equal(quote.paymentMethod, "pakasir");
+  assert.equal(quote.paymentMethod, "winpay");
   const verified = verifyPricingQuote(
     token,
     {
       variantId: "variant-1",
       quantity: 1,
       unitPriceIDR: 48_800,
-      paymentMethod: "pakasir",
+      paymentMethod: "winpay",
       supplierCostIDR: 44_363,
       supplierCountryCode: "id",
       pricingMarkupBps: 1000,
@@ -44,7 +44,7 @@ test("signed pricing quote round-trips and locks price", () => {
         variantId: "variant-1",
         quantity: 1,
         unitPriceIDR: 48_801,
-        paymentMethod: "pakasir",
+        paymentMethod: "winpay",
         supplierCostIDR: 44_363,
         supplierCountryCode: "id",
         pricingMarkupBps: 1000,

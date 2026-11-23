@@ -1,4 +1,4 @@
-export type CheckoutPaymentMethod = "pakasir" | "winpay" | "crypto";
+export type CheckoutPaymentMethod = "winpay" | "crypto";
 
 export function calculatePriceWithMarkupBps(
   supplierCostIDR: number,

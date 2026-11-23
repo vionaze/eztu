@@ -1,7 +1,7 @@
 /**
  * POST /api/payment/create
  *
- * Creates a new order and a Cryptomus or Pakasir hosted payment.
+ * Creates a new order and a Cryptomus or WinPay hosted payment.
  * Returns the payment URL for client-side redirect.
  */
 
@@ -20,7 +20,6 @@ import {
 import { findActiveAccessBlock } from "@/lib/access-block";
 import {
   getCryptoAvailability,
-  isPakasirEnabledForCheckout,
   isWinpayEnabledForCheckout,
 } from "@/lib/payment-settings";
 import {
@@ -62,10 +61,6 @@ function getPaymentErrorMessage(error: unknown) {
     return "Cryptomus API URL is invalid.";
   }
 
-  if (error.message.includes("Pakasir") || error.message.includes("PAKASIR_")) {
-    return "Pakasir checkout is temporarily unavailable. Please choose crypto or try again.";
-  }
-
   if (error.message.includes("WinPay") || error.message.includes("WINPAY_")) {
     return "WinPay checkout is temporarily unavailable. Please choose another method or try again.";
   }
@@ -103,9 +98,7 @@ export async function POST(request: NextRequest) {
     const quoteToken =
       typeof body.quoteToken === "string" ? body.quoteToken.trim() : "";
     const paymentMethod =
-      body.paymentMethod === "crypto" ||
-      body.paymentMethod === "pakasir" ||
-      body.paymentMethod === "winpay"
+      body.paymentMethod === "crypto" || body.paymentMethod === "winpay"
         ? body.paymentMethod
         : null;
     const marketCode =
@@ -195,7 +188,7 @@ export async function POST(request: NextRequest) {
 
     if (!paymentMethod) {
       return NextResponse.json(
-        { error: "Please choose Crypto, Pakasir, or WinPay as your payment method." },
+        { error: "Please choose Crypto or WinPay as your payment method." },
         { status: 400 },
       );
     }
@@ -274,7 +267,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             error:
-              "Crypto payment is unavailable in your region. Please choose Pakasir or WinPay.",
+              "Crypto payment is unavailable in your region. Please choose WinPay.",
             code: "CRYPTO_UNAVAILABLE_REGION",
           },
           { status: 400 },
@@ -318,7 +311,7 @@ export async function POST(request: NextRequest) {
         : quantity;
       if (replacementQuantity > MAX_SELF_SERVICE_QUANTITY) {
         return NextResponse.json(
-          { error: "This SKU needs more than 20 units to reach the crypto minimum. Choose Pakasir or contact sales.", code: "CRYPTO_MINIMUM_EXCEEDS_LIMIT" },
+          { error: "This SKU needs more than 20 units to reach the crypto minimum. Choose WinPay or contact sales.", code: "CRYPTO_MINIMUM_EXCEEDS_LIMIT" },
           { status: 400 },
         );
       }
@@ -418,13 +411,6 @@ export async function POST(request: NextRequest) {
       clerkUserId: authenticatedUser.clerkUserId,
     });
 
-    if (
-      quote.totalUSDCents > 0 &&
-      paymentMethod === "pakasir" &&
-      !(await isPakasirEnabledForCheckout())
-    ) {
-      return NextResponse.json({ error: "Pakasir is currently unavailable. Please choose Crypto.", code: "PAKASIR_UNAVAILABLE" }, { status: 503 });
-    }
     if (
       quote.totalUSDCents > 0 &&
       paymentMethod === "winpay" &&

@@ -1,5 +1,9 @@
 # WinPay — checklist verifikasi menyeluruh
 
+> **Update 2026-11-24:** Pakasir sudah dihentikan dan dihapus dari kode. WinPay
+> kini satu-satunya kanal IDR (retail & reseller); crypto tetap lewat Cryptomus.
+> Langkah yang masih menyebut Pakasir di bawah disimpan sebagai konteks sejarah.
+
 Runbook untuk memastikan integrasi WinPay (Checkout Page) sehat dari kode sampai
 uang masuk. Jalankan berurutan; setiap bagian punya kriteria lulus sendiri.
 Tidak ada langkah di sini yang menagih pelanggan, kecuali bagian 4.
@@ -104,8 +108,8 @@ berprovider `winpay`.
 ## 4. End-to-end manual (browser)
 
 1. Buka halaman produk apa pun saat sudah login.
-   Harap: tiga kartu pembayaran tampil (Stablecoin, Pakasir, WinPay) **sesuai
-   switch admin yang aktif**.
+   Harap: dua kartu pembayaran tampil (Stablecoin, WinPay) **sesuai switch
+   admin yang aktif**.
 2. Pilih WinPay. Harap: harga IDR berubah dan tombol berbunyi "Pay with WinPay".
 3. Checkout dengan SKU termurah. Harap: browser diarahkan ke
    `https://checkout.winpay.id/<token>`, bukan halaman error.
@@ -131,7 +135,7 @@ Rilis dinyatakan siap bila semua ini benar:
 - [ ] Satu pembayaran nyata menghasilkan order `PAID`/`COMPLETED` + kode terkirim.
 - [ ] Tidak ada `PaymentEvent` ganda untuk invoice yang sama.
 - [ ] Toggle admin retail dan reseller bereaksi sesuai harapan.
-- [ ] Pakasir masih berfungsi sebagai kanal cadangan.
+- [ ] Pakasir sudah tidak muncul di storefront, portal reseller, maupun bot Telegram.
 
 ## 6. Peta gejala → penyebab → aksi
 

@@ -21,7 +21,7 @@ function load(fetch) {
 }
 const order = {
   orderNumber: "B2B-TEST", organizationName: "Test reseller", amountIDR: 45_500,
-  paymentMethod: "PAKASIR", paidAt: new Date("2026-10-10T08:42:25.463Z"),
+  paymentMethod: "WINPAY", paidAt: new Date("2026-10-10T08:42:25.463Z"),
   lines: [{ productName: "Roblox Gift Card", variantName: "IDR 50K", quantity: 1,
     supplierCostIDR: 40_000, supplierRaw: { voucherCodes: ["PRIVATE-CODE"] } }],
 };

@@ -1,5 +1,10 @@
 # WinPay menggantikan Pakasir — Rencana Implementasi
 
+> **Status 2026-11-24:** Task 16 (hapus Pakasir) sudah dieksekusi. Pakasir
+> dihentikan 25 Nov 2026; kode/route/setting-nya dihapus, enum DB disisakan
+> untuk order historis. Lihat
+> [session note 2026-11-24](../session-notes/2026-11-24-playstation-gta-pricing-winpay-cutover.md).
+
 > **Untuk Claude:** REQUIRED SUB-SKILL: gunakan `superpowers:executing-plans` untuk mengeksekusi plan ini task-per-task.
 
 **Goal:** Mengganti seluruh kanal pembayaran IDR (Pakasir) dengan WinPay Checkout Page — di storefront retail, portal reseller/B2B, dan bot Telegram — tanpa melonggarkan aturan verifikasi pembayaran yang sudah ada.

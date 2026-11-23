@@ -15,7 +15,7 @@ test("chooses the cheapest nearest package and retires its replacement when stoc
   await reconcileSupplierReplacements(db as unknown as Parameters<typeof reconcileSupplierReplacements>[0], [source], [original, ...rows]);
   assert.equal(created[0].create.supplierSku, "higher");
   assert.equal(created[0].create.name, "18 Diamonds");
-  assert.equal(created[0].create.priceIDR, 4620);
+  assert.equal(created[0].create.priceIDR, 4653);
   changes.length = 0;
   await reconcileSupplierReplacements(db as unknown as Parameters<typeof reconcileSupplierReplacements>[0], [source], [{ ...original, status: "available" }, ...rows]);
   assert.deepEqual(changes, [{ where: { replacementForId: "variant" }, data: { published: false } }]);

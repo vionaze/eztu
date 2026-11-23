@@ -76,6 +76,10 @@ if (process.env.NODE_ENV !== "production") {
 
 export { reconcileSupplierReplacements } from "./supplier-replacements.ts";
 export {
+  IDR_PAYMENT_FEE_BPS,
+  applyIdrPaymentFee,
+} from "./payment-fee.ts";
+export {
   calculateResellerPrice,
   chooseEffectiveRule,
   formatResellerMarkupPercent,

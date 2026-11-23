@@ -1,3 +1,5 @@
+import { applyIdrPaymentFee } from "./payment-fee.ts";
+
 export type ResellerPriceMode = "MARKUP" | "FIXED";
 
 export type ResellerPriceRule = {
@@ -65,11 +67,11 @@ export function calculateResellerPrice(costIDR: number, rule: ResellerPriceRule)
   if (!rule.enabled) throw new Error("RESELLER_RULE_DISABLED");
   if (rule.mode === "FIXED") {
     if (rule.fixedPriceIDR! < costIDR) throw new Error("FIXED_PRICE_BELOW_COST");
-    return rule.fixedPriceIDR!;
+    return applyIdrPaymentFee(rule.fixedPriceIDR!);
   }
   const result = (BigInt(costIDR) * (BigInt(10_000_000) + BigInt(rule.markupMicros!)) + BigInt(9_999_999)) / BigInt(10_000_000);
   if (result >= BigInt(2_147_483_647)) throw new Error("PRICE_OUT_OF_RANGE");
-  return Number(result);
+  return applyIdrPaymentFee(Number(result));
 }
 
 /** Organization rules win even when disabled; null means no rule at that level. */

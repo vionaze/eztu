@@ -13,19 +13,15 @@ type Initial = {
   enabled: boolean;
   disabledCountries: string;
   disabledUntil: string | null;
-  pakasirEnabled: boolean;
   winpayEnabled: boolean;
   resellerCryptoEnabled: boolean;
-  resellerPakasirEnabled: boolean;
   resellerWinpayEnabled: boolean;
 };
 
 type FormState = {
   enabled: boolean;
-  pakasirEnabled: boolean;
   winpayEnabled: boolean;
   resellerCryptoEnabled: boolean;
-  resellerPakasirEnabled: boolean;
   resellerWinpayEnabled: boolean;
   countries: string;
   until: string;
@@ -45,13 +41,9 @@ function daysFromNow(days: number) {
 
 export default function PaymentsSettingsForm({ initial }: { initial: Initial }) {
   const [enabled, setEnabled] = useState(initial.enabled);
-  const [pakasirEnabled, setPakasirEnabled] = useState(initial.pakasirEnabled);
   const [winpayEnabled, setWinpayEnabled] = useState(initial.winpayEnabled);
   const [resellerCryptoEnabled, setResellerCryptoEnabled] = useState(
     initial.resellerCryptoEnabled,
-  );
-  const [resellerPakasirEnabled, setResellerPakasirEnabled] = useState(
-    initial.resellerPakasirEnabled,
   );
   const [resellerWinpayEnabled, setResellerWinpayEnabled] = useState(
     initial.resellerWinpayEnabled,
@@ -64,10 +56,8 @@ export default function PaymentsSettingsForm({ initial }: { initial: Initial }) 
 
   const current = (): FormState => ({
     enabled,
-    pakasirEnabled,
     winpayEnabled,
     resellerCryptoEnabled,
-    resellerPakasirEnabled,
     resellerWinpayEnabled,
     countries,
     until,
@@ -87,10 +77,8 @@ export default function PaymentsSettingsForm({ initial }: { initial: Initial }) 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           enabled: payload.enabled,
-          pakasirEnabled: payload.pakasirEnabled,
           winpayEnabled: payload.winpayEnabled,
           resellerCryptoEnabled: payload.resellerCryptoEnabled,
-          resellerPakasirEnabled: payload.resellerPakasirEnabled,
           resellerWinpayEnabled: payload.resellerWinpayEnabled,
           disabledCountries: payload.countries,
           disabledUntil: payload.until ? new Date(payload.until).toISOString() : "",
@@ -114,9 +102,7 @@ export default function PaymentsSettingsForm({ initial }: { initial: Initial }) 
   const save = () =>
     persist({
       enabled,
-      pakasirEnabled,
       resellerCryptoEnabled,
-      resellerPakasirEnabled,
       countries,
       until,
     });
@@ -127,29 +113,11 @@ export default function PaymentsSettingsForm({ initial }: { initial: Initial }) 
     void persist(
       {
         enabled: next,
-        pakasirEnabled,
         resellerCryptoEnabled,
-        resellerPakasirEnabled,
         countries,
         until,
       },
       () => setEnabled(enabled),
-    );
-  };
-
-  const togglePakasir = () => {
-    const next = !pakasirEnabled;
-    setPakasirEnabled(next);
-    void persist(
-      {
-        enabled,
-        pakasirEnabled: next,
-        resellerCryptoEnabled,
-        resellerPakasirEnabled,
-        countries,
-        until,
-      },
-      () => setPakasirEnabled(pakasirEnabled),
     );
   };
 
@@ -159,29 +127,11 @@ export default function PaymentsSettingsForm({ initial }: { initial: Initial }) 
     void persist(
       {
         enabled,
-        pakasirEnabled,
         resellerCryptoEnabled: next,
-        resellerPakasirEnabled,
         countries,
         until,
       },
       () => setResellerCryptoEnabled(resellerCryptoEnabled),
-    );
-  };
-
-  const toggleResellerPakasir = () => {
-    const next = !resellerPakasirEnabled;
-    setResellerPakasirEnabled(next);
-    void persist(
-      {
-        enabled,
-        pakasirEnabled,
-        resellerCryptoEnabled,
-        resellerPakasirEnabled: next,
-        countries,
-        until,
-      },
-      () => setResellerPakasirEnabled(resellerPakasirEnabled),
     );
   };
 
@@ -226,34 +176,6 @@ export default function PaymentsSettingsForm({ initial }: { initial: Initial }) 
               <span
                 className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
                   enabled ? "translate-x-5" : ""
-                }`}
-              />
-            </button>
-          </div>
-        </div>
-        <div className="admin-tile border-sky-400/15">
-          <div className="admin-tile-header">
-            <div className="flex items-center gap-2 min-w-0">
-              <CreditCard size={16} className="text-sky-300 shrink-0" />
-              <div>
-                <p className="admin-tile-title">Pakasir (retail)</p>
-                <p className="admin-tile-desc">
-                  Hanya storefront. OFF menyembunyikan QRIS/VA. Env tetap syarat utama.
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={pakasirEnabled}
-              onClick={togglePakasir}
-              className={`relative h-6 w-11 shrink-0 rounded-full transition-colors cursor-pointer ${
-                pakasirEnabled ? "bg-emerald-500/80" : "bg-zinc-600"
-              }`}
-            >
-              <span
-                className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
-                  pakasirEnabled ? "translate-x-5" : ""
                 }`}
               />
             </button>
@@ -310,34 +232,6 @@ export default function PaymentsSettingsForm({ initial }: { initial: Initial }) 
               <span
                 className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
                   resellerCryptoEnabled ? "translate-x-5" : ""
-                }`}
-              />
-            </button>
-          </div>
-        </div>
-        <div className="admin-tile border-indigo-400/15">
-          <div className="admin-tile-header">
-            <div className="flex items-center gap-2 min-w-0">
-              <CreditCard size={16} className="text-indigo-300 shrink-0" />
-              <div>
-                <p className="admin-tile-title">Pakasir (reseller)</p>
-                <p className="admin-tile-desc">
-                  Portal reseller via QRIS/VA. Terpisah dari switch retail.
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={resellerPakasirEnabled}
-              onClick={toggleResellerPakasir}
-              className={`relative h-6 w-11 shrink-0 rounded-full transition-colors cursor-pointer ${
-                resellerPakasirEnabled ? "bg-emerald-500/80" : "bg-zinc-600"
-              }`}
-            >
-              <span
-                className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
-                  resellerPakasirEnabled ? "translate-x-5" : ""
                 }`}
               />
             </button>

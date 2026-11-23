@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { getDisplayPriceUSD } from "./display-price.ts";
 
-test("derives the catalog USD price from the Pakasir IDR price and current FX", () => {
+test("derives the catalog USD price from the IDR price and current FX", () => {
   assert.equal(getDisplayPriceUSD(109_946, 7.09, 17_666.414196), 6.23);
 });
 

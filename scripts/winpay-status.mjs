@@ -116,7 +116,7 @@ try {
     record(
       "GET /api/payment/methods",
       retail ? "PASS" : "WARN",
-      `retail winpay=${retail}, reseller winpay=${reseller}, pakasir=${methods.json.pakasir?.enabled}`,
+      `retail winpay=${retail}, reseller winpay=${reseller}`,
     );
   }
 } catch (error) {

@@ -84,10 +84,10 @@ export default function PaymentStatusSync() {
         }
 
         let verified = data;
+        // Only WinPay exposes a customer-triggered sync route now. Legacy
+        // Pakasir orders keep showing the status returned by the order API.
         const idrProvider =
-          data.paymentProvider === "winpay" || data.paymentProvider === "pakasir"
-            ? data.paymentProvider
-            : null;
+          data.paymentProvider === "winpay" ? "winpay" : null;
         if (
           orderId &&
           idrProvider &&

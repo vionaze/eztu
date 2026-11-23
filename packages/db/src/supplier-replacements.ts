@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { PrismaClient } from "@prisma/client";
+import { applyIdrPaymentFee } from "./payment-fee.ts";
 import type { SupplierCatalogProduct } from "./supplier-catalog.ts";
 
 // Only plain diamond packages are interchangeable. Passes and promotional
@@ -43,7 +44,9 @@ export async function reconcileSupplierReplacements(db: Pick<PrismaClient, "prod
     await db.productVariant.updateMany({ where: { replacementForId: original.id, ...(id ? { id: { not: id } } : {}) }, data: { published: false } });
     if (!replacement || !id) continue;
     const cost = Math.round(replacement.price);
-    const priceIDR = Math.ceil(cost * (10000 + original.nonCryptoMarkupBps) / 10000);
+    const priceIDR = applyIdrPaymentFee(
+      Math.ceil(cost * (10000 + original.nonCryptoMarkupBps) / 10000),
+    );
     const data = {
       name: replacement.name, productId: original.productId, countryCode: original.countryCode,
       replacementForId: original.id, supplierSku: replacement.code,

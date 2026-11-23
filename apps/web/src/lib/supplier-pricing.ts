@@ -1,5 +1,5 @@
 import "server-only";
-import { prisma, reconcileSupplierReplacements } from "@kupon/db";
+import { applyIdrPaymentFee, prisma, reconcileSupplierReplacements } from "@kupon/db";
 import {
   getSupplierProduct,
   getSupplierProducts,
@@ -44,7 +44,9 @@ async function persistSupplierProduct(
   // Keep the last display price for an empty SKU so its package stays grouped.
   // Unavailable supplier rows can also carry an INT_MAX placeholder cost.
   const nonCryptoPriceIDR = isSupplierPurchasable(supplierProduct.status)
-    ? calculatePriceWithMarkupBps(supplierProduct.price, variant.nonCryptoMarkupBps)
+    ? applyIdrPaymentFee(
+        calculatePriceWithMarkupBps(supplierProduct.price, variant.nonCryptoMarkupBps),
+      )
     : undefined;
   await prisma.productVariant.update({
     where: { id: variant.id },
@@ -98,12 +100,19 @@ export async function getFreshVariantPricing(
   }
 
   const markupBps = getMarkupBps(variant, paymentMethod);
+  const basePriceIDR = calculatePriceWithMarkupBps(
+    supplierProduct.price,
+    markupBps,
+  );
+  // Crypto settles in USD through Cryptomus, so it does not carry the QRIS fee.
+  const unitPriceIDR =
+    paymentMethod === "crypto" ? basePriceIDR : applyIdrPaymentFee(basePriceIDR);
   return {
     supplierSku,
     countryCode: variant.countryCode,
     supplierCostIDR: supplierProduct.price,
     supplierStatus: supplierProduct.status.trim().toLowerCase(),
-    unitPriceIDR: calculatePriceWithMarkupBps(supplierProduct.price, markupBps),
+    unitPriceIDR,
     markupBps,
     verifiedAt,
   };

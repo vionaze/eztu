@@ -12,7 +12,8 @@ test("rejects malformed and excessive percentages", () => {
   assert.throws(() => parseResellerMarkupPercent("1000.00001"), /MARKUP_OUT_OF_RANGE/);
 });
 test("uses integer ceiling math", () => {
-  assert.equal(calculateResellerPrice(100, { mode: "MARKUP", markupMicros: 111111, fixedPriceIDR: null, enabled: true }), 102);
+  // 102 before the 0,7% IDR payment-fee buffer, 103 after it.
+  assert.equal(calculateResellerPrice(100, { mode: "MARKUP", markupMicros: 111111, fixedPriceIDR: null, enabled: true }), 103);
 });
 test("rejects disabled and below-cost fixed rules", () => {
   assert.throws(() => calculateResellerPrice(100, { mode: "MARKUP", markupMicros: 0, fixedPriceIDR: null, enabled: false }), /RESELLER_RULE_DISABLED/);

@@ -71,7 +71,7 @@ test("request fingerprints are order-independent and payload-sensitive", () => {
   const b = buildRequestFingerprint("org-1", [{ variantId: "b", quantity: 2 }, { variantId: "a", quantity: 1 }], "CRYPTO");
   assert.equal(a, b);
   assert.notEqual(a, buildRequestFingerprint("org-1", [{ variantId: "a", quantity: 2 }, { variantId: "b", quantity: 2 }], "CRYPTO"));
-  assert.notEqual(a, buildRequestFingerprint("org-1", [{ variantId: "a", quantity: 1 }, { variantId: "b", quantity: 2 }], "PAKASIR"));
+  assert.notEqual(a, buildRequestFingerprint("org-1", [{ variantId: "a", quantity: 1 }, { variantId: "b", quantity: 2 }], "WINPAY"));
   assert.notEqual(a, buildRequestFingerprint("org-2", [{ variantId: "a", quantity: 1 }, { variantId: "b", quantity: 2 }], "CRYPTO"));
 });
 

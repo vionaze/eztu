@@ -1,5 +1,5 @@
 import "server-only";
-import { isPakasirCheckoutEnabled, isWinpayCheckoutEnabled } from "@kupon/payments";
+import { isWinpayCheckoutEnabled } from "@kupon/payments";
 import { getSetting, setSetting } from "@/lib/settings";
 import {
   evaluateCryptoAvailability,
@@ -13,10 +13,8 @@ export const PAYMENT_SETTING_KEYS = {
   CRYPTO_ENABLED: "payments.crypto.enabled",
   CRYPTO_DISABLED_COUNTRIES: "payments.crypto.disabledCountries",
   CRYPTO_DISABLED_UNTIL: "payments.crypto.disabledUntil",
-  PAKASIR_ENABLED: "payments.pakasir.enabled",
   WINPAY_ENABLED: "payments.winpay.enabled",
   RESELLER_CRYPTO_ENABLED: "payments.reseller.crypto.enabled",
-  RESELLER_PAKASIR_ENABLED: "payments.reseller.pakasir.enabled",
   RESELLER_WINPAY_ENABLED: "payments.reseller.winpay.enabled",
 } as const;
 
@@ -46,22 +44,8 @@ export async function getCryptoAvailability(
 }
 
 /**
- * The env gate (`PAKASIR_ENABLED` + credentials) stays authoritative; the admin
- * switch can only turn Pakasir further off, never on when the env is missing.
- */
-export async function getPakasirAdminEnabled(): Promise<boolean> {
-  const raw = await getSetting(PAYMENT_SETTING_KEYS.PAKASIR_ENABLED, "true");
-  return raw.trim().toLowerCase() !== "false";
-}
-
-export async function isPakasirEnabledForCheckout(): Promise<boolean> {
-  if (!isPakasirCheckoutEnabled()) return false;
-  return getPakasirAdminEnabled();
-}
-
-/**
- * WinPay runs alongside Pakasir during the migration. The same rule applies:
- * the env gate stays authoritative and the admin switch can only turn it off.
+ * The env gate (`WINPAY_ENABLED` + credentials) stays authoritative; the admin
+ * switch can only turn WinPay further off, never on when the env is missing.
  */
 export async function getWinpayAdminEnabled(): Promise<boolean> {
   const raw = await getSetting(PAYMENT_SETTING_KEYS.WINPAY_ENABLED, "true");
@@ -82,21 +66,8 @@ export async function getResellerCryptoAdminEnabled(): Promise<boolean> {
   return raw.trim().toLowerCase() !== "false";
 }
 
-export async function getResellerPakasirAdminEnabled(): Promise<boolean> {
-  const raw = await getSetting(
-    PAYMENT_SETTING_KEYS.RESELLER_PAKASIR_ENABLED,
-    "true",
-  );
-  return raw.trim().toLowerCase() !== "false";
-}
-
 export async function isResellerCryptoEnabledForCheckout(): Promise<boolean> {
   return getResellerCryptoAdminEnabled();
-}
-
-export async function isResellerPakasirEnabledForCheckout(): Promise<boolean> {
-  if (!isPakasirCheckoutEnabled()) return false;
-  return getResellerPakasirAdminEnabled();
 }
 
 export async function getResellerWinpayAdminEnabled(): Promise<boolean> {

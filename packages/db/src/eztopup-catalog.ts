@@ -1,3 +1,5 @@
+import { applyIdrPaymentFee } from "./payment-fee.ts";
+
 export type CatalogFulfillmentType = "TOP_UP" | "VOUCHER";
 
 export type CatalogItem = {
@@ -340,7 +342,10 @@ export function calculateSellPriceIDR(
   if (!Number.isSafeInteger(markupBps) || markupBps < 0) {
     throw new Error("Pricing markup must be a non-negative integer.");
   }
-  return Math.ceil((supplierCostIDR * (10_000 + markupBps)) / 10_000);
+  // IDR prices also carry the WinPay QRIS fee (see payment-fee.ts).
+  return applyIdrPaymentFee(
+    Math.ceil((supplierCostIDR * (10_000 + markupBps)) / 10_000),
+  );
 }
 
 export function parseCatalogSheetRows(

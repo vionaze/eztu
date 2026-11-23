@@ -21,14 +21,16 @@
     "products:sync:supplier": "pnpm --filter @kupon/db products:sync:supplier",
     "reseller-pricing:import": "pnpm --filter @kupon/db reseller-pricing:import",
     "test:db": "pnpm --filter @kupon/db test",
-    "test:webhooks": "node --experimental-strip-types --test scripts/pakasir-webhook.test.mjs scripts/winpay-webhook.test.mjs",
+    "test:webhooks": "node --experimental-strip-types --test scripts/winpay-webhook.test.mjs",
     "winpay:preflight": "node --experimental-strip-types scripts/winpay-preflight.mjs",
     "winpay:status": "node --experimental-strip-types scripts/winpay-status.mjs",
     "prices:gta-vi": "node --experimental-strip-types packages/db/src/apply-gta-vi-price-update.ts",
     "prices:gta-vi:apply": "node --experimental-strip-types packages/db/src/apply-gta-vi-price-update.ts --apply",
     "prisma:generate": "pnpm --filter @kupon/db prisma:generate",
     "prisma:validate": "pnpm --filter @kupon/db prisma:validate",
-    "deploy:vps": "bash scripts/deploy-vps.sh"
+    "deploy:vps": "bash scripts/deploy-vps.sh",
+    "prices:playstation-gta": "node --experimental-strip-types packages/db/src/apply-playstation-gta-price-update.ts",
+    "prices:playstation-gta:apply": "node --experimental-strip-types packages/db/src/apply-playstation-gta-price-update.ts --apply"
   },
   "devDependencies": {
     "next": "16.2.4"

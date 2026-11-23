@@ -90,7 +90,9 @@ if (!product) {
   process.exit(1);
 }
 
-const rowsFromFile = new Map(FILE_ROWS.map((row) => [row.sku, row]));
+const rowsFromFile = new Map<string, (typeof FILE_ROWS)[number]>(
+  FILE_ROWS.map((row) => [row.sku, row]),
+);
 const missingTierRules: { variantId: string; tier: (typeof TIERS)[number] }[] = [];
 
 console.log(

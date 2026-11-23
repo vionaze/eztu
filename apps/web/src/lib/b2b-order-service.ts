@@ -1,7 +1,7 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import { createPakasirPayment, createPaymentInvoice, createWinpayInvoice } from "@kupon/payments";
+import { createPaymentInvoice, createWinpayInvoice } from "@kupon/payments";
 import { calculateResellerPrice, chooseEffectiveRule, prisma, Prisma } from "@kupon/db";
 import { getUsdIdrRate } from "@/lib/fx";
 import { getDetectedMarketCode, isProductExcludedFromMarket } from "@/lib/product-availability";
@@ -12,7 +12,6 @@ import { buildEncryptedOrderDetailsWorkbook, buildOrderDetailsWorkbook, orderDet
 import { requirePlatformAdminForResellers } from "@/lib/reseller-auth";
 import {
   isResellerCryptoEnabledForCheckout,
-  isResellerPakasirEnabledForCheckout,
   isResellerWinpayEnabledForCheckout,
 } from "@/lib/payment-settings";
 import { sendB2BDeliveryEmail } from "@/lib/reseller-notifications";
@@ -208,14 +207,6 @@ export async function createB2BOrder(params: {
         "CRYPTO_UNAVAILABLE",
       );
     }
-  } else if (params.paymentMethod === "PAKASIR") {
-    if (!(await isResellerPakasirEnabledForCheckout())) {
-      throw new B2BOrderError(
-        "Payments are temporarily unavailable. Please contact admin at cs@eztopup.io.",
-        503,
-        "PAKASIR_UNAVAILABLE",
-      );
-    }
   } else if (!(await isResellerWinpayEnabledForCheckout())) {
     throw new B2BOrderError(
       "Payments are temporarily unavailable. Please contact admin at cs@eztopup.io.",
@@ -320,7 +311,7 @@ export async function createB2BOrder(params: {
         },
         paymentIntent: {
           create: {
-            provider: params.paymentMethod === "CRYPTO" ? "cryptomus" : params.paymentMethod === "WINPAY" ? "winpay" : "pakasir",
+            provider: params.paymentMethod === "CRYPTO" ? "cryptomus" : "winpay",
             status: "PENDING",
             expiresAt: new Date(Date.now() + PAYMENT_WINDOW_MINUTES * 60_000),
             amountIDR: BigInt(payload.totalIDR),
@@ -347,7 +338,7 @@ export async function createB2BOrder(params: {
 
   let paymentUrl: string;
   let providerPaymentId: string;
-  let provider: "cryptomus" | "pakasir" | "winpay";
+  let provider: "cryptomus" | "winpay";
   let providerExpiresAt: Date | null = null;
 
   if (params.paymentMethod === "CRYPTO") {
@@ -366,16 +357,6 @@ export async function createB2BOrder(params: {
     providerPaymentId = invoice.providerPaymentId;
     provider = "cryptomus";
     providerExpiresAt = invoice.expiresAt ?? null;
-  } else if (params.paymentMethod === "PAKASIR") {
-    const payment = await createPakasirPayment({
-      orderId: order.id,
-      amountIDR: payload.totalIDR,
-      redirectUrl: resellerUrl.toString(),
-      appUrl: resellerUrl.origin,
-    });
-    paymentUrl = payment.paymentUrl;
-    providerPaymentId = payment.txnId;
-    provider = "pakasir";
   } else {
     const invoice = await createWinpayInvoice({
       orderId: order.id,
@@ -414,7 +395,7 @@ export async function createB2BOrder(params: {
 }
 
 export async function applyB2BPaymentEvent(params: {
-  provider: "cryptomus" | "pakasir" | "winpay";
+  provider: "cryptomus" | "winpay";
   providerPaymentId: string;
   eventId: string;
   normalizedStatus: string;

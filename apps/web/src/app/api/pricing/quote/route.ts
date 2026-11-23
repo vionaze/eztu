@@ -16,7 +16,7 @@ import {
   getDetectedMarketCode,
   isProductExcludedFromMarket,
 } from "@/lib/product-availability";
-import { getCryptoAvailability, isPakasirEnabledForCheckout, isWinpayEnabledForCheckout } from "@/lib/payment-settings";
+import { getCryptoAvailability, isWinpayEnabledForCheckout } from "@/lib/payment-settings";
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,13 +26,9 @@ export async function GET(request: NextRequest) {
       request.nextUrl.searchParams.get("marketCode")?.trim().toLowerCase() || "";
     const requestedMethod =
       request.nextUrl.searchParams.get("paymentMethod")?.trim() || "";
-    // WinPay and Pakasir are both IDR rails; crypto is the only USD rail.
+    // WinPay is the IDR rail; crypto is the only USD rail.
     const paymentMethod =
-      requestedMethod === "crypto"
-        ? "crypto"
-        : requestedMethod === "winpay"
-          ? "winpay"
-          : "pakasir";
+      requestedMethod === "crypto" ? "crypto" : "winpay";
     if (
       !variantId ||
       !Number.isInteger(quantity) ||
@@ -78,25 +74,12 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(
           {
             error:
-              "Crypto payment is unavailable in your region. Please choose Pakasir.",
+              "Crypto payment is unavailable in your region. Please choose WinPay.",
             code: "CRYPTO_UNAVAILABLE_REGION",
           },
           { status: 400 },
         );
       }
-    }
-
-    if (
-      paymentMethod === "pakasir" &&
-      !(await isPakasirEnabledForCheckout())
-    ) {
-      return NextResponse.json(
-        {
-          error: "Pakasir is currently unavailable. Please choose Crypto.",
-          code: "PAKASIR_UNAVAILABLE",
-        },
-        { status: 400 },
-      );
     }
 
     if (
@@ -119,7 +102,7 @@ export async function GET(request: NextRequest) {
       : quantity;
     if (checkoutQuantity > MAX_SELF_SERVICE_QUANTITY) {
       return NextResponse.json(
-        { error: "This SKU needs more than 20 units to reach the crypto minimum. Choose Pakasir or contact sales.", code: "CRYPTO_MINIMUM_EXCEEDS_LIMIT" },
+        { error: "This SKU needs more than 20 units to reach the crypto minimum. Choose WinPay or contact sales.", code: "CRYPTO_MINIMUM_EXCEEDS_LIMIT" },
         { status: 400 },
       );
     }

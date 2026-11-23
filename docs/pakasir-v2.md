@@ -1,5 +1,11 @@
 # Pakasir v2
 
+> **RETIRED — 2026-11-24.** Pakasir menghentikan operasi pada 2026-11-25.
+> Integrasinya sudah dihapus dari repo: adapter, route webhook/sync, setting
+> admin, tombol checkout, dan bot Telegram. Dokumen ini hanya arsip historis;
+> jangan dipakai sebagai runbook.
+
+
 API v1 stops on 20 October 2026. Reference: https://pakasir.com/p/create-transaction
 
 Checkout now calls `POST /api/v2/create-transaction/{slug}/{order_id}` with

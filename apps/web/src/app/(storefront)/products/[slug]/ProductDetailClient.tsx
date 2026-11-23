@@ -58,9 +58,9 @@ type LiveQuote = {
   expiresAt: string;
 };
 
-type PaymentMethod = "crypto" | "pakasir" | "winpay";
+type PaymentMethod = "crypto" | "winpay";
 
-type PakasirDisplayPrice = {
+type IdrDisplayPrice = {
   priceIDR: number;
   priceUSD: number;
 };
@@ -88,12 +88,11 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
   const [quoteError, setQuoteError] = useState("");
   const [isQuoteLoading, setIsQuoteLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
-  const [pakasirEnabled, setPakasirEnabled] = useState(false);
   const [winpayEnabled, setWinpayEnabled] = useState(false);
   const [cryptoEnabled, setCryptoEnabled] = useState(true);
   const [paymentsLoaded, setPaymentsLoaded] = useState(false);
-  const [pakasirDisplayPrices, setPakasirDisplayPrices] = useState<
-    Record<string, PakasirDisplayPrice>
+  const [idrDisplayPrices, setIdrDisplayPrices] = useState<
+    Record<string, IdrDisplayPrice>
   >({});
   const trackedViewKey = useRef("");
   const paymentSectionRef = useRef<HTMLDivElement>(null);
@@ -124,22 +123,20 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
     [availableVariants],
   );
   const displayedPackages = useMemo(
-    () => groupProductPackages(availableVariants, pakasirDisplayPrices),
-    [availableVariants, pakasirDisplayPrices],
+    () => groupProductPackages(availableVariants, idrDisplayPrices),
+    [availableVariants, idrDisplayPrices],
   );
   const selectedPackage = packages.find(group => group.key === selectedVariant && group.available)
     || packages.find(group => group.available);
   const effectiveSelectedVariant = selectedPackage?.key || "";
   const variant = selectedPackage?.variant;
-  const selectedPakasirDisplayPrice = variant
-    ? pakasirDisplayPrices[variant.id]
+  const selectedIdrDisplayPrice = variant
+    ? idrDisplayPrices[variant.id]
     : undefined;
   const enabledMethodCount =
-    Number(cryptoEnabled) + Number(pakasirEnabled) + Number(winpayEnabled);
-  // Both hosted IDR rails share the same copy and amount display.
-  const isIdrMethod =
-    paymentMethod === "pakasir" || paymentMethod === "winpay";
-  const idrMethodLabel = paymentMethod === "winpay" ? "WinPay" : "Pakasir";
+    Number(cryptoEnabled) + Number(winpayEnabled);
+  const isIdrMethod = paymentMethod === "winpay";
+  const idrMethodLabel = "WinPay";
   const quotedVariantId = liveQuote?.variantId;
   const loginEmail = user?.primaryEmailAddress?.emailAddress || "";
   const recipientEmail = emailWasEdited ? email : loginEmail;
@@ -204,7 +201,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
     setLiveQuote(null);
     quoteProductPackage(selectedPackage.variants, async (candidate) => {
       const response = await fetch(
-        `/api/pricing/quote?variantId=${encodeURIComponent(candidate.id)}&quantity=${quantity}&paymentMethod=${paymentMethod || "pakasir"}&marketCode=${encodeURIComponent(country.supplierCode)}`,
+        `/api/pricing/quote?variantId=${encodeURIComponent(candidate.id)}&quantity=${quantity}&paymentMethod=${paymentMethod || "winpay"}&marketCode=${encodeURIComponent(country.supplierCode)}`,
         { cache: "no-store", signal: controller.signal },
       );
       const data = await response.json();
@@ -223,8 +220,8 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
         const { quote } = result;
         setQuantity(quote.quantity);
         setLiveQuote(quote);
-        if (quote.paymentMethod === "pakasir") {
-          setPakasirDisplayPrices((current) => ({
+        if (quote.paymentMethod === "winpay") {
+          setIdrDisplayPrices((current) => ({
             ...current,
             [variant.id]: {
               priceIDR: quote.unitPriceIDR,
@@ -247,7 +244,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
           variantId: variant.id,
           eventType: "QUOTE_ERROR",
           countryCode: country.supplierCode,
-          paymentMethod: paymentMethod || "pakasir",
+          paymentMethod: paymentMethod || "winpay",
           reason: message,
         });
       })
@@ -262,21 +259,21 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
       !variant ||
       !quotedVariantId ||
       paymentMethod !== "crypto" ||
-      selectedPakasirDisplayPrice
+      selectedIdrDisplayPrice
     ) {
       return;
     }
 
     const controller = new AbortController();
     fetch(
-      `/api/pricing/quote?variantId=${encodeURIComponent(quotedVariantId)}&quantity=1&paymentMethod=pakasir&marketCode=${encodeURIComponent(country.supplierCode)}`,
+      `/api/pricing/quote?variantId=${encodeURIComponent(quotedVariantId)}&quantity=1&paymentMethod=winpay&marketCode=${encodeURIComponent(country.supplierCode)}`,
       { cache: "no-store", signal: controller.signal },
     )
       .then(async (response) => {
         const data = await response.json();
         if (!response.ok) return;
         const quote = data as LiveQuote;
-        setPakasirDisplayPrices((current) => ({
+        setIdrDisplayPrices((current) => ({
           ...current,
           [variant.id]: {
             priceIDR: quote.unitPriceIDR,
@@ -290,7 +287,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
       })
       .catch((error) => {
         if (!(error instanceof DOMException && error.name === "AbortError")) {
-          console.error("[Pakasir Display Quote]", error);
+          console.error("[WinPay Display Quote]", error);
         }
       });
 
@@ -298,7 +295,7 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
   }, [
     country.supplierCode,
     paymentMethod,
-    selectedPakasirDisplayPrice,
+    selectedIdrDisplayPrice,
     quotedVariantId,
     variant,
   ]);
@@ -313,18 +310,14 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
         if (!response.ok) return;
         const data = (await response.json()) as {
           crypto?: { enabled?: boolean };
-          pakasir?: { enabled?: boolean };
           winpay?: { enabled?: boolean };
         };
         const cryptoAvailable = data.crypto?.enabled !== false;
-        const pakasirAvailable = Boolean(data.pakasir?.enabled);
         const winpayAvailable = Boolean(data.winpay?.enabled);
         setCryptoEnabled(cryptoAvailable);
-        setPakasirEnabled(pakasirAvailable);
         setWinpayEnabled(winpayAvailable);
         const available = [
           cryptoAvailable ? "crypto" : null,
-          pakasirAvailable ? "pakasir" : null,
           winpayAvailable ? "winpay" : null,
         ].filter((method): method is PaymentMethod => method !== null);
         setPaymentMethod((current) => {
@@ -469,14 +462,14 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
     variant && (!liveQuote || liveQuote.totalUSDCents > 0)
   );
   const paymentsUnavailable =
-    paymentsLoaded && requiresPaymentChoice && !cryptoEnabled && !pakasirEnabled && !winpayEnabled;
+    paymentsLoaded && requiresPaymentChoice && !cryptoEnabled && !winpayEnabled;
   const checkoutDisabled =
     isCheckingOut ||
     isQuoteLoading ||
     !liveQuote ||
     !selectedPackage?.variants.some(candidate => candidate.id === liveQuote.variantId) ||
     liveQuote.quantity !== quantity ||
-    liveQuote.paymentMethod !== (paymentMethod || "pakasir") ||
+    liveQuote.paymentMethod !== (paymentMethod || "winpay") ||
     Boolean(quoteError) ||
     (requiresPaymentChoice && !paymentMethod) ||
     (isSignedIn ? !canCheckout : !canStartLogin);
@@ -604,10 +597,10 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                       )}
                       <p className="mt-1 text-[13px] font-semibold leading-tight text-accent font-[family-name:var(--font-geist-mono)]">
                         <span className="sr-only">Price: </span>
-                        {pakasirDisplayPrices[v.id]
+                        {idrDisplayPrices[v.id]
                           ? formatLocalPrice(
-                              pakasirDisplayPrices[v.id].priceIDR,
-                              pakasirDisplayPrices[v.id].priceUSD,
+                              idrDisplayPrices[v.id].priceIDR,
+                              idrDisplayPrices[v.id].priceUSD,
                             )
                           : formatLocalPrice(v.priceIDR, v.priceUSD)}
                       </p>
@@ -799,40 +792,6 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                         {cryptoEnabled
                           ? "USDT or USDC · fast online checkout"
                           : "Currently unavailable in your region"}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!pakasirEnabled) return;
-                        setPaymentMethod("pakasir");
-                        trackProductEvent({
-                          productId: product.id,
-                          variantId: variant?.id,
-                          eventType: "PAYMENT_METHOD_SELECTED",
-                          countryCode: country.supplierCode,
-                          paymentMethod: "pakasir",
-                        });
-                      }}
-                      disabled={!pakasirEnabled}
-                      hidden={!pakasirEnabled}
-                      className={cn(
-                        "rounded-xl border p-3 text-left transition-all",
-                        paymentMethod === "pakasir"
-                          ? "border-accent bg-accent/10"
-                          : "border-border bg-bg-card hover:border-accent/40",
-                        !pakasirEnabled &&
-                          "cursor-not-allowed opacity-45 hover:border-border"
-                      )}
-                    >
-                      <span className="flex items-center gap-2 font-medium text-text-primary">
-                        <CreditCard size={18} />
-                        Pakasir
-                      </span>
-                      <span className="mt-1 block text-xs text-text-muted">
-                        {pakasirEnabled
-                          ? "QRIS and Indonesian Virtual Accounts"
-                          : "Currently unavailable"}
                       </span>
                     </button>
                     <button

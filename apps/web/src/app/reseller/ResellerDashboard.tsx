@@ -26,7 +26,7 @@ import { CartButton, OrderModal, OrdersPanel, type CartLine, type ResellerOrder 
 
 type Variant = { id: string; name: string; countryCode: string | null; priceIDR: number };
 type Product = { id: string; name: string; slug: string; image: string | null; variants: Variant[] };
-type Catalog = { products: Product[]; quotedAt: string; orderingEnabled?: boolean; defaultPaymentMethod?: "CRYPTO" | "PAKASIR" | "WINPAY" };
+type Catalog = { products: Product[]; quotedAt: string; orderingEnabled?: boolean; defaultPaymentMethod?: "CRYPTO" | "WINPAY" };
 type Quote = { variantId: string; unitPriceIDR: number; totalIDR: number; quantity: number; quotedAt: string };
 
 const money = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
@@ -676,7 +676,7 @@ export default function ResellerDashboard({
           key={Object.entries(cart).map(([id, line]) => `${id}x${line.quantity}`).sort().join("|") || "empty"}
           orgId={orgId}
           lines={Object.values(cart)}
-          defaultMethod={catalog?.defaultPaymentMethod ?? "PAKASIR"}
+          defaultMethod={catalog?.defaultPaymentMethod ?? "WINPAY"}
           defaultEmail={email}
           onClose={() => setShowOrder(false)}
           onPlaced={() => setCart({})}

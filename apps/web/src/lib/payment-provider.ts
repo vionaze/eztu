@@ -1,6 +1,6 @@
 /**
- * Both Pakasir and WinPay settle in integer IDR. Keeping the set in one place
- * stops the amount-integrity check from silently becoming USD-only.
+ * WinPay (and legacy Pakasir rows) settle in integer IDR. Keeping the set in
+ * one place stops the amount-integrity check from silently becoming USD-only.
  */
 const IDR_PAYMENT_PROVIDERS = new Set(["pakasir", "winpay"]);
 

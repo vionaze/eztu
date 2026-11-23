@@ -3,9 +3,7 @@ import { requireAdminUser } from "@/lib/clerk";
 import { setSetting } from "@/lib/settings";
 import {
   getCryptoCheckoutSettings,
-  getPakasirAdminEnabled,
   getResellerCryptoAdminEnabled,
-  getResellerPakasirAdminEnabled,
   getResellerWinpayAdminEnabled,
   getWinpayAdminEnabled,
   PAYMENT_SETTING_KEYS,
@@ -28,27 +26,21 @@ export async function GET() {
   try {
     const [
       crypto,
-      pakasirEnabled,
       winpayEnabled,
       resellerCryptoEnabled,
-      resellerPakasirEnabled,
       resellerWinpayEnabled,
     ] = await Promise.all([
       getCryptoCheckoutSettings(),
-      getPakasirAdminEnabled(),
       getWinpayAdminEnabled(),
       getResellerCryptoAdminEnabled(),
-      getResellerPakasirAdminEnabled(),
       getResellerWinpayAdminEnabled(),
     ]);
     return NextResponse.json(
       {
         settings: {
           ...crypto,
-          pakasirEnabled,
           winpayEnabled,
           resellerCryptoEnabled,
-          resellerPakasirEnabled,
           resellerWinpayEnabled,
         },
       },
@@ -75,10 +67,8 @@ export async function PUT(request: Request) {
       enabled?: unknown;
       disabledCountries?: unknown;
       disabledUntil?: unknown;
-      pakasirEnabled?: unknown;
       winpayEnabled?: unknown;
       resellerCryptoEnabled?: unknown;
-      resellerPakasirEnabled?: unknown;
       resellerWinpayEnabled?: unknown;
     };
     const current = await getCryptoCheckoutSettings();
@@ -99,18 +89,6 @@ export async function PUT(request: Request) {
       disabledCountries,
       disabledUntil: disabledUntil ?? "",
     });
-
-    const pakasirEnabled =
-      typeof body.pakasirEnabled === "boolean"
-        ? body.pakasirEnabled
-        : await getPakasirAdminEnabled();
-
-    if (typeof body.pakasirEnabled === "boolean") {
-      await setSetting(
-        PAYMENT_SETTING_KEYS.PAKASIR_ENABLED,
-        pakasirEnabled ? "true" : "false",
-      );
-    }
 
     const winpayEnabled =
       typeof body.winpayEnabled === "boolean"
@@ -136,18 +114,6 @@ export async function PUT(request: Request) {
       );
     }
 
-    const resellerPakasirEnabled =
-      typeof body.resellerPakasirEnabled === "boolean"
-        ? body.resellerPakasirEnabled
-        : await getResellerPakasirAdminEnabled();
-
-    if (typeof body.resellerPakasirEnabled === "boolean") {
-      await setSetting(
-        PAYMENT_SETTING_KEYS.RESELLER_PAKASIR_ENABLED,
-        resellerPakasirEnabled ? "true" : "false",
-      );
-    }
-
     const resellerWinpayEnabled =
       typeof body.resellerWinpayEnabled === "boolean"
         ? body.resellerWinpayEnabled
@@ -163,10 +129,8 @@ export async function PUT(request: Request) {
     return NextResponse.json({
       settings: {
         ...settings,
-        pakasirEnabled,
         winpayEnabled,
         resellerCryptoEnabled,
-        resellerPakasirEnabled,
         resellerWinpayEnabled,
       },
     });

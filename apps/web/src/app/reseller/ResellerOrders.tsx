@@ -57,7 +57,7 @@ export function OrderModal({
 }: {
   orgId: string;
   lines: CartLine[];
-  defaultMethod: "CRYPTO" | "PAKASIR" | "WINPAY";
+  defaultMethod: "CRYPTO" | "WINPAY";
   onClose: () => void;
   onPlaced: () => void;
   onChangeQuantity: (variantId: string, next: number) => void;
@@ -72,7 +72,6 @@ export function OrderModal({
   const [confirmed, setConfirmed] = useState<{ token: string; totalIDR: number } | null>(null);
   const [paymentsAvailable, setPaymentsAvailable] = useState(true);
   const [cryptoAvailable, setCryptoAvailable] = useState(false);
-  const [pakasirAvailable, setPakasirAvailable] = useState(true);
   const [winpayAvailable, setWinpayAvailable] = useState(true);
   const cartTotal = lines.reduce((sum, line) => sum + line.unitPriceIDR * line.quantity, 0);
   const total = confirmed?.totalIDR ?? cartTotal;
@@ -83,11 +82,9 @@ export function OrderModal({
       .then((response) => (response.ok ? response.json() : null))
       .then((data: {
         crypto?: { enabled?: boolean };
-        pakasir?: { enabled?: boolean };
         winpay?: { enabled?: boolean };
         reseller?: {
           crypto?: { enabled?: boolean };
-          pakasir?: { enabled?: boolean };
           winpay?: { enabled?: boolean };
         };
       } | null) => {
@@ -96,18 +93,13 @@ export function OrderModal({
           typeof data.reseller?.crypto?.enabled === "boolean"
             ? data.reseller.crypto.enabled
             : Boolean(data.crypto?.enabled);
-        const resellerPakasir =
-          typeof data.reseller?.pakasir?.enabled === "boolean"
-            ? data.reseller.pakasir.enabled
-            : Boolean(data.pakasir?.enabled);
         const resellerWinpay =
           typeof data.reseller?.winpay?.enabled === "boolean"
             ? data.reseller.winpay.enabled
             : Boolean(data.winpay?.enabled);
         setCryptoAvailable(resellerCrypto);
-        setPakasirAvailable(resellerPakasir);
         setWinpayAvailable(resellerWinpay);
-        setPaymentsAvailable(resellerCrypto || resellerPakasir || resellerWinpay);
+        setPaymentsAvailable(resellerCrypto || resellerWinpay);
       })
       .catch(() => {
         // Keep the buttons enabled; the server still rejects unavailable methods.
@@ -128,10 +120,9 @@ export function OrderModal({
     return { token: quote.quoteToken, totalIDR: quote.totalIDR ?? cartTotal };
   }
 
-  async function placeOrder(method: "CRYPTO" | "PAKASIR" | "WINPAY") {
+  async function placeOrder(method: "CRYPTO" | "WINPAY") {
     if (busy || lines.length === 0) return;
-    const available =
-      method === "CRYPTO" ? cryptoAvailable : method === "PAKASIR" ? pakasirAvailable : winpayAvailable;
+    const available = method === "CRYPTO" ? cryptoAvailable : winpayAvailable;
     if (!available) return;
     setBusy(true);
     setError("");
@@ -168,15 +159,13 @@ export function OrderModal({
     }
   }
 
-  const orderedMethods: ("CRYPTO" | "PAKASIR" | "WINPAY")[] = (
-    ["WINPAY", "PAKASIR", "CRYPTO"] as ("CRYPTO" | "PAKASIR" | "WINPAY")[]
-  ).filter((method) =>
-    method === "CRYPTO" ? cryptoAvailable : method === "PAKASIR" ? pakasirAvailable : winpayAvailable,
-  );
+  const orderedMethods: ("CRYPTO" | "WINPAY")[] = (
+    ["WINPAY", "CRYPTO"] as ("CRYPTO" | "WINPAY")[]
+  ).filter((method) => (method === "CRYPTO" ? cryptoAvailable : winpayAvailable));
   const methodButtons = (
     <div className={cn("grid gap-2", orderedMethods.length > 1 && "sm:grid-cols-2", orderedMethods.length > 2 && "lg:grid-cols-3")}>
       {orderedMethods.map((method) => {
-        const isDefault = method === (defaultMethod === "CRYPTO" ? "PAKASIR" : defaultMethod);
+        const isDefault = method === (defaultMethod === "CRYPTO" ? "WINPAY" : defaultMethod);
         return (
           <button
             key={method}
@@ -193,9 +182,7 @@ export function OrderModal({
               ? "Pay with Crypto"
               : busy
                 ? "Creating…"
-                : method === "WINPAY"
-                  ? "Pay with WinPay"
-                  : "Pay with Pakasir"}
+                : "Pay with WinPay"}
             {isDefault ? <span className="ml-1 text-[10px] font-normal opacity-80">(primary)</span> : null}
           </button>
         );
@@ -369,7 +356,7 @@ export function OrdersPanel({ orgId }: { orgId: string }) {
               <div>
                 <p className="font-[family-name:var(--font-geist-mono)] text-sm font-semibold">{order.orderNumber}</p>
                 <p className="text-xs text-text-muted">
-                  {new Date(order.createdAt).toLocaleString("en-GB")} · {order.paymentMethod === "CRYPTO" ? "Crypto" : "Pakasir"}
+                  {new Date(order.createdAt).toLocaleString("en-GB")} · {order.paymentMethod === "CRYPTO" ? "Crypto" : order.paymentMethod === "WINPAY" ? "WinPay" : "Pakasir"}
                   {order.deliveryEmail ? ` · codes to ${order.deliveryEmail}` : ""}
                 </p>
               </div>

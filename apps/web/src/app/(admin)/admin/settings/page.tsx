@@ -4,9 +4,7 @@ import {
 } from "@/lib/settings";
 import {
   getCryptoCheckoutSettings,
-  getPakasirAdminEnabled,
   getResellerCryptoAdminEnabled,
-  getResellerPakasirAdminEnabled,
   getResellerWinpayAdminEnabled,
   getWinpayAdminEnabled,
 } from "@/lib/payment-settings";
@@ -20,18 +18,14 @@ export default async function AdminSettingsPage() {
   const [
     ai,
     crypto,
-    pakasirEnabled,
     winpayEnabled,
     resellerCryptoEnabled,
-    resellerPakasirEnabled,
     resellerWinpayEnabled,
   ] = await Promise.all([
     getBlogAiSettings(),
     getCryptoCheckoutSettings(),
-    getPakasirAdminEnabled(),
     getWinpayAdminEnabled(),
     getResellerCryptoAdminEnabled(),
-    getResellerPakasirAdminEnabled(),
     getResellerWinpayAdminEnabled(),
   ]);
   const key = ai.apiKey;
@@ -72,10 +66,8 @@ export default async function AdminSettingsPage() {
           enabled: crypto.enabled,
           disabledCountries: crypto.disabledCountries.join(","),
           disabledUntil: crypto.disabledUntil,
-          pakasirEnabled,
           winpayEnabled,
           resellerCryptoEnabled,
-          resellerPakasirEnabled,
           resellerWinpayEnabled,
         }}
       />
@@ -91,18 +83,6 @@ export default async function AdminSettingsPage() {
             Secrets hanya di env VPS:{" "}
             <code className="text-text-secondary">CRYPTOMUS_*</code> — tidak
             diedit dari browser.
-          </p>
-        </div>
-        <div className="admin-tile">
-          <div className="flex items-center gap-2">
-            <Key size={16} className="text-accent shrink-0" />
-            <p className="admin-tile-title">Pakasir</p>
-          </div>
-          <p className="admin-tile-desc">
-            Dikontrol hanya dari env VPS: {" "}
-            <code className="text-text-secondary">PAKASIR_ENABLED</code>, {" "}
-            <code className="text-text-secondary">PAKASIR_PROJECT_SLUG</code>,
-            dan <code className="text-text-secondary">PAKASIR_API_KEY</code>.
           </p>
         </div>
         <div className="admin-tile">

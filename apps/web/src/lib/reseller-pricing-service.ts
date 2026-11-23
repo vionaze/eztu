@@ -85,8 +85,8 @@ export async function getResellerCatalog(organizationId: string, requestHeaders:
     products: [...products.values()],
     quotedAt: new Date().toISOString(),
     orderingEnabled: isB2BOrderingEnabled(organizationId, organization.orderingEnabled),
-    // Pakasir is the primary settlement method; crypto stays available as a secondary option.
-    defaultPaymentMethod: "PAKASIR" as const,
+    // WinPay is the primary settlement method; crypto stays available as a secondary option.
+    defaultPaymentMethod: "WINPAY" as const,
   };
 }
 

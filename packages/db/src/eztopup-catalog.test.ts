@@ -6,8 +6,9 @@ import {
 } from "./eztopup-catalog.ts";
 
 test("calculates prices from an explicit per-SKU markup", () => {
-  assert.equal(calculateSellPriceIDR(10_001, 850), 10_852);
-  assert.equal(calculateSellPriceIDR(10_001, 1_050), 11_052);
+  // The result includes the 0,7% IDR payment-fee buffer.
+  assert.equal(calculateSellPriceIDR(10_001, 850), 10_928);
+  assert.equal(calculateSellPriceIDR(10_001, 1_050), 11_130);
 });
 
 test("normalizes an Indonesia top-up row with exact SKU and local image", () => {

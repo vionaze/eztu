@@ -11,7 +11,7 @@ export type PricingQuote = {
   version: 2;
   variantId: string;
   quantity: number;
-  paymentMethod: "pakasir" | "winpay" | "crypto";
+  paymentMethod: "winpay" | "crypto";
   supplierCostIDR: number;
   supplierCountryCode: string;
   pricingMarkupBps: number;
@@ -146,7 +146,7 @@ export async function getUsdIdrRate(): Promise<FxRate> {
 export function createPricingQuote(params: {
   variantId: string;
   quantity: number;
-  paymentMethod: "pakasir" | "winpay" | "crypto";
+  paymentMethod: "winpay" | "crypto";
   supplierCostIDR: number;
   supplierCountryCode: string;
   pricingMarkupBps: number;
@@ -158,7 +158,7 @@ export function createPricingQuote(params: {
     !params.variantId ||
     !Number.isSafeInteger(params.quantity) ||
     params.quantity < 1 ||
-    !["pakasir", "winpay", "crypto"].includes(params.paymentMethod) ||
+    !["winpay", "crypto"].includes(params.paymentMethod) ||
     !Number.isSafeInteger(params.supplierCostIDR) ||
     params.supplierCostIDR < 0 ||
     !params.supplierCountryCode ||
@@ -206,7 +206,7 @@ export function verifyPricingQuote(
   params: {
     variantId: string;
     quantity: number;
-    paymentMethod: "pakasir" | "winpay" | "crypto";
+    paymentMethod: "winpay" | "crypto";
     supplierCostIDR: number;
     supplierCountryCode: string;
     pricingMarkupBps: number;

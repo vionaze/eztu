@@ -14,7 +14,7 @@ test("imports every exact SKU with stable IDs, existing margins and inactive sto
   assert.equal(result.changes[0].id, "old");
   assert.equal(result.changes[0].nonCryptoMarkupBps, 800);
   assert.equal(result.changes[1].supplierStatus, "empty");
-  assert.equal(result.changes[1].priceIDR, 10800);
+  assert.equal(result.changes[1].priceIDR, 10876);
   assert.deepEqual(result.summary[0], { productId: "ml", slug: "mobile-legends", total: 2, available: 1, added: 1, unpriced: 0 });
   const updated = [{ ...products[0], variants: result.changes.map(v => ({ ...v, replacementForId: null })) }];
   const rerun = buildSupplierExpansion(updated, catalogs);
