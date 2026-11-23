@@ -104,18 +104,19 @@ dikonfirmasi user bahwa file adalah sumber kebenaran.
 | `node --test scripts/winpay-webhook.test.mjs` | 8 lulus |
 | `scripts/discord-reseller-sale.test.mjs` | 2 lulus |
 | `tsc --noEmit` (apps/web, packages/db, packages/payments) | bersih |
-| `pnpm build` | **gagal karena environment**, bukan kode: native SWC/Turbopack tidak bisa dimuat (code signature macOS). Perlu build di VPS/Linux atau perbaiki instalasi `sharp`/`@next/swc-darwin-arm64` |
+| `pnpm build` | **gagal karena environment**, bukan kode: native SWC/Turbopack tidak bisa dimuat (code signature macOS), dan `next build --webpack` berhenti di `lightningcss.darwin-arm64.node` yang tidak ada. Build harus dijalankan di VPS/Linux |
 | `prices:playstation-gta` dry-run | 465 baris snapshot, 134 cocok di DB lokal, 331 tidak ada (kebanyakan varian negara `gta-vi` yang tidak di-seed lokal) |
 | `prices:playstation-gta:apply` di DB lokal | 134 varian + 268 rule reseller diperbarui |
 | Cek harga lokal | GTA SE retail 1.350.532 / B2B 1.324.560 (memakai cost file 1.289.560 untuk `gta-vi`); PSN100RM retail 459.342 / B2B 423.848 |
 
 ## Status deploy
 
-- **Belum di-commit, belum di-push, belum di-deploy.** Perubahan ada di working
-  tree, bercampur dengan perubahan lain yang sudah ada sebelumnya
+- Commit `4d02b10` — *feat(pricing): bake WinPay fee, refresh PlayStation/GTA
+  prices, retire Pakasir* — sudah di-push ke `origin/main`.
+- **Belum di-deploy.** Perubahan lain yang sudah ada sebelumnya
   (`ProductQuickToggle`, `products/page.tsx`, `AdminSidebar`, `clerk.ts`,
   `product-analytics*`, `fav-eztopup.png`, `admin/loading.tsx`,
-  `api/cache-test/`) yang **bukan** dari sesi ini.
+  `api/cache-test/`) sengaja **tidak** ikut di-commit.
 - DB lokal sudah di-`--apply`; produksi belum.
 - Blocker build lokal: native SWC. Deploy di VPS tetap memakai `pnpm build`
   (Linux) seperti biasa.
