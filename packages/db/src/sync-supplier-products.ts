@@ -3,6 +3,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config as loadEnv } from "dotenv";
 import { calculateSellPriceIDR } from "./eztopup-catalog.ts";
+import { readPricingMarkup, resolveProductMarkupBps } from "./pricing-markup.ts";
 import { reconcileSupplierReplacements } from "./supplier-replacements.ts";
 import { fetchCountryCatalog, fetchCategoryCatalog } from "./supplier-catalog.ts";
 import { buildSupplierExpansion, PRODUCT_SUPPLIER_CATEGORIES } from "./supplier-expansion.ts";
@@ -39,11 +40,12 @@ async function main() {
       supplierSku: true,
       countryCode: true,
       nonCryptoMarkupBps: true,
-      product: { select: { name: true } },
+      product: { select: { name: true, slug: true } },
       name: true,
     },
     orderBy: [{ countryCode: "asc" }, { supplierSku: "asc" }],
   });
+  const markupSettings = await readPricingMarkup(prisma);
   const countries = [...new Set(variants.map((variant) => variant.countryCode))];
   let updated = 0;
   let missing = 0;
@@ -74,6 +76,7 @@ async function main() {
             priceIDR: calculateSellPriceIDR(
               Math.round(supplierProduct.price),
               variant.nonCryptoMarkupBps,
+              resolveProductMarkupBps(markupSettings, variant.product.slug),
             ),
             supplierStatus: supplierProduct.status.toLowerCase(),
             supplierPriceUpdatedAt: new Date(),
@@ -110,7 +113,13 @@ async function expandCatalog(shouldApply: boolean) {
     catalogs.push({ countryCode, rows });
     console.log(`Fetched ${countryCode}: ${rows.length} exact SKU rows`);
   }
-  const { changes, summary } = buildSupplierExpansion(products, catalogs, Number(process.env.PRODUCT_USD_IDR_RATE || "15500"));
+  const markupSettings = await readPricingMarkup(prisma);
+  const { changes, summary } = buildSupplierExpansion(
+    products,
+    catalogs,
+    Number(process.env.PRODUCT_USD_IDR_RATE || "15500"),
+    (slug) => resolveProductMarkupBps(markupSettings, slug),
+  );
   console.table(summary.map(s => ({ product: s.slug, total: s.total, available: s.available, unavailable: s.total - s.available, added: s.added, unpriced: s.unpriced })));
   const report = {
     capturedAt: new Date().toISOString(), applied: shouldApply, fullImport: process.argv.includes("--full-import"), countries,

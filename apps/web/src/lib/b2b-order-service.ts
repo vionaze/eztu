@@ -2,7 +2,18 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import { createPaymentInvoice, createWinpayInvoice } from "@kupon/payments";
-import { calculateResellerPrice, chooseEffectiveRule, prisma, Prisma } from "@kupon/db";
+import {
+  calculateResellerPrice,
+  chooseEffectiveRule,
+  prisma,
+  Prisma,
+  resolveProductMarkupBps,
+} from "@kupon/db";
+import { getPricingMarkupSettings } from "@/lib/pricing-markup";
+import {
+  CRYPTO_ID_MARKET_ERROR,
+  isIndonesiaMarket,
+} from "@/lib/payment-market";
 import { getUsdIdrRate } from "@/lib/fx";
 import { getDetectedMarketCode, isProductExcludedFromMarket } from "@/lib/product-availability";
 import { ResellerPricingError, requireActiveReseller } from "@/lib/reseller-pricing-service";
@@ -64,6 +75,7 @@ async function resolveQuoteLines(
   requestHeaders: Headers,
 ) {
   const snapshots: B2BQuoteLine[] = [];
+  const markupSettings = await getPricingMarkupSettings();
   for (const line of lines) {
     const variant = await prisma.productVariant.findUnique({
       where: { id: line.variantId },
@@ -97,7 +109,11 @@ async function resolveQuoteLines(
 
     let unitPriceIDR: number;
     try {
-      unitPriceIDR = calculateResellerPrice(supplied.price, rule);
+      unitPriceIDR = calculateResellerPrice(
+        supplied.price,
+        rule,
+        resolveProductMarkupBps(markupSettings, variant.product.slug),
+      );
     } catch {
       throw new B2BOrderError("A selected reseller price needs review. Please contact support.", 503, "PRICE_REVIEW_REQUIRED");
     }
@@ -199,6 +215,16 @@ export async function createB2BOrder(params: {
 }) {
   const { authenticatedUser, organization } = await requireActiveReseller(params.organizationId);
   requireOrderingEnabled(params.organizationId, organization.orderingEnabled);
+  if (
+    params.paymentMethod === "CRYPTO" &&
+    isIndonesiaMarket(getDetectedMarketCode(params.requestHeaders))
+  ) {
+    throw new B2BOrderError(
+      CRYPTO_ID_MARKET_ERROR,
+      403,
+      "CRYPTO_ID_MARKET_ONLY_WINPAY",
+    );
+  }
   if (params.paymentMethod === "CRYPTO") {
     if (!(await isResellerCryptoEnabledForCheckout())) {
       throw new B2BOrderError(

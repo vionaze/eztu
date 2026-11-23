@@ -20,6 +20,7 @@ import { fileURLToPath } from "node:url";
 import { config as loadEnv } from "dotenv";
 import { calculateSellPriceIDR } from "./eztopup-catalog.ts";
 import { calculateResellerPrice } from "./reseller-pricing.ts";
+import { readPricingMarkup, resolveProductMarkupBps } from "./pricing-markup.ts";
 
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const repoRoot = resolve(packageRoot, "../..");
@@ -32,6 +33,7 @@ for (const envFile of [
 }
 
 const { prisma } = await import("./index.ts");
+const markupSettings = await readPricingMarkup(prisma);
 
 const SNAPSHOT_PATH = resolve(
   repoRoot,
@@ -186,8 +188,8 @@ for (const row of priceRows.filter((item) => isGtaSku(item.sku))) {
   const retailBps = row.retailMarkupBps ?? 0;
   console.log(
     `  ${row.sku} [${row.countryCode}] cost ${rupiah(cost)}` +
-      ` · B2C ${rupiah(retailBps ? calculateSellPriceIDR(cost, retailBps) : cost)}` +
-      ` · B2B ${rupiah(calculateResellerPrice(cost, { mode: "MARKUP", markupMicros: row.markupMicros, fixedPriceIDR: null, enabled: true }))}`,
+      ` · B2C ${rupiah(retailBps ? calculateSellPriceIDR(cost, retailBps, resolveProductMarkupBps(markupSettings, row.productSlug)) : cost)}` +
+      ` · B2B ${rupiah(calculateResellerPrice(cost, { mode: "MARKUP", markupMicros: row.markupMicros, fixedPriceIDR: null, enabled: true }, resolveProductMarkupBps(markupSettings, row.productSlug)))}`,
   );
 }
 
@@ -218,6 +220,7 @@ await prisma.$transaction(async (tx) => {
         ? calculateSellPriceIDR(
             cost,
             nonCryptoMarkupBps ?? row.currentNonCryptoMarkupBps,
+            resolveProductMarkupBps(markupSettings, row.productSlug),
           )
         : undefined;
     await tx.productVariant.update({

@@ -75,10 +75,22 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 export { reconcileSupplierReplacements } from "./supplier-replacements.ts";
+export { calculateSellPriceIDR } from "./eztopup-catalog.ts";
 export {
   IDR_PAYMENT_FEE_BPS,
+  MAX_IDR_PAYMENT_FEE_BPS,
   applyIdrPaymentFee,
 } from "./payment-fee.ts";
+export {
+  DEFAULT_PRICING_MARKUP_BPS,
+  MAX_PRICING_MARKUP_BPS,
+  PRICING_MARKUP_KEYS,
+  isValidMarkupBps,
+  parseOverrides,
+  readPricingMarkup,
+  resolveProductMarkupBps,
+} from "./pricing-markup.ts";
+export type { PricingMarkupSettings } from "./pricing-markup.ts";
 export {
   calculateResellerPrice,
   chooseEffectiveRule,

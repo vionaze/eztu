@@ -40,6 +40,7 @@ menulis "sudah live" tanpa verifikasi di production.
 
 ## Session notes terbaru
 
+- [2026-11-24 — Markup admin & aturan pembayaran per market](session-notes/2026-11-24-admin-markup-market-payment-policy.md)
 - [2026-11-24 — Harga PlayStation/GTA, buffer WinPay 0,7%, Pakasir dihapus](session-notes/2026-11-24-playstation-gta-pricing-winpay-cutover.md)
 - [2026-11-13 — WinPay sebagai metode pembayaran ketiga](session-notes/2026-11-13-winpay-payment-addition.md)
 - [2026-11-10 — Grand Theft Auto VI (PlayStation) catalog](session-notes/2026-11-10-gta-vi-playstation-catalog.md)
@@ -59,6 +60,9 @@ menulis "sudah live" tanpa verifikasi di production.
 - Katalog produk: `data/*.xlsx` + `packages/db/src/import-eztopup-products.ts`;
   cek session note terakhir sebelum menambah game/produk.
 - Harga PlayStation/GTA: `pnpm prices:playstation-gta` (dry-run) lalu
-  `pnpm prices:playstation-gta:apply`. Buffer biaya WinPay 0,7% diatur lewat
-  `IDR_PAYMENT_FEE_BPS` dan sudah otomatis masuk ke harga retail maupun reseller.
+  `pnpm prices:playstation-gta:apply`.
+- Markup harga: admin → Settings → **Markup harga** (global + override per
+  produk, tidak boleh negatif). `IDR_PAYMENT_FEE_BPS` hanya fallback.
+- Kebijakan pembayaran: Indonesia hanya WinPay; internasional semua metode
+  dengan crypto diutamakan (`lib/payment-market.ts`).
 - Jangan menulis credential, token, atau password ke dokumentasi.

@@ -335,6 +335,7 @@ function inferProductCode(
 export function calculateSellPriceIDR(
   supplierCostIDR: number,
   markupBps: number,
+  feeBps?: number,
 ) {
   if (!Number.isFinite(supplierCostIDR) || supplierCostIDR < 0) {
     throw new Error("Supplier cost must be a non-negative number.");
@@ -342,9 +343,10 @@ export function calculateSellPriceIDR(
   if (!Number.isSafeInteger(markupBps) || markupBps < 0) {
     throw new Error("Pricing markup must be a non-negative integer.");
   }
-  // IDR prices also carry the WinPay QRIS fee (see payment-fee.ts).
+  // IDR prices also carry the admin-configured payment markup (see pricing-markup.ts).
   return applyIdrPaymentFee(
     Math.ceil((supplierCostIDR * (10_000 + markupBps)) / 10_000),
+    feeBps,
   );
 }
 

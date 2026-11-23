@@ -1,6 +1,13 @@
 import "server-only";
 
-import { calculateResellerPrice, chooseEffectiveRule, prisma } from "@kupon/db";
+import {
+  calculateResellerPrice,
+  chooseEffectiveRule,
+  prisma,
+  resolveProductMarkupBps,
+} from "@kupon/db";
+import { getPricingMarkupSettings } from "@/lib/pricing-markup";
+import { isIndonesiaMarket } from "@/lib/payment-market";
 import { AuthorizationRequiredError } from "@/lib/clerk";
 import { requireResellerUser } from "@/lib/reseller-auth";
 import { getDetectedMarketCode, isProductExcludedFromMarket } from "@/lib/product-availability";
@@ -57,6 +64,7 @@ export async function getResellerCatalog(organizationId: string, requestHeaders:
     orderBy: [{ productId: "asc" }, { name: "asc" }, { id: "asc" }],
   });
 
+  const markupSettings = await getPricingMarkupSettings();
   const products = new Map<string, {
     id: string; name: string; slug: string; image: string;
     variants: { id: string; name: string; countryCode: string; priceIDR: number }[];
@@ -67,7 +75,11 @@ export async function getResellerCatalog(organizationId: string, requestHeaders:
     if (!rule || !rule.enabled) continue;
     let priceIDR: number;
     try {
-      priceIDR = calculateResellerPrice(variant.supplierCostIDR ?? 0, rule);
+      priceIDR = calculateResellerPrice(
+        variant.supplierCostIDR ?? 0,
+        rule,
+        resolveProductMarkupBps(markupSettings, variant.product.slug),
+      );
     } catch {
       continue;
     }
@@ -85,8 +97,12 @@ export async function getResellerCatalog(organizationId: string, requestHeaders:
     products: [...products.values()],
     quotedAt: new Date().toISOString(),
     orderingEnabled: isB2BOrderingEnabled(organizationId, organization.orderingEnabled),
-    // WinPay is the primary settlement method; crypto stays available as a secondary option.
-    defaultPaymentMethod: "WINPAY" as const,
+    // International resellers default to crypto; Indonesian buyers use WinPay.
+    defaultPaymentMethod: (isIndonesiaMarket(
+      getDetectedMarketCode(requestHeaders),
+    )
+      ? "WINPAY"
+      : "CRYPTO") as "WINPAY" | "CRYPTO",
   };
 }
 
@@ -142,7 +158,12 @@ export async function getResellerLiveQuote(
   }
   let unitPriceIDR: number;
   try {
-    unitPriceIDR = calculateResellerPrice(supplied.price, rule);
+    const markupSettings = await getPricingMarkupSettings();
+    unitPriceIDR = calculateResellerPrice(
+      supplied.price,
+      rule,
+      resolveProductMarkupBps(markupSettings, variant.product.slug),
+    );
   } catch {
     throw new ResellerPricingError("This reseller price needs review. Please contact support.", 503, "PRICE_REVIEW_REQUIRED");
   }

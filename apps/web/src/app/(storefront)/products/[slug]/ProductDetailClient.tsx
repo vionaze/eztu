@@ -90,6 +90,8 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [winpayEnabled, setWinpayEnabled] = useState(false);
   const [cryptoEnabled, setCryptoEnabled] = useState(true);
+  const [cryptoPreferred, setCryptoPreferred] = useState(false);
+  const [cryptoUnavailableReason, setCryptoUnavailableReason] = useState<string | null>(null);
   const [paymentsLoaded, setPaymentsLoaded] = useState(false);
   const [idrDisplayPrices, setIdrDisplayPrices] = useState<
     Record<string, IdrDisplayPrice>
@@ -309,12 +311,15 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
       .then(async (response) => {
         if (!response.ok) return;
         const data = (await response.json()) as {
-          crypto?: { enabled?: boolean };
+          crypto?: { enabled?: boolean; preferred?: boolean; reason?: string | null };
           winpay?: { enabled?: boolean };
         };
         const cryptoAvailable = data.crypto?.enabled !== false;
+        const cryptoPreferred = cryptoAvailable && Boolean(data.crypto?.preferred);
         const winpayAvailable = Boolean(data.winpay?.enabled);
         setCryptoEnabled(cryptoAvailable);
+        setCryptoPreferred(cryptoPreferred);
+        setCryptoUnavailableReason(data.crypto?.reason ?? null);
         setWinpayEnabled(winpayAvailable);
         const available = [
           cryptoAvailable ? "crypto" : null,
@@ -322,7 +327,9 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
         ].filter((method): method is PaymentMethod => method !== null);
         setPaymentMethod((current) => {
           if (current && available.includes(current)) return current;
-          // Preserve the old behaviour: auto-select only when there is no choice.
+          // International buyers get crypto as the default; everyone else
+          // falls back to the only remaining method.
+          if (cryptoPreferred) return "crypto";
           return available.length === 1 ? available[0] : null;
         });
       })
@@ -784,14 +791,21 @@ export default function ProductDetailClient({ product, relatedProducts }: Props)
                           "cursor-not-allowed opacity-45 hover:border-border"
                       )}
                     >
-                      <span className="flex items-center gap-2 font-medium text-text-primary">
+                      <span className="flex flex-wrap items-center gap-2 font-medium text-text-primary">
                         <CurrencyBtc size={18} />
                         Pay with stablecoins
+                        {cryptoPreferred ? (
+                          <span className="rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
+                            Utama
+                          </span>
+                        ) : null}
                       </span>
                       <span className="mt-1 block text-xs text-text-muted">
                         {cryptoEnabled
                           ? "USDT or USDC · fast online checkout"
-                          : "Currently unavailable in your region"}
+                          : cryptoUnavailableReason === "indonesia_market"
+                            ? "Khusus pembeli internasional · Indonesia pakai WinPay"
+                            : "Currently unavailable in your region"}
                       </span>
                     </button>
                     <button

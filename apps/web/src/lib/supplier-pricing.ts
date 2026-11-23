@@ -1,5 +1,11 @@
 import "server-only";
-import { applyIdrPaymentFee, prisma, reconcileSupplierReplacements } from "@kupon/db";
+import {
+  applyIdrPaymentFee,
+  prisma,
+  reconcileSupplierReplacements,
+  resolveProductMarkupBps,
+} from "@kupon/db";
+import { getPricingMarkupSettings } from "@/lib/pricing-markup";
 import {
   getSupplierProduct,
   getSupplierProducts,
@@ -40,12 +46,14 @@ async function persistSupplierProduct(
   variant: PricedVariant,
   supplierProduct: SupplierProduct,
   verifiedAt: Date,
+  feeBps?: number,
 ) {
   // Keep the last display price for an empty SKU so its package stays grouped.
   // Unavailable supplier rows can also carry an INT_MAX placeholder cost.
   const nonCryptoPriceIDR = isSupplierPurchasable(supplierProduct.status)
     ? applyIdrPaymentFee(
         calculatePriceWithMarkupBps(supplierProduct.price, variant.nonCryptoMarkupBps),
+        feeBps,
       )
     : undefined;
   await prisma.productVariant.update({
@@ -62,6 +70,7 @@ async function persistSupplierProduct(
 export async function getFreshVariantPricing(
   variant: PricedVariant,
   paymentMethod: CheckoutPaymentMethod,
+  options?: { feeBps?: number },
 ) {
   const supplierSku = variant.supplierSku?.trim() || "";
   if (!isSupplierProductCode(supplierSku)) {
@@ -76,7 +85,7 @@ export async function getFreshVariantPricing(
     countryCode: variant.countryCode,
   });
   const verifiedAt = new Date();
-  await persistSupplierProduct(variant, supplierProduct, verifiedAt);
+  await persistSupplierProduct(variant, supplierProduct, verifiedAt, options?.feeBps);
 
   const original = await prisma.productVariant.findUniqueOrThrow({ where: { id: variant.id } });
   if (!original.replacementForId) {
@@ -106,7 +115,9 @@ export async function getFreshVariantPricing(
   );
   // Crypto settles in USD through Cryptomus, so it does not carry the QRIS fee.
   const unitPriceIDR =
-    paymentMethod === "crypto" ? basePriceIDR : applyIdrPaymentFee(basePriceIDR);
+    paymentMethod === "crypto"
+      ? basePriceIDR
+      : applyIdrPaymentFee(basePriceIDR, options?.feeBps);
   return {
     supplierSku,
     countryCode: variant.countryCode,
@@ -133,9 +144,11 @@ export async function refreshAllSupplierPrices() {
       countryCode: true,
       nonCryptoMarkupBps: true,
       cryptoMarkupBps: true,
+      product: { select: { slug: true } },
     },
     orderBy: [{ countryCode: "asc" }, { supplierSku: "asc" }],
   });
+  const markupSettings = await getPricingMarkupSettings();
   const countries = [...new Set(variants.map((variant) => variant.countryCode))];
   const summary = {
     countries: countries.length,
@@ -171,7 +184,12 @@ export async function refreshAllSupplierPrices() {
         summary.missing += 1;
         continue;
       }
-      await persistSupplierProduct(variant, supplierProduct, verifiedAt);
+      await persistSupplierProduct(
+        variant,
+        supplierProduct,
+        verifiedAt,
+        resolveProductMarkupBps(markupSettings, variant.product.slug),
+      );
       if (isSupplierPurchasable(supplierProduct.status)) summary.updated += 1;
       else summary.unavailable += 1;
     }

@@ -161,7 +161,13 @@ export function OrderModal({
 
   const orderedMethods: ("CRYPTO" | "WINPAY")[] = (
     ["WINPAY", "CRYPTO"] as ("CRYPTO" | "WINPAY")[]
-  ).filter((method) => (method === "CRYPTO" ? cryptoAvailable : winpayAvailable));
+  )
+    .filter((method) => (method === "CRYPTO" ? cryptoAvailable : winpayAvailable))
+    // The market default (crypto for international, WinPay for Indonesia)
+    // is shown first and marked as primary.
+    .sort((left, right) =>
+      left === defaultMethod ? -1 : right === defaultMethod ? 1 : 0,
+    );
   const methodButtons = (
     <div className={cn("grid gap-2", orderedMethods.length > 1 && "sm:grid-cols-2", orderedMethods.length > 2 && "lg:grid-cols-3")}>
       {orderedMethods.map((method) => {

@@ -35,6 +35,11 @@ import {
 } from "@/lib/fx";
 import { usdCentsToAmount } from "@/lib/money";
 import { getFreshVariantPricing, SupplierPriceUnavailableError } from "@/lib/supplier-pricing";
+import { getProductMarkupBps } from "@/lib/pricing-markup";
+import {
+  getMarketPaymentPolicy,
+  CRYPTO_ID_MARKET_ERROR,
+} from "@/lib/payment-market";
 import {
   getDetectedMarketCode,
   isProductExcludedFromMarket,
@@ -259,6 +264,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Payment policy follows the CDN-detected country only; the body
+    // `marketCode` is user-supplied and must not unlock crypto.
+    const marketPolicy = getMarketPaymentPolicy(detectedMarketCode);
+    if (paymentMethod === "crypto" && !marketPolicy.cryptoAllowed) {
+      return NextResponse.json(
+        {
+          error: CRYPTO_ID_MARKET_ERROR,
+          code: "CRYPTO_ID_MARKET_ONLY_WINPAY",
+        },
+        { status: 400 },
+      );
+    }
+
     if (paymentMethod === "crypto") {
       const cryptoAvailability = await getCryptoAvailability(
         detectedMarketCode || marketCode,
@@ -277,7 +295,9 @@ export async function POST(request: NextRequest) {
 
     let freshPricing;
     try {
-      freshPricing = await getFreshVariantPricing(variant, paymentMethod);
+      freshPricing = await getFreshVariantPricing(variant, paymentMethod, {
+        feeBps: await getProductMarkupBps(variant.product.slug),
+      });
     } catch (error) {
       return NextResponse.json(
         {

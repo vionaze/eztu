@@ -17,6 +17,11 @@ import {
   isProductExcludedFromMarket,
 } from "@/lib/product-availability";
 import { getCryptoAvailability, isWinpayEnabledForCheckout } from "@/lib/payment-settings";
+import { getProductMarkupBps } from "@/lib/pricing-markup";
+import {
+  getMarketPaymentPolicy,
+  CRYPTO_ID_MARKET_ERROR,
+} from "@/lib/payment-market";
 
 export async function GET(request: NextRequest) {
   try {
@@ -48,7 +53,7 @@ export async function GET(request: NextRequest) {
         nonCryptoMarkupBps: true,
         cryptoMarkupBps: true,
         product: {
-          select: { published: true, unavailableMarketCodes: true },
+          select: { slug: true, published: true, unavailableMarketCodes: true },
         },
       },
     });
@@ -63,6 +68,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { error: "Product is not available in this market" },
         { status: 404 },
+      );
+    }
+
+    // Payment policy follows the CDN-detected country only; the body
+    // `marketCode` is user-supplied and must not unlock crypto.
+    const marketPolicy = getMarketPaymentPolicy(detectedMarketCode);
+    if (paymentMethod === "crypto" && !marketPolicy.cryptoAllowed) {
+      return NextResponse.json(
+        {
+          error: CRYPTO_ID_MARKET_ERROR,
+          code: "CRYPTO_ID_MARKET_ONLY_WINPAY",
+        },
+        { status: 400 },
       );
     }
 
@@ -95,7 +113,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const freshPricing = await getFreshVariantPricing(variant, paymentMethod);
+    const freshPricing = await getFreshVariantPricing(variant, paymentMethod, {
+      feeBps: await getProductMarkupBps(variant.product.slug),
+    });
     const rate = await getUsdIdrRate();
     const checkoutQuantity = paymentMethod === "crypto"
       ? Math.max(quantity, getCryptoMinimumQuantity(freshPricing.unitPriceIDR, rate.usdIdrRate))

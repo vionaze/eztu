@@ -61,17 +61,17 @@ function assertRule(rule: ResellerPriceRule): void {
   }
 }
 
-export function calculateResellerPrice(costIDR: number, rule: ResellerPriceRule): number {
+export function calculateResellerPrice(costIDR: number, rule: ResellerPriceRule, feeBps?: number): number {
   assertCost(costIDR);
   assertRule(rule);
   if (!rule.enabled) throw new Error("RESELLER_RULE_DISABLED");
   if (rule.mode === "FIXED") {
     if (rule.fixedPriceIDR! < costIDR) throw new Error("FIXED_PRICE_BELOW_COST");
-    return applyIdrPaymentFee(rule.fixedPriceIDR!);
+    return applyIdrPaymentFee(rule.fixedPriceIDR!, feeBps);
   }
   const result = (BigInt(costIDR) * (BigInt(10_000_000) + BigInt(rule.markupMicros!)) + BigInt(9_999_999)) / BigInt(10_000_000);
   if (result >= BigInt(2_147_483_647)) throw new Error("PRICE_OUT_OF_RANGE");
-  return applyIdrPaymentFee(Number(result));
+  return applyIdrPaymentFee(Number(result), feeBps);
 }
 
 /** Organization rules win even when disabled; null means no rule at that level. */

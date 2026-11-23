@@ -9,6 +9,7 @@ import {
   parseCatalogSheetRows,
   type CatalogItem,
 } from "./eztopup-catalog.ts";
+import { readPricingMarkup, resolveProductMarkupBps } from "./pricing-markup.ts";
 import {
   hydrateMissingSupplierCosts,
   type PricedCatalogItem,
@@ -153,6 +154,7 @@ async function main() {
     await hydrateMissingSupplierCosts(catalog.items);
   const products = groupCatalog(pricedItems);
   const { prisma } = await import("./index.ts");
+  const markupSettings = await readPricingMarkup(prisma);
   const usdIdrRate = getUsdIdrRate();
 
   try {
@@ -222,6 +224,7 @@ async function main() {
           const nonCryptoPriceIDR = calculateSellPriceIDR(
             variant.supplierCostIDR,
             variant.nonCryptoMarkupBps,
+            resolveProductMarkupBps(markupSettings, item.productKey),
           );
           await tx.productVariant.upsert({
             where: { id: variantId },

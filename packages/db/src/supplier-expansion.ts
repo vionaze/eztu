@@ -53,7 +53,12 @@ function markupTemplate(variants: Variant[], countryCode: string) {
   )[0];
 }
 
-export function buildSupplierExpansion(products: ExpansionProduct[], catalogs: CountryCatalog[], usdIdrRate = 15500) {
+export function buildSupplierExpansion(
+  products: ExpansionProduct[],
+  catalogs: CountryCatalog[],
+  usdIdrRate = 15500,
+  feeBpsFor?: (productSlug: string) => number,
+) {
   if (!Number.isFinite(usdIdrRate) || usdIdrRate <= 0) throw new Error("Invalid import FX rate");
   const categories = new Map<string, ExpansionProduct>();
   for (const product of products) {
@@ -89,7 +94,11 @@ export function buildSupplierExpansion(products: ExpansionProduct[], catalogs: C
       const originals = product.variants.filter(v => !v.replacementForId);
       const existing = originals.filter(v => v.countryCode === countryCode && v.supplierSku === row.code).sort((a, b) => a.id.localeCompare(b.id))[0];
       const template = existing || markupTemplate(originals, countryCode);
-      const calculatedPrice = calculateSellPriceIDR(row.price, template.nonCryptoMarkupBps);
+      const calculatedPrice = calculateSellPriceIDR(
+        row.price,
+        template.nonCryptoMarkupBps,
+        feeBpsFor?.(product.slug),
+      );
       const unpriced = calculatedPrice > MAX_DATABASE_PRICE_IDR;
       if (unpriced && row.status.toLowerCase() === "available") throw new Error(`Available supplier price is out of range for ${key}`);
       // Empty SKUs may carry INT_MAX sentinel costs. A zero display placeholder

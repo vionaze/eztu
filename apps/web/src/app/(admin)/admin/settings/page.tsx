@@ -8,8 +8,11 @@ import {
   getResellerWinpayAdminEnabled,
   getWinpayAdminEnabled,
 } from "@/lib/payment-settings";
+import { prisma } from "@kupon/db";
+import { getPricingMarkupSettings } from "@/lib/pricing-markup";
 import BlogAiSettingsForm from "./BlogAiSettingsForm";
 import PaymentsSettingsForm from "./PaymentsSettingsForm";
+import PricingMarkupForm from "./PricingMarkupForm";
 import { Key, Bell, Globe } from "@phosphor-icons/react/dist/ssr";
 
 export const dynamic = "force-dynamic";
@@ -21,12 +24,19 @@ export default async function AdminSettingsPage() {
     winpayEnabled,
     resellerCryptoEnabled,
     resellerWinpayEnabled,
+    markup,
+    products,
   ] = await Promise.all([
     getBlogAiSettings(),
     getCryptoCheckoutSettings(),
     getWinpayAdminEnabled(),
     getResellerCryptoAdminEnabled(),
     getResellerWinpayAdminEnabled(),
+    getPricingMarkupSettings(true),
+    prisma.product.findMany({
+      select: { slug: true, name: true, published: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
   const key = ai.apiKey;
   const masked =
@@ -70,6 +80,11 @@ export default async function AdminSettingsPage() {
           resellerCryptoEnabled,
           resellerWinpayEnabled,
         }}
+      />
+
+      <PricingMarkupForm
+        initial={{ globalBps: markup.globalBps, overrides: markup.overrides }}
+        products={products}
       />
 
       {/* Infra info bento */}

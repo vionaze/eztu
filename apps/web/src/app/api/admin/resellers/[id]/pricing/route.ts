@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
-import { calculateResellerPrice, chooseEffectiveRule, formatResellerMarkupPercent, parseResellerMarkupPercent, prisma, Prisma } from "@kupon/db";
+import { calculateResellerPrice, chooseEffectiveRule, formatResellerMarkupPercent, parseResellerMarkupPercent, prisma, Prisma, resolveProductMarkupBps } from "@kupon/db";
+import { getPricingMarkupSettings } from "@/lib/pricing-markup";
 import { requirePlatformAdminForResellers } from "@/lib/reseller-auth";
 import { resellerApiError, resellerJson, requireSameOrigin } from "@/lib/reseller-api";
 import { ResellerPricingError } from "@/lib/reseller-pricing-service";
@@ -39,20 +40,27 @@ export async function GET(request: NextRequest, context: Context) {
         }),
       },
       include: {
-        product: { select: { name: true } },
+        product: { select: { name: true, slug: true } },
         resellerTierPrices: { where: { tier: organization.tier } },
         resellerOrganizationPrices: { where: { organizationId: id } },
       },
       take: 101,
       orderBy: [{ productId: "asc" }, { name: "asc" }, { id: "asc" }],
     });
+    const markupSettings = await getPricingMarkupSettings();
     const items = variants.slice(0, 100).map((variant) => {
       const override = variant.resellerOrganizationPrices[0];
       const tierRule = variant.resellerTierPrices[0];
       const rule = chooseEffectiveRule(override, tierRule);
       let previewPriceIDR: number | null = null;
       if (rule?.enabled && variant.supplierStatus?.trim().toLowerCase() === "available") {
-        try { previewPriceIDR = calculateResellerPrice(variant.supplierCostIDR ?? 0, rule); } catch { /* Unpriced snapshot remains unavailable. */ }
+        try {
+          previewPriceIDR = calculateResellerPrice(
+            variant.supplierCostIDR ?? 0,
+            rule,
+            resolveProductMarkupBps(markupSettings, variant.product.slug),
+          );
+        } catch { /* Unpriced snapshot remains unavailable. */ }
       }
       return {
         variantId: variant.id, name: variant.name, productName: variant.product.name,

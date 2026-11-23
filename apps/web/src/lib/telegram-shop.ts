@@ -6,6 +6,8 @@ import { isWinpayCheckoutEnabled } from "@kupon/payments";
 import { createCheckoutOrder } from "@/lib/checkout-order";
 import { createPricingQuote, getUsdIdrRate, signPricingQuote, verifyPricingQuote } from "@/lib/fx";
 import { getFreshVariantPricing } from "@/lib/supplier-pricing";
+import { getProductMarkupBps } from "@/lib/pricing-markup";
+import { getMarketPaymentPolicy } from "@/lib/payment-market";
 import { findActiveAccessBlock } from "@/lib/access-block";
 import { getCryptoMinimumQuantity, MAX_SELF_SERVICE_QUANTITY } from "@/lib/checkout-limits";
 import { isProductExcludedFromMarket } from "@/lib/product-availability";
@@ -74,15 +76,32 @@ async function methods(chatId: string, state: ShopState) {
   delete state.quoteToken;
   delete state.orderId;
   await save(chatId, state);
-  const rows = [[button("Crypto · Cryptomus", `pay:${state.nonce}:crypto`)]];
-  if (isWinpayCheckoutEnabled()) rows.unshift([button("QRIS / VA · WinPay", `pay:${state.nonce}:winpay`)]);
-  await shopMessage(chatId, "Select a payment method. Supplier pricing and availability will be checked. For crypto, the quantity is automatically increased to reach at least IDR 45,000 and $2.50.", rows);
+  const policy = getMarketPaymentPolicy(state.market);
+  const rows: ReturnType<typeof button>[][] = [];
+  if (!policy.isIndonesia) {
+    rows.push([button("Crypto · Cryptomus", `pay:${state.nonce}:crypto`)]);
+  }
+  if (isWinpayCheckoutEnabled()) {
+    rows.push([button("QRIS / VA · WinPay", `pay:${state.nonce}:winpay`)]);
+  }
+  await shopMessage(
+    chatId,
+    policy.isIndonesia
+      ? "Pembeli Indonesia hanya bisa memakai WinPay (QRIS / VA). Pilih metode di bawah."
+      : "Select a payment method. Crypto is the primary option for international buyers. Supplier pricing and availability will be checked. For crypto, the quantity is automatically increased to reach at least IDR 45,000 and $2.50.",
+    rows,
+  );
 }
 
 async function showQuote(chatId: string, state: ShopState, paymentMethod: "crypto" | "winpay") {
   if (paymentMethod === "winpay" && !isWinpayCheckoutEnabled()) return methods(chatId, state);
+  if (paymentMethod === "crypto" && getMarketPaymentPolicy(state.market).isIndonesia) {
+    return methods(chatId, state);
+  }
   const variant = await selectedVariant(state);
-  const fresh = await getFreshVariantPricing(variant, paymentMethod);
+  const fresh = await getFreshVariantPricing(variant, paymentMethod, {
+    feeBps: await getProductMarkupBps(variant.product.slug),
+  });
   const rate = await getUsdIdrRate();
   const quantity = Math.max(state.quantity || 1, paymentMethod === "crypto" ? getCryptoMinimumQuantity(fresh.unitPriceIDR, rate.usdIdrRate) : 1);
   if (quantity > MAX_SELF_SERVICE_QUANTITY) {
@@ -192,7 +211,12 @@ async function processUpdate(chatId: string, update: TelegramUpdate) {
     const rawQuote = JSON.parse(Buffer.from(state.quoteToken.split(".")[0], "base64url").toString());
     const method = rawQuote.paymentMethod;
     if (method !== "crypto" && method !== "winpay") throw new Error("Invalid method");
-    const fresh = await getFreshVariantPricing(variant, method);
+    if (method === "crypto" && getMarketPaymentPolicy(state.market).isIndonesia) {
+      throw new Error("Crypto is not available for Indonesian buyers");
+    }
+    const fresh = await getFreshVariantPricing(variant, method, {
+      feeBps: await getProductMarkupBps(variant.product.slug),
+    });
     let quote;
     try {
       quote = verifyPricingQuote(state.quoteToken, { variantId: variant.id, quantity: state.quantity || 1,
