@@ -94,8 +94,10 @@ Dua permintaan setelah sesi harga/WinPay/Pakasir:
 
 ## Status deploy
 
-- Belum di-commit pada saat catatan ini ditulis; akan di-commit terpisah dari
-  WIP lain (`ProductQuickToggle`, `products/page.tsx`, `AdminSidebar`, dll.).
+- Commit `c5c9725` — *feat(pricing): make markup admin-editable and gate
+  payments by market* — di-push ke `origin/main`. WIP lain
+  (`ProductQuickToggle`, `products/page.tsx`, `AdminSidebar`, dll.) sengaja
+  tidak ikut.
 - Belum di-deploy.
 
 ## Sisa pekerjaan / catatan
