@@ -186,3 +186,21 @@ dikonfirmasi user bahwa file adalah sumber kebenaran.
    (16 Nov) lulus, tapi toggle + pembayaran nyata belum tercatat.
 6. Build lokal gagal karena environment; **jangan** menyatakan “sudah live”
    sebelum verifikasi di produksi.
+
+## Update — P2028 saat `prices:playstation-gta:apply` di produksi
+
+Apply pertama di VPS gagal dengan Prisma `P2028` (transaction timeout 5000 ms):
+426 varian × (1 update + 2 upsert) dijalankan dalam satu interactive
+transaction. Transaksi di-rollback penuh, jadi tidak ada perubahan setengah
+jadi.
+
+Perbaikan di `apply-playstation-gta-price-update.ts`:
+
+- Ditulis per **chunk 25 varian**, masing-masing transaksi dengan
+  `timeout: 120_000` dan `maxWait: 10_000`.
+- Hanya menulis baris yang benar-benar berubah (cost/status/markup/priceIDR/
+  rule tier), jadi aman dijalankan ulang dan tidak menyentuh baris yang sudah
+  sesuai.
+- Progress dicetak per chunk.
+
+Jalankan ulang: dry-run → `--apply` → lanjut sync supplier → build → restart.

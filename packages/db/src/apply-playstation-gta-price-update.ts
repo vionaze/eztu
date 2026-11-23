@@ -80,6 +80,7 @@ const products = await prisma.product.findMany({
         countryCode: true,
         supplierCostIDR: true,
         supplierStatus: true,
+        priceIDR: true,
         nonCryptoMarkupBps: true,
         cryptoMarkupBps: true,
         resellerTierPrices: {
@@ -110,6 +111,10 @@ const matched: {
   markupMicros: number;
   retailMarkupBps: number | null;
   currentNonCryptoMarkupBps: number;
+  currentCost: number | null;
+  currentStatus: string | null;
+  currentPriceIDR: number;
+  pendingTiers: (typeof TIERS)[number][];
   changes: string[];
 }[] = [];
 const missing: string[] = [];
@@ -137,9 +142,11 @@ for (const row of snapshot.rows) {
       `B2C ${variant.nonCryptoMarkupBps / 100}% → ${retailMarkupBps / 100}%`,
     );
   }
+  const pendingTiers: (typeof TIERS)[number][] = [];
   for (const tier of TIERS) {
     const rule = variant.resellerTierPrices.find((item) => item.tier === tier);
     if (!rule || rule.mode !== "MARKUP" || rule.markupMicros !== markupMicros) {
+      pendingTiers.push(tier);
       changes.push(
         `B2B ${tier} ${rule ? `${rule.mode}:${rule.markupMicros}` : "belum ada"} → ${markupMicros / 100_000}%`,
       );
@@ -156,6 +163,10 @@ for (const row of snapshot.rows) {
     markupMicros,
     retailMarkupBps,
     currentNonCryptoMarkupBps: variant.nonCryptoMarkupBps,
+    currentCost: variant.supplierCostIDR,
+    currentStatus: variant.supplierStatus,
+    currentPriceIDR: variant.priceIDR,
+    pendingTiers,
     changes,
   });
 }
@@ -208,60 +219,87 @@ if (!apply) {
   process.exit(0);
 }
 
-await prisma.$transaction(async (tx) => {
-  for (const row of matched) {
-    const fileRow = rowBySku.get(row.sku);
-    const cost = fileRow?.cost ?? null;
-    const status = fileRow?.status || undefined;
-    const nonCryptoMarkupBps =
-      row.retailMarkupBps ?? undefined;
-    const priceIDR =
-      cost !== null && status === "available"
-        ? calculateSellPriceIDR(
-            cost,
-            nonCryptoMarkupBps ?? row.currentNonCryptoMarkupBps,
-            resolveProductMarkupBps(markupSettings, row.productSlug),
-          )
-        : undefined;
-    await tx.productVariant.update({
-      where: { id: row.variantId },
-      data: {
-        ...(cost === null ? {} : { supplierCostIDR: cost }),
-        ...(status ? { supplierStatus: status } : {}),
-        ...(nonCryptoMarkupBps === null || nonCryptoMarkupBps === undefined
-          ? {}
-          : { nonCryptoMarkupBps }),
-        ...(priceIDR === undefined ? {} : { priceIDR }),
-        supplierPriceUpdatedAt: new Date(),
-      },
-    });
-    for (const tier of TIERS) {
-      await tx.resellerTierSkuPrice.upsert({
-        where: { tier_variantId: { tier, variantId: row.variantId } },
-        update: {
-          mode: "MARKUP",
-          markupMicros: row.markupMicros,
-          fixedPriceIDR: null,
-          enabled: true,
-        },
-        create: {
-          tier,
-          variantId: row.variantId,
-          mode: "MARKUP",
-          markupMicros: row.markupMicros,
-          enabled: true,
-          provenance: {
-            source: "apply-playstation-gta-price-update",
-            file: snapshot.source,
-            capturedAt: snapshot.capturedAt,
-          },
-        },
-      });
-    }
-  }
-});
+/**
+ * Chunked writes. A single interactive transaction over 400+ variants exceeds
+ * Prisma's 5s default and rolls everything back (P2028), so each chunk gets its
+ * own transaction with a generous timeout. Rows without changes are skipped,
+ * which makes a re-run after a partial failure cheap and idempotent.
+ */
+const CHUNK_SIZE = 25;
+let written = 0;
+for (let start = 0; start < matched.length; start += CHUNK_SIZE) {
+  const chunk = matched.slice(start, start + CHUNK_SIZE);
+  await prisma.$transaction(
+    async (tx) => {
+      for (const row of chunk) {
+        const feeBps = resolveProductMarkupBps(markupSettings, row.productSlug);
+        const nextMarkupBps = row.retailMarkupBps ?? row.currentNonCryptoMarkupBps;
+        const desiredPriceIDR =
+          row.cost !== null && row.status === "available"
+            ? calculateSellPriceIDR(row.cost, nextMarkupBps, feeBps)
+            : null;
+
+        const data: {
+          supplierCostIDR?: number;
+          supplierStatus?: string;
+          nonCryptoMarkupBps?: number;
+          priceIDR?: number;
+          supplierPriceUpdatedAt?: Date;
+        } = {};
+        const costChanged = row.cost !== null && row.cost !== row.currentCost;
+        const statusChanged = Boolean(row.status) && row.status !== row.currentStatus;
+        const markupChanged =
+          row.retailMarkupBps !== null &&
+          row.retailMarkupBps !== row.currentNonCryptoMarkupBps;
+        const priceChanged =
+          desiredPriceIDR !== null && desiredPriceIDR !== row.currentPriceIDR;
+
+        if (costChanged) data.supplierCostIDR = row.cost!;
+        if (statusChanged) data.supplierStatus = row.status;
+        if (markupChanged) data.nonCryptoMarkupBps = row.retailMarkupBps!;
+        if (priceChanged) data.priceIDR = desiredPriceIDR!;
+        if (costChanged || statusChanged) data.supplierPriceUpdatedAt = new Date();
+
+        if (Object.keys(data).length > 0) {
+          await tx.productVariant.update({
+            where: { id: row.variantId },
+            data,
+          });
+        }
+        for (const tier of row.pendingTiers) {
+          await tx.resellerTierSkuPrice.upsert({
+            where: { tier_variantId: { tier, variantId: row.variantId } },
+            update: {
+              mode: "MARKUP",
+              markupMicros: row.markupMicros,
+              fixedPriceIDR: null,
+              enabled: true,
+            },
+            create: {
+              tier,
+              variantId: row.variantId,
+              mode: "MARKUP",
+              markupMicros: row.markupMicros,
+              enabled: true,
+              provenance: {
+                source: "apply-playstation-gta-price-update",
+                file: snapshot.source,
+                capturedAt: snapshot.capturedAt,
+              },
+            },
+          });
+        }
+        if (Object.keys(data).length > 0 || row.pendingTiers.length > 0) {
+          written += 1;
+        }
+      }
+    },
+    { timeout: 120_000, maxWait: 10_000 },
+  );
+  console.log(`  … ${Math.min(start + CHUNK_SIZE, matched.length)}/${matched.length} varian`);
+}
 
 console.log(
-  `\n✓ Diterapkan: ${matched.length} varian, ${matched.length * TIERS.length} rule reseller.`,
+  `\n✓ Selesai: ${written} varian ditulis (${matched.length} cocok, sisanya sudah sesuai).`,
 );
 await prisma.$disconnect();
