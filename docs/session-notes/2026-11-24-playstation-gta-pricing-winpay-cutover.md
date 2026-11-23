@@ -204,3 +204,36 @@ Perbaikan di `apply-playstation-gta-price-update.ts`:
 - Progress dicetak per chunk.
 
 Jalankan ulang: dry-run → `--apply` → lanjut sync supplier → build → restart.
+
+## Status deploy 24 Nov 2026, 02:00 WIB (jeda — lanjut besok)
+
+Produksi sudah pull `02c3226` dan build bersih (BUILD_ID 24 Nov 01:57 WIB).
+Bukti dari VPS:
+
+- `pm2 status eztu`: online, `unstable restarts 0`.
+- `https://eztopup.io/`, `/products/mobile-legends`,
+  `/order/success?orderId=...` → `200`.
+- `pnpm winpay:status`: **8 PASS, 0 FAIL** (egress WinPay normal).
+- `GET /api/payment/methods` → tanpa `pakasir`, `crypto.enabled=false` untuk
+  market ID.
+- Log lama masih memuat `403 Cloudflare blocked` dari 13 Nov; bukan gangguan
+  saat ini.
+
+**Belum terverifikasi / sisa:**
+
+1. `prices:playstation-gta:apply` — percobaan pertama gagal `P2028` (sudah
+   diperbaiki di `02c3226`: chunk 25 varian, idempotent). **Re-run setelah fix
+   belum dikonfirmasi.** Cek dulu dengan dry-run; kalau masih “408 varian perlu
+   diubah”, jalankan `--apply`, lalu `pnpm products:sync:supplier --expand
+   --full-import --apply`.
+2. Cek `markupMicros` GTA = `200000` dan rasio harga `VPSNGTASE-S122` ≈ 1,0489
+   (query ada di sesi chat / catatan ini).
+3. Migration `20261124093000_retire_pakasir_settings` — pastikan
+   `SELECT count(*) FROM "Setting" WHERE key LIKE '%pakasir%'` = 0.
+4. Order `KPN-GQQYX8` (`cmwtmau4a0009e8koqigrxvs2`) sengaja **tidak dibayar**;
+   invoice WinPay expire 02:47 WIB. Setelah lewat, boleh ditandai `EXPIRED`
+   dengan SQL terjaga (`WHERE status='PENDING' AND "expiresAt" < now()`).
+5. Transaksi WinPay nyata dengan nominal terkecil belum dilakukan; jangan
+   anggap kanal ini “terbukti” sebelum itu.
+6. Build lokal Mac masih gagal karena native `sharp`/SWC/lightningcss; build
+   produksi di VPS yang menjadi acuan.
