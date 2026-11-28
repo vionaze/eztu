@@ -271,7 +271,11 @@ export default function MembersManager({
     setBusy("delete");
     setError("");
     try {
-      const res = await fetch(`/api/admin/members/${deleting.id}`, {
+      const url =
+        deleting._count.orders > 0
+          ? `/api/admin/members/${deleting.id}?force=1`
+          : `/api/admin/members/${deleting.id}`;
+      const res = await fetch(url, {
         method: "DELETE",
       });
       const data = await res.json();
@@ -280,8 +284,13 @@ export default function MembersManager({
         return;
       }
       setMembers((prev) => prev.filter((m) => m.id !== deleting.id));
+      const deletedOrders = Number(data.deletedOrders || 0);
       setDeleting(null);
-      setMessage("Member deleted.");
+      setMessage(
+        deletedOrders > 0
+          ? `Member and ${deletedOrders} order(s) deleted.`
+          : "Member deleted."
+      );
       router.refresh();
     } catch {
       setError("Network error");
@@ -611,7 +620,7 @@ export default function MembersManager({
                 <p className="text-xs text-text-secondary mt-1">
                   {deleting.email || deleting.id}
                   {deleting._count.orders > 0
-                    ? ` — has ${deleting._count.orders} orders (delete will fail; ban instead).`
+                    ? ` — has ${deleting._count.orders} order(s). Deleting will permanently remove this member and all ${deleting._count.orders} order(s). Active email/IP blocks stay active.`
                     : " — permanent remove of local profile."}
                 </p>
               </div>
@@ -630,7 +639,11 @@ export default function MembersManager({
                 onClick={confirmDelete}
                 className="!bg-red-500/20 !text-red-300 border border-red-500/40"
               >
-                {busy === "delete" ? "…" : "Delete"}
+                {busy === "delete"
+                  ? "…"
+                  : deleting._count.orders > 0
+                    ? `Delete + ${deleting._count.orders} orders`
+                    : "Delete"}
               </Button>
             </div>
           </Card>

@@ -40,6 +40,8 @@ menulis "sudah live" tanpa verifikasi di production.
 
 ## Session notes terbaru
 
+- [2026-11-28 — Audit log Gelombang 2 & Clean Reinstall VPS `161.97.130.68`](session-notes/2026-11-28-vps-clean-reinstall-and-wave2-audit.md) **(TERBARU — pasca-reinstall)**
+- [2026-11-28 — Insiden keamanan: RCE mailserver, eskalasi SUPERADMIN, exfiltrasi](session-notes/2026-11-28-security-scan-admin-escalation.md)
 - [2026-11-24 — Markup admin & aturan pembayaran per market](session-notes/2026-11-24-admin-markup-market-payment-policy.md)
 - [2026-11-24 — Harga PlayStation/GTA, buffer WinPay 0,7%, Pakasir dihapus](session-notes/2026-11-24-playstation-gta-pricing-winpay-cutover.md)
 - [2026-11-13 — WinPay sebagai metode pembayaran ketiga](session-notes/2026-11-13-winpay-payment-addition.md)

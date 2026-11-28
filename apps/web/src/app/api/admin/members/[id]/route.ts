@@ -1,6 +1,6 @@
 /**
  * PATCH  /api/admin/members/:id — update name/email/role/wallet
- * DELETE /api/admin/members/:id — delete if no orders
+ * DELETE /api/admin/members/:id — delete member (pass ?force=1 to also delete their orders)
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -177,13 +177,23 @@ function isStaff(role: Role) {
   return role === "ADMIN" || role === "SUPERADMIN";
 }
 
+const PROTECTED_ORDER_STATUSES = [
+  "PAID",
+  "PROCESSING",
+  "COMPLETED",
+  "REFUNDED",
+  "DISPUTED",
+] as const;
+
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
     const admin = await requireAdminUser();
     const { id } = await context.params;
+    const forceParam = request.nextUrl.searchParams.get("force");
+    const force = forceParam === "1" || forceParam === "true";
 
     if (id === admin.dbUserId) {
       return NextResponse.json(
@@ -194,7 +204,10 @@ export async function DELETE(
 
     const existing = await prisma.user.findUnique({
       where: { id },
-      include: { _count: { select: { orders: true } } },
+      include: {
+        _count: { select: { orders: true, b2bOrdersCreated: true } },
+        resellerMemberships: { select: { organizationId: true } },
+      },
     });
 
     if (!existing) {
@@ -208,46 +221,120 @@ export async function DELETE(
       );
     }
 
-    if (existing._count.orders > 0) {
+    if (existing._count.b2bOrdersCreated > 0) {
       return NextResponse.json(
         {
-          error: `Cannot delete member with ${existing._count.orders} order(s). Ban them instead.`,
+          error: `Cannot delete member with ${existing._count.b2bOrdersCreated} B2B reseller order(s). Ban them instead.`,
         },
         { status: 409 }
       );
     }
 
-    await prisma.accessBlock.updateMany({
-      where: {
-        active: true,
-        OR: [
-          { kind: "USER_ID", value: id },
-          ...(existing.email
-            ? [{ kind: "EMAIL" as const, value: existing.email.toLowerCase() }]
-            : []),
-          { kind: "CLERK_ID", value: existing.clerkId },
-        ],
-      },
-      data: {
-        active: false,
-        revokedAt: new Date(),
-        revokedBy: admin.email || admin.dbUserId,
-      },
-    });
+    if (existing._count.orders > 0) {
+      if (!force) {
+        return NextResponse.json(
+          {
+            error: `Member has ${existing._count.orders} order(s). Confirm force delete to remove member and orders.`,
+          },
+          { status: 409 }
+        );
+      }
 
-    await prisma.user.delete({ where: { id } });
+      if (!canManageRoles(admin)) {
+        const protectedOrderCount = await prisma.order.count({
+          where: {
+            userId: id,
+            OR: [
+              { status: { in: [...PROTECTED_ORDER_STATUSES] } },
+              { supplierOrder: { isNot: null } },
+            ],
+          },
+        });
+        if (protectedOrderCount > 0) {
+          return NextResponse.json(
+            {
+              error:
+                "Only SUPERADMIN can delete a member with paid or fulfilled orders",
+            },
+            { status: 403 }
+          );
+        }
+      }
+    }
+
+    const actor = admin.email || admin.dbUserId;
+    const candidateOrgIds = existing.resellerMemberships.map(
+      (m) => m.organizationId
+    );
+
+    await prisma.$transaction(async (tx) => {
+      // Only revoke the local USER_ID block; preserve EMAIL / CLERK_ID / IP
+      // blocks so deleting a banned user does not lift their email/IP ban.
+      await tx.accessBlock.updateMany({
+        where: {
+          active: true,
+          kind: "USER_ID",
+          value: id,
+        },
+        data: {
+          active: false,
+          revokedAt: new Date(),
+          revokedBy: actor,
+        },
+      });
+
+      if (existing._count.orders > 0) {
+        await tx.order.deleteMany({ where: { userId: id } });
+      }
+
+      await tx.user.delete({ where: { id } });
+
+      // Remove orphaned reseller orgs that have no remaining members, B2B orders, or wallet history.
+      for (const orgId of candidateOrgIds) {
+        const org = await tx.resellerOrganization.findUnique({
+          where: { id: orgId },
+          select: {
+            _count: {
+              select: {
+                members: true,
+                b2bOrders: true,
+                walletLedgerEntries: true,
+              },
+            },
+          },
+        });
+        if (
+          org &&
+          org._count.members === 0 &&
+          org._count.b2bOrders === 0 &&
+          org._count.walletLedgerEntries === 0
+        ) {
+          await tx.resellerOrganization.delete({ where: { id: orgId } });
+        }
+      }
+    });
 
     await writeAppLog({
       category: "ADMIN",
       level: "WARNING",
       title: `Member deleted · ${existing.email || id.slice(0, 8)}`,
-      message: existing.role,
-      actor: admin.email || admin.dbUserId,
+      message:
+        existing._count.orders > 0
+          ? `${existing.role} · deleted ${existing._count.orders} order(s)`
+          : existing.role,
+      actor,
       route: `/api/admin/members/${id}`,
-      metadata: { userId: id },
+      metadata: {
+        userId: id,
+        deletedOrders: existing._count.orders,
+        force,
+      },
     });
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({
+      ok: true,
+      deletedOrders: existing._count.orders,
+    });
   } catch (error) {
     if (
       error instanceof AuthenticationRequiredError ||
